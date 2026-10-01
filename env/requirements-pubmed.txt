@@ -1,0 +1,11 @@
+requests>=2.31
+
+# --- Backend LLM (chọn một) ---
+# Khuyến nghị: vLLM. Qwen3.5-9B cần vLLM >= 0.17.0; Hy-MT2 cần bản vLLM đủ mới
+# (lúc Hy-MT2 ra mắt, model card hướng dẫn build vLLM từ source).
+vllm>=0.17.0
+transformers>=5.6.0      # Hy-MT2 yêu cầu transformers >= 5.6.0
+
+# Dự phòng khi không dùng được vLLM: --backend hf  (thêm --load-in-4bit nếu thiếu VRAM)
+# accelerate
+# bitsandbytes

@@ -1,0 +1,13 @@
+# Máy 50 GB, môi trường .venv-train: embedding hàng loạt, rerank hàng loạt, fine-tune,
+# và chạy Hy-MT2 bằng transformers nếu bản vLLM chưa hỗ trợ.
+transformers>=5.6.0
+accelerate
+sentence-transformers
+FlagEmbedding
+peft
+datasets
+requests
+pandas
+pyarrow
+huggingface_hub
+tqdm
