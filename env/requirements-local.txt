@@ -1,0 +1,13 @@
+# Máy local (GPU 8 GB): điều phối, crawl, gọi PubMed, BM25, xuất bài nộp,
+# và suy luận nhẹ phía câu hỏi (embedding câu hỏi, rerank tập nhỏ khi debug).
+requests>=2.31
+pandas
+pyarrow
+huggingface_hub
+tqdm
+# Suy luận nhẹ trên GPU 8 GB (cài torch bản CUDA phù hợp trước, xem SETUP.md)
+sentence-transformers
+# Crawler: trích nội dung chính khỏi HTML (bỏ nav/ads/footer), hỗ trợ cả vi/zh
+trafilatura>=2.2
+# Giả TLS fingerprint Chrome để vượt WAF 403; cứu được nhathuoclongchau.com.vn (79k URL)
+curl_cffi>=0.16
