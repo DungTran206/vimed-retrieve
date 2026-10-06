@@ -8,7 +8,13 @@ Hạn nộp public  31/10/2026        Private phase  01–04/11/2026 (chỉ 5 l�
 Lượt nộp public 10 bài/ngày        Leaderboard    leaderboard.aiguru.com.vn
 ```
 
-**Điểm hiện tại: `FINAL_SCORE = 0.0457`** (doc F2 0,0821 · chunk F2 0,0093, k=200).
+**Điểm hiện tại: `FINAL_SCORE = 0.2658`** (doc F2 0,2914 · chunk F2 0,2402, k=200; 06/10/2026).
+
+> **Cập nhật 06/10/2026 — ĐỌC TRƯỚC:** tình hình đã đổi nhiều so với các mục bên dưới (viết lúc điểm 0,0457).
+> Trạng thái thật, pipeline đang cho điểm tốt nhất, việc đang chạy và việc tiếp theo: **`CLAUDE.md` §6–7**.
+> Nhật ký đo và các bài học: **`PROGRESS.md` mục 06/10 và §2b**. Các "Việc #1–#6" ở §4 dưới đây là **lịch sử**:
+> crawl vi gần đủ, zh chỉ ~2,6% nhãn (không đáng thêm), PubMed bị BTC bỏ, `bm25.py` đã có, đã có dense + Qwen3-Reranker.
+> Còn thật sự mở: working notes paper (#6), chuẩn bị private phase, các thí nghiệm mở rộng pool (HyDE...).
 
 ---
 
@@ -44,8 +50,13 @@ python audit.py                      # 40 mục trên dữ liệu thật (cần 
 python profile_dataset.py    # tải ViBioMIR → data/queries.jsonl + thống kê domain
 python slug_bm25.py --topk 200   # → data/slug_rank.jsonl (xếp hạng từ slug, không crawl)
 python crawler.py --prio data/slug_rank.jsonl    # → data/corpus.sqlite
+python clean.py --apply                          # lọc boilerplate lặp theo domain
 python chunk.py                                  # cắt chunk theo offset
+python audit.py                                  # phải PASS hết 40 mục
 ```
+
+**Thứ tự này quan trọng.** `clean.py` đổi `doc.body` nên mọi offset chunk cũ sai → nó tự xoá
+chunk của doc bị sửa, và `chunk.py` phải chạy SAU để cắt lại. Chạy sai thứ tự thì `audit.py` báo.
 
 `crawler.py` resume được theo từng URL nên Ctrl+C an toàn, chạy lại là tiếp tục.
 

@@ -154,7 +154,9 @@ nếu cần sparse đa ngôn ngữ thì dùng đầu ra sparse của BGE-M3.
 | `Qwen/Qwen3.5-9B` | 02/03/2026 | ~9B (dense, đa phương thức) | Apache-2.0 | Expand: thực thể + truy vấn PubMed |
 | `tencent/Hy-MT2-7B` | 21/05/2026 | ~7B | Apache-2.0 | Dịch vi→en/zh có bảng thuật ngữ |
 | `BAAI/bge-m3` | 01/2024 | 568M | MIT | Embedding đa ngôn ngữ |
-| `BAAI/bge-reranker-v2-m3` | 03/2024 | 568M | Apache-2.0 | Reranker |
+| `BAAI/bge-reranker-v2-m3` | 03/2024 | 568M | Apache-2.0 | Reranker vòng cũ (top-1000); nay chỉ còn làm tín hiệu phụ |
+| `Qwen/Qwen3-Reranker-4B` | 06/2025 | 4B | Apache-2.0 | **Reranker chính** (P(yes) của "yes"/"no"), chấm top-250 trở đi |
+| `Qwen/Qwen3-Embedding-4B` | 06/2025 | 4B | Apache-2.0 | Đã tải, đo 74 doc/s (2,4 giờ cho 646k doc), **chưa dùng** |
 
 Dự phòng: Gemma 4 12B (03/06/2026), Qwen3-8B. Không dùng được: Qwen3.6 (27B, 35B-A3B), Gemma 4 26B/31B,
 Hy-MT2-30B-A3B (vượt 15B nếu tính tổng tham số).
@@ -183,6 +185,15 @@ hoàn hảo, ngắt giữa đường mất nhiều nhất 199 doc (commit mỗi 
 Qwen3.5-9B ~19 GB vừa một card nhưng chật khi cộng KV cache. Lợi thế: **chạy hai model song song,
 mỗi card một cái**.
 
+- **Đăng nhập máy GPU (06/10): server đòi CẢ key LẪN mật khẩu** (`publickey` rồi `password`, thấy qua `ssh -vv`:
+  `partial success`). Hôm 05/10 chỉ cần key; có người đổi cấu hình `sshd`. Key `~/.ssh/id_ed25519` (`vimed-crawler`)
+  đã được server chấp nhận. **Mật khẩu do người dùng giữ, KHÔNG ghi vào file nào**; mỗi phiên hỏi lại. Cách chạy lệnh
+  không tương tác: `SSH_ASKPASS` trỏ vào script `printf '%s\n' "$VIMED_PW"` + `SSH_ASKPASS_REQUIRE=force`, truyền mật khẩu
+  qua biến môi trường của từng lệnh. Tunnel `localhost:2223` mở ở máy Windows.
+- Máy GPU: 24 core CPU (BM25 chạy được ở đó), GPU 0 hay bị người khác dùng (đo 4–65% tải, có lúc 17 GB), GPU 1 thường trống.
+  Chỉ chạy việc của mình, đặt `CUDA_VISIBLE_DEVICES`, không dừng tiến trình của người khác (xem ghi nhớ trong memory).
+  Cẩn thận `pkill -f <mẫu>` qua ssh: mẫu khớp cả chính lệnh ssh và tự cắt phiên.
+- GPU local thực tế là **RTX 4050 6 GB** (không phải 8 GB), torch 2.6 chạy được nhưng chậm (~220 doc/s so với ~2.000 trên 4090).
 - Chuyển file: dùng `scp` (có sẵn trên Windows). Đẩy lên: chạy `scp -P <port> -r vimed user@IP:~/` từ thư mục cha
   của `vimed`. Kéo về: `scp -P <port> -r user@IP:~/vimed/runs/<tên> .\vimed\runs\`.
   `scripts/sync.sh` chỉ dùng được nếu có WSL hoặc chạy từ Linux.
@@ -214,7 +225,9 @@ vimed/
 ├── slug_bm25.py              # BM25 trên slug URL (không crawl) → data/slug_rank.jsonl
 ├── probe_crawl.py            # crawl thử mẫu phân tầng, đo tỉ lệ/byte/rate limit thật
 ├── crawler.py                # crawl 4,39M URL → data/corpus.sqlite (resume, rate limit/domain)
+├── clean.py                  # lọc dòng boilerplate lặp theo domain (document frequency)
 ├── chunk.py                  # cắt chunk theo OFFSET vào doc.body (không lưu text)
+├── predict.py                # áng điểm trước khi nộp, lọc lượt nộp vô ích
 ├── submission.py             # xuất JSON+ZIP, kiểm những lỗi làm bài không được chấm
 ├── score.py                  # P/R/F2 macro hai cấp, --sweep quét topk
 ├── audit.py                  # KIỂM TOÀN CHUỖI trên dữ liệu thật, PASS/FAIL từng mục
@@ -243,71 +256,74 @@ vimed/
 
 ## 6. Trạng thái hiện tại
 
-**Điểm leaderboard: `FINAL_SCORE = 0,0457`** (doc F2 0,0821 · chunk F2 0,0093, k=200).
+**Điểm leaderboard: `FINAL_SCORE = 0,2658`** (doc F2 0,2914 · chunk F2 0,2402, k=200; cập nhật 06/10/2026). Bài tốt nhất: `runs/blendQB2_t40_70.zip` = pool F (slug + BM25 có dấu + dense title/nội dung vi + BM25 entity) → Qwen3-Reranker-4B chấm top-250 → RRF(Qwen w2, vòng 1 w1) → chunk 900 token, 2 chunk × 40 doc + 1 chunk × doc 41–70. Trước đó (04/10) là 0,0457 với slug thuần. **Chi tiết đã đo: `PROGRESS.md` §2b.**
 Số đo chi tiết từng lần chạy: `PROGRESS.md`. Cửa vào cho người mới: `README.md`.
 
-### Đã xong và đã chạy được
+### Pipeline đang cho điểm tốt nhất (06/10/2026, FINAL 0,2658)
+```
+queries_enriched.jsonl (Qwen3.5: entity, bản dịch en/zh)
+  ├─ slug_bm25                      → data/slug_rank1000.jsonl
+  ├─ bm25.py --keep-diacritics      → bm25d2_rank / bm25d2_meta.jsonl   (store vi_slim.sqlite, 689.740 doc vi)
+  ├─ dense.py (BGE-M3) title        → dense_vi2_rank.jsonl              (w=2,5)
+  ├─ dense.py --body-chars 600      → dense_viB2_rank.jsonl             (title + 600 ký tự đầu body, w=2,5)
+  └─ bm25_ent.py (entity + bigram)  → bm25ent_rank.jsonl                (đa tiến trình)
+        |  fuse.py (RRF)  ->  data/f_F.jsonl  (pool F, top-1000, recall 0,6108 ở k=1000)
+        v
+qwen_rerank.py (Qwen3-Reranker-4B, máy GPU) chấm blendF hạng 1-250 -> qwen_all.jsonl
+        |  fuse.py  qwen_all:2  f_F:1   -> blendQB2.jsonl
+        v
+submission.py --topk 200 --store data/corpus_vifull.sqlite --chunks-per-doc 2 --chunk-from-top 40 --extra-one 70 --int-ids
+        -> runs/blendQB2_t40_70.zip (94,0 MB, 114.760 chunk)
+```
+Store: **`data/corpus_vifull.sqlite`** (vi 689k doc đã `clean.py` + `chunk.py`; cả 1,05M zh từ GPU) và `data/vi_slim.sqlite` (vi-only, có index `doc_id`).
+Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `prio=0` chưa cào, không quan trọng). zh: shard 0/5 trên máy GPU **đã chạy xong**
+(273.511 URL, 9,8 giờ, 85,8% dùng được); shard 1/5–4/5 (~1,68M URL) chưa chạy và **chưa đáng chạy** (xem dưới).
 
-| Thành phần | Trạng thái |
-| --- | --- |
-| `profile_dataset.py` | ✅ 4.394.718 URL / 97 domain / 1.200 câu hỏi |
-| `slug_bm25.py` | ✅ xếp hạng từ slug URL, không crawl. 1.188.865 URL có slug (27,1%) |
-| `probe_crawl.py` | ✅ 2.000 URL phân tầng: dùng được 76,7%, text 975 ký tự/trang |
-| `crawler.py` | ✅ chạy được, **16,7 trang/s** (100 thread + 7 process). `--shard I/N`, `--merge`, `--domains`, resume theo từng URL |
-| `chunk.py` | ✅ cắt theo offset, 1,79 chunk/doc, bắt buộc trần 1.024 token bằng tokenizer thật |
-| `submission.py` | ✅ xuất JSON+ZIP, chặn mọi lỗi làm bài không được chấm |
-| `score.py` | ✅ P/R/F2 macro hai cấp, `--sweep` quét topk |
-| `audit.py` | ✅ **40 mục PASS** trên dữ liệu thật qua 4 tầng |
-| `pubmed_module` | ✅ 16 test, **đã test API thật**: 284/284 bài qua Europe PMC |
+### Số đo quan trọng đã chốt (chi tiết: `PROGRESS.md` §2 mục 06/10 và §2b)
+- **Nhãn vàng ≈ 70/câu (G≈70).** Pool F ở k=1000 chứa 61% nhãn; top-200 sau rerank chứa 47,8%.
+- **zh chỉ ~2,6% nhãn** ở độ phủ ~35% (bài zh-only: P 0,0089, g_zh 1,78/200 doc). Ngoại suy phủ 100% cũng chỉ +~7% recall → **đừng đầu tư thêm cho zh**.
+- **Điểm doc chỉ phụ thuộc TẬP doc nộp, không phụ thuộc thứ tự** (06/10: cùng tập → P/R y hệt; tập khác → khác). Ghi chú 04/10 "doc có tính thứ tự" là sai.
+- **Điểm chunk phụ thuộc thứ tự đầu danh sách** (chunk lấy từ top-40/70): Qwen xếp đầu tốt hơn bge, chunk +10,5%.
+- **PubMed/tiếng Anh: BTC đã bỏ khỏi trang chính thức** (người dùng xác nhận 06/10) → dừng nhánh `pubmed_module`.
+- **Chunk:** 2 chunk × 40 doc đầu + 1 chunk × doc 41–70 hơn 2×64 (chunk thứ hai của doc hạng 41–64 đóng góp ~0 recall). Chọn chunk theo trùng từ khoá câu hỏi **không hơn** lấy chunk đầu (−0,3%).
+- **k=200 vẫn ở vùng phẳng** (tính từ β≈0,46: k=290 ngang k=200). Không đáng quét lại.
+- Trần ZIP **100 MB**; bài tốt nhất 94 MB. Bản `submission.py` hiện tại cho ZIP lớn hơn ~1,2% so với trước 06/10 (xem "Nợ kỹ thuật").
 
-### Đang chạy
+### Việc đang chạy lúc viết (06/10 ~20:00 giờ máy GPU)
+- Qwen3-Reranker chấm **hạng 251–400** của blendF trên GPU 1 (`data/chain3.sh`, log `data/qwen_chain3.log`, đầu ra `data/qwen_rr3_h1.jsonl`, `qwen_rr3_h2.jsonl`, trên máy GPU).
+  Ước ~1,8 giờ (150 doc/câu ≈ 5,5 giây/câu × 1.200). Tự chạy lại tối đa 6 lần nếu chết; dòng cuối log là `CHAIN_DONE`.
+  **Ước tính "100 phút cho hạng 251–500" đưa ra trước đó là SAI** (250 doc/câu ≈ 3,1 giờ).
+- Khi xong: kéo về, gộp `qwen_rr.jsonl` + `qwen_rr2.jsonl` + `qwen_rr2_h2.jsonl` + `qwen_rr3_*` thành `qwen_all.jsonl` (sắp theo điểm giảm dần),
+  `fuse.py qwen_all:2 f_F:1`, dựng bài `t40_70`, nộp. Kỳ vọng thêm vài % điểm doc (lợi suất giảm dần: điểm Qwen TB 0,564 ở hạng 1–100, 0,327 ở hạng 101–250).
 
-- **Crawl lô ưu tiên**: ~54k/126k xong. Store `data/corpus.sqlite`.
-  Toàn corpus còn 3,6M URL ≈ **73 giờ một máy, ~20 giờ nếu 3 máy chia `--shard`**.
-
-### Chưa có
-
-- `bm25.py` (BM25 có trọng số trường trên store) ← **bước tiếp theo, độc lập với crawl**
-- Dense (BGE-M3 trên title + chunk), rerank, cắt ngưỡng thích ứng
-- Tập dev gán tay (chỉ cần cho tầng chunk; tầng document đã dò được bằng leaderboard)
-- **Working notes paper** - kết quả không chính thức nếu thiếu
+### Ý tưởng chưa làm (xếp theo kỳ vọng)
+1. **HyDE** (LLM mở viết câu trả lời giả định 2 câu → dense BGE-M3): nhắm đúng nút cổ chai pool (recall 0,61), chưa có số đo.
+2. **Cấp số chunk theo ngân sách MB** (đặt chunk ở nơi precision biên cao nhất) thay vì quy tắc hạng cố định; ngưỡng theo MB, không theo P(yes) cố định (điểm Qwen bão hoà).
+3. Qwen3-Embedding-4B (bản title ~45 phút) làm nguồn dense thứ ba cho pool; thử bằng bài k=1000.
+4. Trộn Qwen với bge (bài A) kém bài chỉ Qwen (B): giữ Qwen một mình.
+5. **Working notes paper** — `PROGRESS.md` là nguyên liệu. **Chưa viết.**
+6. Cập nhật `run_pipeline.py` (đang chạy chuỗi cũ 03/10) để tái lập được bài tốt nhất.
 
 ### Nợ kỹ thuật đã biết
-
-- `slug_bm25.rank()` có `docs = list(docs)` → nạp hết vào RAM. Chạy được với slug nhưng
-  **sẽ chết** với ~6M chunk trên máy 11,7 GB RAM. `bm25.py` phải **streaming hai lượt** từ SQLite.
-- Chưa cài `pyvi`/`underthesea` (tách từ vi) và `jieba` (tách từ zh).
-- `familydoctor.com.cn` + `zysjonline.com` = **694k URL (15,8%)** chặn 403, không vượt được bằng
-  code. Đã đánh dấu `BLOCKED` trong queue; `--retry-blocked` chạy lại khi có IP khác.
-- Máy GPU: chưa vào được (`ssh lablee@localhost -p 2223` cần key). `scripts/remote_check.sh`
-  **chưa chạy** → Qwen3.5/Hy-MT2/BGE-M3/reranker chưa test trên GPU thật.
+- `bm25.py` tokenize mọi trường **hai lần** (2 lượt) và chạy một luồng (58 phút cho 647k doc vi). `bm25_ent.py` là bản đa tiến trình, dùng làm mẫu nếu phải chạy lại.
+- `crawler.py --merge` dùng `INSERT OR IGNORE`: dòng 403/429 cũ **chặn mất** bản crawl thành công ở store khác (đã làm mất 17k doc Long Châu). Sau merge phải thay các dòng không có `body`
+  bằng bản có `body` từ store nguồn, đặt lại `queue.state` (DONE ⇔ body ≥ 200 ký tự, `audit.py` kiểm), và gán `lang` cho doc thiếu (đừng chạy truy vấn quét cả bảng 9 GB; update theo khoá chính).
+- `load_candidates()` của `submission.py` **sắp lại ứng viên theo điểm giảm dần**: file ứng viên trộn hai thang điểm sẽ nộp sai tập doc (đã mất 1 lượt nộp: FINAL 0,2459 thay vì ~0,2589).
+  File tự ghép phải có điểm giảm đều theo vị trí.
+- `submission.py`: lỡ xoá rồi khôi phục `validate`/`write_zip` từ git HEAD; bản gốc (chưa commit) nén chặt hơn ~1,2%. Các ZIP đã dựng trước đó vẫn hợp lệ. `--extra-one`, `--chunk-query` là tuỳ chọn mới.
+- `audit.py` còn **1 FAIL vô hại**: "không gọi request tới domain đã biết bị chặn" — danh sách `BLOCKED` viết cho IP local, máy GPU crawl được familydoctor (447k doc).
+- `qwen_rerank.py`: bản đầu tính logits mọi vị trí (hết VRAM) và xử lý OOM sai chỗ (trong khối `except`); đã sửa. Vẫn nên đặt `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, batch 32.
+- Store local lớn (`corpus_vifull.sqlite` ~9,4 GB, `vi_slim.sqlite` ~4 GB, `corpus_merged.sqlite` 9,4 GB): có thể xoá `corpus_merged`, `corpus_gpu`, `corpus.sqlite` cũ khi chắc chắn không cần.
+- Chưa cài `pyvi`/`underthesea`; vi chỉ tách từ đơn + bigram từ (trong `bm25_ent.py`). zh dùng bigram ký tự, không cần jieba.
 
 ## 7. Việc tiếp theo (theo thứ tự ưu tiên)
 
-Phân việc cho 3 người: **`README.md` §4**. Lý do từng bước: `PIPELINE.md` §8.
-
-**Trần hiện tại và nguyên nhân** (đo trên leaderboard, `PROGRESS.md` mục "quét k"):
-
-| Tầng | Trần | Chặn bởi |
-| --- | --- | --- |
-| document | 0,0821 | **chất lượng truy hồi** - slug chỉ phủ 27% URL, tìm được 8,4/~55 doc vàng |
-| chunk | 0,0093 | **độ phủ crawl** - CHUNKS_F2 phẳng qua k=100/200/500 |
-
-→ **Crawl là nút cổ chai duy nhất của cả hai tầng.** Hết đòn miễn phí.
-
-1. **Crawl xong lô ưu tiên** → `chunk.py` → nộp lại `k=200` với chunk phủ đầy.
-   Đây là lúc `CHUNKS_F2` phải nhảy khỏi 0,0093.
-2. **`bm25.py`**: BM25 có trọng số trường (title 3× / tags 2× / descr 1,5× / body 1×),
-   streaming hai lượt từ SQLite. Độc lập với crawl, viết được ngay.
-3. **Crawl toàn corpus** - chia `--shard 0/3`, `1/3`, `2/3` cho 3 máy (~20 giờ).
-4. **Parser cho ~380k URL trả 200 nhưng trích rỗng** (`README.md` §4 việc #3).
-   `laodong.vn` (31k) đã sửa bằng `cookie_challenge()`, cần `--retry-failed`.
-5. **Máy GPU**: `remote_check.sh`, rồi embed ~6,0M chunk + ~3,37M title, dense + rerank.
-6. **Quét lại k** sau khi truy hồi tốt lên - `k*` phụ thuộc G và độ dốc precision, không phải hằng số.
-7. Nhánh PubMed: expand + translate 1.200 câu trên GPU → search + fetch ở local.
-8. Tập dev gán tay cho tầng chunk; hiệu chỉnh ngưỡng thích ứng.
-9. **Working notes paper** - `PROGRESS.md` là nguyên liệu.
-10. Fine-tune reranker; thử dynamic fusion (ý tưởng của người dùng).
+1. **Gộp Qwen hạng 251–400 và nộp** (xem "Việc đang chạy"). Quota public 10 lượt/ngày; đã dùng đủ ngày 06/10.
+2. Thử **HyDE** hoặc **Qwen3-Embedding title** để nới pool; đo bằng bài k=1000 (chỉ nhìn DOCS_RECALL, mốc hiện 0,6108).
+3. Thử cấp chunk theo ngân sách MB.
+4. **Chuẩn bị private phase** (01–04/11, 5 lượt tổng cộng): chốt cấu hình ổn nhất, có sẵn 2–3 bài đã dựng, ZIP < 100 MB, vân tay ghi sổ. 1.200 câu đã chứa cả hai phase nên tính trước được hết.
+5. **Viết working notes paper**.
+6. Cập nhật `run_pipeline.py` và `audit.py` theo cấu hình mới.
 
 ## 8. Câu hỏi còn mở cho BTC
 
@@ -318,6 +334,7 @@ Phân việc cho 3 người: **`README.md` §4**. Lý do từng bước: `PIPELI
 | 25.843 URL chênh giữa README và file thật? | ✅ `id` khuyết trong dải, không thiếu dữ liệu. |
 | Kiểu `doc_id` trong JSON? | ✅ **SỐ NGUYÊN** - thí nghiệm trên leaderboard: chuỗi → 0, số nguyên → 0,0497. |
 | Nhãn gán theo nội dung trang ở thời điểm nào (trang có thể đã sửa/chết → `chunk_text` không khớp)? | ❓ **chưa hỏi** |
+| PubMed/tiếng Anh còn trong đề không? | ✅ **Đã bị bỏ khỏi trang chính thức** (người dùng xác nhận 06/10); nhánh PubMed dừng. |
 | MoE tính tổng hay tham số kích hoạt? Teacher distill có phải tuân mốc ngày? | ❓ chưa rõ, tạm coi theo tổng |
 | `doc_id` của bài PubMed là PMID - hệ thống chấm phân biệt với `links_corpus.id` thế nào? | ❓ nên hỏi; thực tế đo được hai dải không chồng (PMID > 28M, id ≤ 4,39M) |
 
@@ -336,6 +353,9 @@ Phân việc cho 3 người: **`README.md` §4**. Lý do từng bước: `PIPELI
 - Khi sửa code: thêm hoặc cập nhật test offline, chạy `python -m unittest discover tests` (hiện 16 test).
   Mọi script độc lập có `--demo` làm self-check trên dữ liệu giả: `slug_bm25`, `probe_crawl`,
   `crawler`, `chunk`, `submission`, `score`.
+- **Thứ tự chuỗi dữ liệu BẮT BUỘC:** `crawler.py` → `clean.py --apply` → `chunk.py` → `audit.py`.
+  `clean.py` đổi `doc.body` nên offset chunk cũ sai; nó tự xoá chunk của doc bị sửa và `chunk.py`
+  phải chạy SAU. Doc mới crawl lại mang boilerplate nên **`clean.py` phải chạy lại sau mỗi đợt crawl**.
 - **Sau khi đổi bất cứ thứ gì trong chuỗi dữ liệu: chạy `python audit.py`** - nó kiểm trên dữ liệu
   THẬT (store + bài nộp sinh ra từ store), 40 mục qua 4 tầng crawl→chunk→submission→score.
   `--demo` không thay được: hai bug về trần token chỉ lộ ra ở `audit.py`.

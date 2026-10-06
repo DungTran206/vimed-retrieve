@@ -32,6 +32,87 @@ HISTORY = [
     (100, "slug", 0.0589, 0.1108, 0.0788, 0.0454, 0.0102, 0.0093),
     (200, "slug", 0.0419, 0.1450, 0.0821, 0.0377, 0.0111, 0.0093),
     (500, "slug", 0.0256, 0.2066, 0.0754, 0.0246, 0.0123, 0.0093),
+    # 02/10: độ phủ chunk 1,4% -> 80% (crawl 2.499 -> 127.129 doc)
+    (200, "slug+chunk", 0.0419, 0.1450, 0.0821, 0.0760, 0.0370, 0.0366),   # ctop20
+    (200, "slug+chunk", 0.0419, 0.1450, 0.0821, 0.0523, 0.0603, 0.0495),   # ctop50
+    (200, "slug+chunk", 0.0419, 0.1450, 0.0821, 0.0545, 0.0574, 0.0486),   # wide75c1
+    (200, "slug+chunk", 0.0419, 0.1450, 0.0821, 0.0476, 0.0647, 0.0513),   # wide100c1
+    # 02/10: đổi NGUỒN XẾP HẠNG - DOCS_F2 rời 0,0821 lần đầu
+    (200, "bm25", 0.0442, 0.1512, 0.0872, 0.0658, 0.0728, 0.0618),
+    (200, "rrf2", 0.0541, 0.1868, 0.1068, 0.0800, 0.0797, 0.0694),         # slug+bm25
+    (200, "rrf3", 0.0549, 0.1863, 0.1077, 0.0813, 0.0847, 0.0731),         # +bm25_meta
+    (200, "rrf4", 0.0541, 0.1812, 0.1058, 0.0802, 0.0855, 0.0733),         # +bm25_body: THUA
+    # 03/10: cùng nguồn rrf3, crawl 127k -> 625k doc. Dữ liệu mới, không phải thuật toán.
+    (200, "rrf3-625k", 0.0648, 0.2234, 0.1280, 0.0772, 0.1056, 0.0848),
+    # 03/10: k=265 (ctop90) - k THUA, chunk THANG. beta thuc cua rrf3 = 0,455 -> k* = 198.
+    (265, "rrf3-625k", 0.0556, 0.2482, 0.1261, 0.0732, 0.1104, 0.0863),
+    # 03/10: k=200 + ctop90 = ghep doc cua k200 voi chunk cua ctop90. FINAL 0,1071
+    # = (0,1280+0,0863)/2 dung tung so le -> HAI TANG DOC LAP TUYET DOI.
+    (200, "rrf3-625k", 0.0648, 0.2234, 0.1280, 0.0732, 0.1104, 0.0863),
+    # 03/10: trong so RRF. slug x2 (71,5% slot) THUA 4,1% -> slug la nguon YEU nhat.
+    (200, "rrf3-slug2", 0.0621, 0.2153, 0.1228, 0.0715, 0.0920, 0.0745),
+    (200, "rrf3-meta2", 0.0616, 0.2096, 0.1214, 0.0716, 0.1002, 0.0797),   # meta x2: CUNG THUA
+    # -> w=1,1,1 la toi uu. Lech ve BAT KY nguon nao cung lam hai.
+    (150, "rrf3-625k", 0.0751, 0.2000, 0.1274, 0.0772, 0.1056, 0.0848),    # k=150: thua 0,5%
+    # 03/10: deep (2 chunk x 45 doc) = wide (1 chunk x 90 doc) ve CHUNKS_F2 nhung it hon
+    # 13% chunk va nho hon 17 MB -> DAO CHIEU ket luan 02/10 (luc chi co 127k doc).
+    (200, "rrf3-deep2x45", 0.0648, 0.2234, 0.1280, 0.0833, 0.1064, 0.0863),   # NGHI VAN: dan trung
+    # 03/10: deep2x50 (100.580 chunk) > ctop90 c1 (104.154 chunk): 0,0879 vs 0,0863.
+    # Van tay khac VA diem khac -> leaderboard cham dung tung bai. TOT NHAT: FINAL 0,1079.
+    (200, "rrf3-deep2x50", 0.0648, 0.2234, 0.1280, 0.0796, 0.1107, 0.0879),
+    # 03/10: 2x55 (110.229 chunk) -> 0,0896. Loi suat giam: +9,6% chunk cho +1,9% F2.
+    # Precision bien 0,0465 vs nguong dung 0,0179 -> con lai, chan boi 100 MB khong boi diem.
+    (200, "rrf3-deep2x55", 0.0648, 0.2234, 0.1280, 0.0767, 0.1154, 0.0896),
+    # 04/10: cung cau hinh, chi khac DU LIEU (624.429 -> 647.034 doc, +3,5%).
+    # Du doan tu co gian 0,108: FINAL 0,1092. Do duoc: 0,1091 -> mo hinh dung.
+    (200, "rrf3-647k", 0.0650, 0.2246, 0.1284, 0.0767, 0.1157, 0.0898),
+    # 04/10: + dense-title zh (nguon thu 4, KHAC LOAI). Chiem 20,2% slot top-200 nhung THUA.
+    # Tach ra: g_vi(160 slot) = 11,74 theo beta=0,455 -> g_zh = 0,54 doc/cau tu 40,4 slot
+    # = precision 0,0134, trong khi precision BIEN cua vi tai k=200 la 0,0296.
+    # -> nhan vang CO doc zh, nhung dense-title zh chi manh bang 45% phan cuoi danh sach vi.
+    (200, "rrf4-dense-zh", 0.0614, 0.2134, 0.1217, 0.0783, 0.1144, 0.0896),
+    # 04/10: BM25F zh (query da dich, 11.027 term khop) chiem 20,3% slot -> g_zh = 0,32,
+    # THUA ca dense-title zh (0,54). Query dich may yeu hon cross-lingual truc tiep.
+    (200, "rrf4-bm25-zh", 0.0602, 0.2101, 0.1195, 0.0781, 0.1145, 0.0896),
+    # 04/10: DENSE-TITLE VI (643.583 title, BGE-M3 mono-lingual) -> +32,8% CA HAI TANG.
+    # Chiem 44,8% slot ma 3 nguon kia chi tut nhe -> no bau CUNG doc, RRF cong phieu.
+    # Chunk tang 32,7% du KHONG doi tham so chunk nao: 55 doc dau dung hon.
+    (200, "rrf4-dense-vi", 0.0884, 0.2872, 0.1705, 0.1048, 0.1501, 0.1192),
+    # 04/10: dense w=1,5 (chiem 57,1% slot) -> doc +5,5%, CHUNK +13,5%.
+    (200, "rrf4-dvi-w15", 0.0942, 0.3002, 0.1799, 0.1217, 0.1685, 0.1353),
+    # 04/10: k=160 tren cung nguon. beta = ln(17,68/15,95)/ln(200/160) = 0,461 - GAN Y HET
+    # beta 0,455 cua nguon cu -> gia thuyet "nguon manh hon thi beta nho hon" la SAI.
+    # beta la dac tinh cua phan bo nhan vang, khong phai cua bo xep hang. k* = 211.
+    (160, "rrf4-dense-vi", 0.0997, 0.2630, 0.1703, 0.1048, 0.1501, 0.1192),
+    # 04/10: quet trong so dense. Dinh ro o w=2,5; w=4 da qua, dense-only (w=inf) thua 9%.
+    (200, "rrf4-dvi-w25", 0.0976, 0.3032, 0.1845, 0.1329, 0.1775, 0.1442),   # TOT NHAT
+    (200, "rrf4-dvi-w40", 0.0974, 0.2956, 0.1822, 0.1354, 0.1745, 0.1438),
+    (200, "dense-only",   0.0907, 0.2692, 0.1680, 0.1271, 0.1555, 0.1300),
+    # 04/10: RERANK bge-reranker-v2-m3 tren top-200. Giu DUNG cung tap 200 doc (da kiem
+    # 1200/1200 cau), chi doi thu tu - ma DOC F2 van tang 5,6% (0,1845 -> 0,1948).
+    # -> he thong cham cap DOCUMENT CO tinh thu tu trong relevant_docs.
+    (200, "rrf4-rerank",  0.1033, 0.3191, 0.1948, 0.1595, 0.1995, 0.1677),
+    # 04/10: cung rerank, chunk tu 64 doc dau (124.609 chunk, 96 MB - sat tran 100 MB).
+    # DOCS_F2 ra DUNG 0,1948 nhu van tay doc du bao. p_bien cua 17.681 chunk them vao =
+    # 0,0890 so nguong dung 0,0347 -> CON LAI 2,6x, nhung het dung luong.
+    (200, "rrf4-rr-2x64", 0.1033, 0.3191, 0.1948, 0.1495, 0.2137, 0.1733),   # TOT NHAT
+    # 05/10: chunk 400 token (249.038 chunk, cung tap doc 0,1948): CHUNK F2 0,1733 -> 0,0624 (-64%).
+    # P giam 3,6x VA recall giam (0,2137 -> 0,0918) du nop gap doi chunk -> chunk NGAN thua, DAI moi an.
+    (200, "rr-c400-2x112", 0.1033, 0.3191, 0.1948, 0.0413, 0.0918, 0.0624),
+    # 05/10: RERANK TOP-1000 (112/200 doc moi): DOC F2 0,1948 -> 0,2269 (+16,5%), g 20,7 -> 24,1.
+    # Chunk 400 keo chunk F2 xuong 0,0748 (cung chunk 400, doc tot hon: +20% so voi 0,0624).
+    (200, "rr1k-c400-2x112", 0.1207, 0.3707, 0.2269, 0.0489, 0.1085, 0.0748),
+    # 05/10: doc rerank-1000 + chunk 900. DOC dung 0,2269 (van tay dung). Chunk chi 0,1733 -> 0,1765
+    # (+1,8%) dung truoc du doan 0,208: top-64 doi 26/64 doc ma chunk khong nhuc nhich, vi 77% doc
+    # moi roi vao hang 65-200 (duoi, khong co chunk di kem). TOT NHAT: FINAL 0,2017.
+    (200, "rr1k-c900-2x64", 0.1207, 0.3707, 0.2269, 0.1521, 0.2181, 0.1765),
+    # 05/10: RRF(rerank-1000, RRF vong 1). w=1: doc GIAM, chunk tang. w=2: doc ngang, chunk +6,1%.
+    (200, "blend-w1", 0.1184, 0.3591, 0.2219, 0.1557, 0.2289, 0.1828),
+    (200, "blend-w2", 0.1215, 0.3660, 0.2271, 0.1603, 0.2336, 0.1872),   # TOT NHAT: FINAL 0,2072
+    # 05/10: BAI CHAN DOAN k=34 (chi doc P). BM25F thuan P@34 = 0,1198 (g=4,1); blend P@34 = 0,2774 (g=9,4).
+    # Du doan blend 0,31 theo luat luy thua: thuc te thap hon 11%. Baseline BTC P@34 = 0,8805.
+    (34, "bm25f-thuan", 0.1198, 0.0869, 0.0798, 0.0749, 0.0820, 0.0686),
+    (34, "blend-w2",    0.2774, 0.1716, 0.1671, 0.2000, 0.1677, 0.1540),
 ]
 
 
@@ -220,10 +301,14 @@ def demo():
     f2s = [5 * g / (4 * G0 + k) for k, g in zip(ks, gs)]
     assert abs(fit_G(ks, gs, f2s, c, b) - G0) < 1.0, fit_G(ks, gs, f2s, c, b)
 
-    # Khớp trên dữ liệu THẬT: sai phải ở mức dùng được
-    ksr = [h[0] for h in HISTORY]
-    gsr = [h[2] * h[0] for h in HISTORY]
-    f2r = [h[4] for h in HISTORY]
+    # Khớp trên dữ liệu THẬT: sai phải ở mức dùng được.
+    # LỌC THEO NGUỒN: mô hình là per-source. Trộn nhiều nguồn thì cùng một k có nhiều F2
+    # khác nhau -> khớp ra rác (đã gặp: sai 23%).
+    rows = [h for h in HISTORY if h[1] == "slug"]
+    assert len(rows) >= 3, "cần >=3 lượt nộp cùng nguồn 'slug' cho self-check"
+    ksr = [h[0] for h in rows]
+    gsr = [h[2] * h[0] for h in rows]
+    f2r = [h[4] for h in rows]
     c, b = fit_power(ksr, gsr)
     G = fit_G(ksr, gsr, f2r, c, b)
     worst = max(abs(5 * c * k ** b / (4 * G + k) - y) / y for k, y in zip(ksr, f2r))
@@ -241,6 +326,14 @@ def demo():
     ks3 = [100, 200, 400]
     ys3 = [0.05, 0.08, 0.05]
     assert abs(interp_peak(ks3, ys3) - 200) < 1, interp_peak(ks3, ys3)
+
+    # HISTORY có nhiều nguồn: mỗi nguồn phải khớp riêng, không trộn
+    srcs = {h[1] for h in HISTORY}
+    assert len(srcs) > 1, "HISTORY nên có nhiều nguồn sau khi đổi thuật toán xếp hạng"
+    for name in srcs:
+        rs = [h for h in HISTORY if h[1] == name]
+        ks = [h[0] for h in rs]
+        assert len(ks) == len(set(ks)) or len(rs) < 2 or name != "slug",             f"nguồn '{name}' có k trùng nhau -> không khớp được đường cong"
 
     # overlap: tập giống hệt -> 0% mới; tập rời nhau -> 100% mới
     import tempfile

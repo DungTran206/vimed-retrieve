@@ -180,12 +180,28 @@ def audit_chunk(conn):
 
 # ------------------------------------------------------------------ SUBMISSION
 
-def audit_submission(conn, db_path):
+# Nguồn ứng viên để kiểm tầng submission - thử theo thứ tự, lấy file đầu tiên có thật.
+# KHÔNG ghim cứng một tên: `data/slug_rank.jsonl` từng bị xoá lúc dọn dung lượng và làm
+# `audit.py` chết giữa đường (04/10), trong khi bất cứ file ứng viên nào cũng kiểm được.
+CAND_FILES = ("data/rerank_rank.jsonl", "data/fused_dvi25.jsonl", "data/fused3.jsonl",
+              "data/slug_rank1000.jsonl", "data/slug_rank.jsonl", "data/bm25_rank.jsonl")
+
+
+def find_cands(explicit=None):
+    for p in ([explicit] if explicit else []) + list(CAND_FILES):
+        if p and os.path.exists(p):
+            return p
+    sys.exit("Không tìm thấy file ứng viên nào. Thử: " + ", ".join(CAND_FILES))
+
+
+def audit_submission(conn, db_path, cands_path=None):
     print("\n=== TẦNG 3: SUBMISSION ===")
     import zipfile
     from submission import build, load_candidates, validate, write_zip
 
-    cands = load_candidates("data/slug_rank.jsonl")
+    cands_path = find_cands(cands_path)
+    print(f"  (nguồn ứng viên: {cands_path})")
+    cands = load_candidates(cands_path)
     check(len(cands) == 1200, "nạp đủ 1.200 câu ứng viên", f"{len(cands)}")
 
     for id_type in (str, int):
@@ -275,6 +291,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DB)
     ap.add_argument("--stage", choices=["crawl", "chunk", "submission", "score"], default=None)
+    ap.add_argument("--cands", default=None,
+                    help="file ứng viên để kiểm tầng submission; thiếu thì tự tìm")
     args = ap.parse_args()
     conn = sqlite3.connect(args.db)
     recs = None
@@ -283,7 +301,7 @@ def main():
     if args.stage in (None, "chunk"):
         audit_chunk(conn)
     if args.stage in (None, "submission"):
-        recs = audit_submission(conn, args.db)
+        recs = audit_submission(conn, args.db, args.cands)
     if args.stage in (None, "score") and recs:
         audit_score(recs)
     print("\n" + "=" * 60)

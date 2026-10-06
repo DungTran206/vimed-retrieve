@@ -166,14 +166,24 @@ def build(conn, target_tokens=TARGET_TOKENS, overlap=1, rebuild=False, batch=500
     if rebuild:
         conn.execute("DELETE FROM chunk")
         conn.commit()
-    done = {r[0] for r in conn.execute("SELECT DISTINCT doc_id FROM chunk")}
-    rows = conn.execute("SELECT doc_id, lang, body FROM doc WHERE length(body)>=200").fetchall()
-    todo = [r for r in rows if r[0] not in done]
-    print(f"{len(rows):,} doc dùng được | đã cắt {len(done):,} | cần cắt {len(todo):,}")
+    # STREAMING, không `fetchall()`: nạp cả 127k body một lúc đã làm process bị kill vì hết
+    # RAM (máy local 11,7 GB, còn trống 2,4 GB). Với corpus đầy 3,37M doc thì cần ~12 GB.
+    # LEFT JOIN lo luôn việc resume - không phải dựng set doc_id đã cắt trong RAM.
+    n_ok, = conn.execute("SELECT count(*) FROM doc WHERE length(body)>=200").fetchone()
+    n_done, = conn.execute("SELECT count(DISTINCT doc_id) FROM chunk").fetchone()
+    print(f"{n_ok:,} doc dùng được | đã cắt {n_done:,} | cần cắt {n_ok - n_done:,}")
 
-    ins, nchunk, one = [], 0, 0
+    # Cursor riêng để đọc: cursor chính dùng cho INSERT, không trộn đọc/ghi trên cùng cursor
+    rd = conn.cursor()
+    rd.arraysize = 200
+    rd.execute("""SELECT d.doc_id, d.lang, d.body FROM doc d
+                  LEFT JOIN (SELECT DISTINCT doc_id FROM chunk) c ON d.doc_id = c.doc_id
+                  WHERE length(d.body) >= 200 AND c.doc_id IS NULL""")
+
+    ins, nchunk, one, ndoc = [], 0, 0, 0
     nsplit = 0
-    for doc_id, lang, body in todo:
+    for doc_id, lang, body in rd:
+        ndoc += 1
         spans = chunk_offsets(body, budget_for(lang, target_tokens), overlap)
         if tok is not None:
             before = len(spans)
@@ -190,13 +200,15 @@ def build(conn, target_tokens=TARGET_TOKENS, overlap=1, rebuild=False, batch=500
                              "VALUES (?,?,?,?,?)", ins)
             conn.commit()
             ins = []
+            if ndoc % 20000 < batch:
+                print(f"  {ndoc:,} doc → {nchunk:,} chunk")
     if ins:
         conn.executemany("INSERT INTO chunk (doc_id,ord,start,end,n_chars) "
                          "VALUES (?,?,?,?,?)", ins)
     conn.commit()
-    if todo:
-        print(f"Tạo {nchunk:,} chunk | {nchunk/len(todo):.2f} chunk/doc | "
-              f"{one/len(todo)*100:.1f}% doc chỉ 1 chunk"
+    if ndoc:
+        print(f"Tạo {nchunk:,} chunk | {nchunk/ndoc:.2f} chunk/doc | "
+              f"{one/ndoc*100:.1f}% doc chỉ 1 chunk"
               + (f" | tokenizer cắt thêm {nsplit}" if tok is not None else
                  " | KHÔNG kiểm token (--no-verify-tokens)"))
     verify(conn)
@@ -219,7 +231,14 @@ def verify(conn, sample=500):
                              (doc_id,)).fetchall()
         if not spans:
             continue
-        covered = len({i for s, e in spans for i in range(s, e)})
+        # Hợp các khoảng, không bung thành set từng chỉ số (body 10k ký tự x 200 doc)
+        covered = 0
+        last = -1
+        for a, b in sorted(spans):
+            a = max(a, last)
+            if b > a:
+                covered += b - a
+                last = b
         nonspace = len(re.sub(r"\s", "", body))
         if covered < nonspace * 0.95:
             bad.append((doc_id, covered, len(body)))
@@ -321,6 +340,17 @@ def demo():
     assert chunk_offsets("\n\n\n", 100) == []
     assert budget_for("zh") < budget_for("vi"), "tiếng Trung đặc hơn nên budget ký tự nhỏ hơn"
     assert budget_for(None) == budget_for("vi")
+
+    # Độ phủ tính bằng hợp khoảng phải khớp cách tính bằng set chỉ số
+    for sp in ([(0, 5), (3, 10)], [(0, 5), (5, 10)], [(2, 4)], [(0, 10), (1, 2)]):
+        exp = len({i for a, b in sp for i in range(a, b)})
+        got, last = 0, -1
+        for a, b in sorted(sp):
+            a = max(a, last)
+            if b > a:
+                got += b - a
+                last = b
+        assert got == exp, (sp, got, exp)
 
     # Vòng khép kín với store trong RAM
     conn = sqlite3.connect(":memory:")

@@ -104,6 +104,24 @@ class TestLLMParse(unittest.TestCase):
         self.assertFalse(p["parse_ok"])
         self.assertEqual(fallback_queries({"en": "Q", "entities": [{"en": "a"}, {"en": "b"}]}), ["Q", "a b"])
 
+    def test_salvage_json_hong_cu_phap(self):
+        """JSON hỏng cú pháp vẫn phải vớt được zh + entities.
+
+        Mẫu lấy từ output thật của Qwen3.5-9B lượng tử 4-bit (03/10): 17,2% câu có một dấu
+        `)` và newline chen vào sau dấu nháy đóng. Mất `zh` là mất đúng thứ nhánh tiếng
+        Trung cần, nên không được trả rỗng khi `json.loads` thất bại.
+        """
+        blob = ('{"en": "I have congestion and come"\n)", "zh": "我有食管充血",'
+                ' "entities": [{"vi": "thực quản", "en": "esophagus", "zh": "食管"}],'
+                ' "pubmed_queries": ["esophageal congestion", "peptic ulcer scar"]}')
+        with self.assertRaises(json.JSONDecodeError):      # mẫu phải thật là hỏng
+            json.loads(blob)
+        p = parse_llm_output(blob)
+        self.assertTrue(p["parse_ok"])
+        self.assertEqual(p["zh"], "我有食管充血")
+        self.assertEqual(p["entities"], [{"vi": "thực quản", "en": "esophagus", "zh": "食管"}])
+        self.assertEqual(p["pubmed_queries"], ["esophageal congestion", "peptic ulcer scar"])
+
 
 class TestMerge(unittest.TestCase):
     def test_rrf(self):
