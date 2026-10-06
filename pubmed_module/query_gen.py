@@ -11,6 +11,7 @@
 import json
 import logging
 import re
+import time
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,42 @@ def build_messages(query_vi: str) -> list[dict]:
     ]
 
 
+def salvage_json(blob: str):
+    """Vớt từng khoá khi JSON sai cú pháp. Trả None nếu không vớt được gì.
+
+    Qwen3.5-9B lượng tử 4-bit sinh JSON hỏng cú pháp ở 17,2% câu (đo 03/10, 11/64 câu):
+    nó chèn ký tự lạ giữa chuỗi (một dấu `)` và newline ngay sau dấu nháy đóng), dù JSON vẫn
+    ĐỦ (raw 1.357 ký tự, kết thúc bằng `]}`) nên KHÔNG phải lỗi `max_tokens`. `json.loads`
+    thất bại là mất CẢ bản dịch zh lẫn thực thể - đúng hai thứ nhánh tiếng Trung cần - trong
+    khi đọc theo từng khoá thì vẫn lấy được.
+    """
+    def one(key):
+        m = re.search(rf'"{key}"\s*:\s*"((?:[^"\\]|\\.)*)"', blob)
+        if not m:
+            return ""
+        try:
+            return json.loads('"' + m.group(1) + '"')
+        except json.JSONDecodeError:
+            return m.group(1)
+
+    arr = re.search(r'"pubmed_queries"\s*:\s*\[(.*?)\]', blob, re.S)
+    qs = re.findall(r'"((?:[^"\\]|\\.)+)"', arr.group(1)) if arr else []
+    ents = []
+    ea = re.search(r'"entities"\s*:\s*\[(.*?)\]', blob, re.S)
+    if ea:
+        for om in re.finditer(r"\{[^{}]*\}", ea.group(1)):
+            try:
+                o = json.loads(om.group(0))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(o, dict):
+                ents.append(o)
+    en = one("en")
+    if not (en or qs):
+        return None
+    return {"en": en, "zh": one("zh"), "entities": ents, "pubmed_queries": qs}
+
+
 def parse_llm_output(text: str, max_queries: int = 6) -> dict:
     """Parse JSON một cách chịu lỗi. Luôn trả về đủ key; 'parse_ok' báo có parse được không."""
     empty = {"en": "", "zh": "", "entities": [], "pubmed_queries": [], "parse_ok": False}
@@ -70,7 +107,9 @@ def parse_llm_output(text: str, max_queries: int = 6) -> dict:
     try:
         obj = json.loads(text[start:end + 1])
     except json.JSONDecodeError:
-        return empty
+        obj = salvage_json(text[start:end + 1])      # vớt theo khoá, xem salvage_json
+        if obj is None:
+            return empty
     if not isinstance(obj, dict):
         return empty
 
@@ -102,14 +141,25 @@ def fallback_queries(parsed: dict) -> list[str]:
 
 
 # Greedy decoding: JSON ổn định và tái lập được giữa các lần chạy (quan trọng cho private test)
-LLM_SAMPLING = {"temperature": 0.0, "max_tokens": 768}
+# max_tokens 768 CẮT MẤT JSON của câu dài: đo 03/10 trên 64 câu đầu, 11 câu (17,2%) phải
+# dùng fallback và chúng có độ dài trung vị 57 từ so với 20 từ của cả batch. Một câu 283 từ
+# cần ~1.000 token cho en + zh + 20 thực thể × 3 ngôn ngữ + 4 truy vấn PubMed. Greedy decode
+# dừng ở EOS nên nới trần không làm câu ngắn chậm hơn.
+LLM_SAMPLING = {"temperature": 0.0, "max_tokens": 2048}
 # Qwen3/Qwen3.5: tắt thinking để trả JSON trực tiếp (Qwen3.5 Small đã tắt sẵn, truyền thêm cho chắc)
 LLM_CHAT_KWARGS = {"enable_thinking": False}
 
 
-def expand_queries(backend, items: list[dict], batch_size: int = 64) -> list[dict]:
-    """items: [{"id", "query"}] -> [{"id", "query", "en", "zh", "entities", "pubmed_queries", "parse_ok"}]"""
+def expand_queries(backend, items: list[dict], batch_size: int = 64,
+                   partial_path=None) -> list[dict]:
+    """items: [{"id", "query"}] -> [{"id", "query", "en", "zh", "entities", "pubmed_queries", "parse_ok"}]
+
+    `partial_path`: ghi dần sau mỗi batch và log tốc độ. Backend `hf` sinh TUẦN TỰ từng câu
+    (vLLM thì batch), nên 1.200 câu có thể mất nhiều giờ: ghi một lần ở cuối thì job chết là
+    mất sạch, và không cách nào biết còn bao lâu.
+    """
     results = []
+    t0 = time.monotonic()
     for i in range(0, len(items), batch_size):
         batch = items[i:i + batch_size]
         texts = backend.generate([build_messages(x["query"]) for x in batch])
@@ -119,4 +169,11 @@ def expand_queries(backend, items: list[dict], batch_size: int = 64) -> list[dic
                 parsed["pubmed_queries"] = fallback_queries(parsed)
                 log.warning("Câu %s: LLM không sinh được truy vấn hợp lệ, dùng fallback.", item["id"])
             results.append({"id": item["id"], "query": item["query"], **parsed, "raw": text})
+        if partial_path:
+            with open(partial_path, "a", encoding="utf-8") as f:
+                for r in results[-len(batch):]:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        done, el = len(results), time.monotonic() - t0
+        log.info("expand %d/%d câu | %.1f s/câu | còn ~%.0f phút",
+                 done, len(items), el / done, (len(items) - done) * el / done / 60)
     return results

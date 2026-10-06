@@ -48,18 +48,35 @@ def merge_hits(result_lists: list[dict], k: int = 60, max_candidates: int = 300)
 
 
 def stage_expand(args, queries, out_dir: Path) -> list[dict]:
+    from .query_gen import (LLM_CHAT_KWARGS, LLM_SAMPLING, expand_queries,
+                             parse_llm_output)
     path = out_dir / "expansions.jsonl"
     if path.exists() and not args.regen:
         log.info("Dùng lại %s (thêm --regen để sinh lại)", path)
-        return read_jsonl(path)
+        rows = read_jsonl(path)
+        # Parser được cải tiến SAU khi file đã sinh: vá lại từ `raw` đã lưu, khỏi gọi LLM
+        # (1.200 câu mất ~4 giờ trên backend hf, còn vá lại thì tức thì).
+        fixed = 0
+        for r in rows:
+            if not r.get("parse_ok") and r.get("raw"):
+                again = parse_llm_output(r["raw"])
+                if again["parse_ok"]:
+                    r.update(again)
+                    fixed += 1
+        if fixed:
+            write_jsonl(path, rows)
+            log.info("Vá lại %d câu từ `raw` bằng parser mới (không gọi LLM)", fixed)
+        return rows
     from .llm import make_backend
-    from .query_gen import LLM_CHAT_KWARGS, LLM_SAMPLING, expand_queries
     backend = make_backend(args.backend, args.llm_model, LLM_SAMPLING,
                            quantization=args.quantization, load_in_4bit=args.load_in_4bit,
                            text_only=True, chat_template_kwargs=LLM_CHAT_KWARGS,
                            gpu_memory_utilization=args.gpu_mem)
-    rows = expand_queries(backend, queries)
+    partial = path.with_suffix(".partial")
+    partial.unlink(missing_ok=True)
+    rows = expand_queries(backend, queries, partial_path=partial)
     write_jsonl(path, rows)
+    partial.unlink(missing_ok=True)      # đã có file đầy đủ thì bỏ bản ghi dần
     bad = [r["id"] for r in rows if not r.get("parse_ok")]
     log.info("Đã sinh truy vấn cho %d câu; %d câu cần kiểm tra lại: %s", len(rows), len(bad), bad[:20])
     return rows
@@ -98,11 +115,12 @@ def stage_search(args, expansions, client, out_dir: Path) -> list[dict]:
     for n, exp in enumerate(expansions, 1):
         result_lists, search_log = [], []
         for qi, term in enumerate(exp["pubmed_queries"]):
-            r = esearch(client, term, retmax=args.retmax, api_key=args.api_key, email=args.email)
-            result_lists.append({"src": "ncbi", "q": qi, "pmids": r["pmids"]})
-            search_log.append({"src": "ncbi", "q": qi, "term": term, "count": r["count"],
-                               "n": len(r["pmids"]), "translation": r.get("translation", ""),
-                               "error": r.get("error")})
+            if args.use_ncbi:
+                r = esearch(client, term, retmax=args.retmax, api_key=args.api_key, email=args.email)
+                result_lists.append({"src": "ncbi", "q": qi, "pmids": r["pmids"]})
+                search_log.append({"src": "ncbi", "q": qi, "term": term, "count": r["count"],
+                                   "n": len(r["pmids"]), "translation": r.get("translation", ""),
+                                   "error": r.get("error")})
             if args.use_epmc and not is_pubmed_syntax(term):
                 r = europepmc_search(client, term, page_size=args.retmax)
                 result_lists.append({"src": "epmc", "q": qi, "pmids": r["pmids"]})
@@ -144,6 +162,8 @@ def main():
     ap.add_argument("--retmax", type=int, default=100, help="số PMID mỗi truy vấn con")
     ap.add_argument("--max-candidates", type=int, default=300, help="số PMID giữ lại mỗi câu")
     ap.add_argument("--no-epmc", dest="use_epmc", action="store_false")
+    ap.add_argument("--no-ncbi", dest="use_ncbi", action="store_false",
+                    help="bỏ NCBI ESearch (IP bị chặn thì mỗi câu tốn thêm retry)")
     ap.add_argument("--api-key", default=os.environ.get("NCBI_API_KEY"))
     ap.add_argument("--email", default=os.environ.get("NCBI_EMAIL"))
     args = ap.parse_args()
