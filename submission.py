@@ -18,7 +18,7 @@ Bài nộp sai định dạng KHÔNG bị tính vào quota, nên thử cả hai 
   python submission.py --cands data/slug_rank.jsonl --topk 20 --out runs/sub_top20
 
   # Khi đã có store crawl về: kèm cả chunk
-  python submission.py --cands data/slug_rank.jsonl --topk 20 --store data/corpus.sqlite \\
+  python submission.py --cands data/slug_rank.jsonl --topk 20 --store data/corpus_new.sqlite \\
       --chunks-per-doc 1 --out runs/sub_top20_chunk
 
   python submission.py --demo        # self-check, không cần dữ liệu
@@ -53,7 +53,7 @@ def pick(cands, topk, min_score):
     return [doc_id for doc_id, _ in sel]
 
 
-def fetch_chunks(store, doc_ids, per_doc, qtext=None):
+def fetch_chunks(store, doc_ids, per_doc, qtext=None, chunk_scores=None):
     """Lấy chunk NGUYÊN VĂN từ store: chunk_text = body[start:end].
 
     Không bao giờ lấy từ title/description - đo được title nằm nguyên văn trong body
@@ -77,6 +77,10 @@ def fetch_chunks(store, doc_ids, per_doc, qtext=None):
         if text.strip():
             by_doc.setdefault(doc_id, []).append(text)
     pick_idx = {d: list(range(min(per_doc, len(t)))) for d, t in by_doc.items()}
+    for d, sc in (chunk_scores or {}).items():          # điểm Qwen từng chunk: lấy per_doc chunk cao nhất, giữ thứ tự gốc
+        n = len(by_doc.get(d, []))
+        if n > per_doc:
+            pick_idx[d] = sorted(sorted(range(n), key=lambda i: (-sc.get(i, -1.0), i))[:per_doc])
     if qtext:
         import math
         import bm25
@@ -140,18 +144,58 @@ def validate(records, n_queries=N_QUERIES, id_type=str):
     return errs
 
 
-def write_zip(records, out_prefix):
+def fingerprint(records):
+    """Vân tay (doc, chunk): doc theo TẬP doc mỗi câu (thứ tự không ảnh hưởng điểm doc),
+    chunk theo văn bản có thứ tự. Hai bài cùng vân tay thì cùng điểm ở tầng đó."""
+    h = lambda o: hashlib.sha1(json.dumps(o, ensure_ascii=False).encode()).hexdigest()[:12]
+    return (h([[r["id"], sorted(r["relevant_docs"])] for r in records]),
+            h([[r["id"], [c["chunk_text"] for c in r["relevant_chunks"]]] for r in records]))
+
+
+class _BigLZMA(zipfile.LZMACompressor):
+    """LZMA từ điển LỚN: 34% văn bản chunk lặp giữa các câu (cùng doc cho nhiều câu), bzip2 (khối 900 KB)
+    và LZMA mặc định (8 MB) không thấy được; từ điển 768 MB thì thấy. Đo trên blendQB13af_e120:
+    bzip2 95,5 MB / LZMA 8 MB 91,4 MB / LZMA 640 MB 54,8 MB. Bên giải nén cần RAM ~ cỡ từ điển."""
+    DICT = 768 << 20
+
+    def _init(self):
+        import lzma
+        import struct
+        f = {"id": lzma.FILTER_LZMA1, "preset": 6, "dict_size": self.DICT}
+        props = lzma._encode_filter_properties(f)
+        self._comp = lzma.LZMACompressor(lzma.FORMAT_RAW, filters=[f])
+        return struct.pack("<BBH", 9, 4, len(props)) + props
+
+
+def write_zip(records, out_prefix, method="deflate"):
     """ZIP chứa ĐÚNG MỘT file json, không nằm trong thư mục con."""
     os.makedirs(os.path.dirname(out_prefix) or ".", exist_ok=True)
     js, zp = out_prefix + ".json", out_prefix + ".zip"
     with open(js, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, separators=(",", ":"))
-    with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        z.write(js, arcname=os.path.basename(js))
+    # bzip2 đã được leaderboard chấp nhận (07/10, blendQB3x_3k_300_bzip2) và nhỏ hơn deflate ~35%
+    kw = {"bzip2": (zipfile.ZIP_BZIP2, 9), "deflate": (zipfile.ZIP_DEFLATED, 9),
+          "lzma": (zipfile.ZIP_LZMA, None)}[method]
+    orig = zipfile.LZMACompressor
+    zipfile.LZMACompressor = _BigLZMA          # zipfile tạo compressor qua tên này
+    try:
+        with zipfile.ZipFile(zp, "w", kw[0], compresslevel=kw[1]) as z:
+            z.write(js, arcname=os.path.basename(js))
+    finally:
+        zipfile.LZMACompressor = orig
     with zipfile.ZipFile(zp) as z:
         names = z.namelist()
     assert names == [os.path.basename(js)], f"ZIP phải chứa đúng 1 file, đang có {names}"
     return js, zp
+
+
+def load_chunk_scores(path):
+    """{qid: {doc_id(str): {idx: điểm}}} từ chunk_scores.jsonl"""
+    out = {}
+    for l in open(path, encoding="utf-8"):
+        r = json.loads(l)
+        out.setdefault(r["id"], {}).setdefault(str(r["doc_id"]), {})[r["idx"]] = r["score"]
+    return out
 
 
 def load_queries(path):
@@ -159,7 +203,7 @@ def load_queries(path):
 
 
 def build(cands, topk, min_score, store, per_doc, n_queries=N_QUERIES, id_type=str,
-          chunk_from_top=None, extra_one=None, queries=None):
+          chunk_from_top=None, extra_one=None, queries=None, chunk_scores=None):
     """`chunk_from_top`: chỉ lấy chunk từ M doc ĐẦU, dù `relevant_docs` vẫn trả đủ topk.
 
     Hai tầng được chấm ĐỘC LẬP nên tối ưu riêng được. Đo trên leaderboard: DOCS_PRECISION
@@ -172,7 +216,7 @@ def build(cands, topk, min_score, store, per_doc, n_queries=N_QUERIES, id_type=s
         docs = pick(cands.get(qid, []), topk, min_score)
         src = docs[:chunk_from_top] if chunk_from_top else docs
         qt = (queries or {}).get(qid)
-        chunks = fetch_chunks(store, src, per_doc, qt) if store else []
+        chunks = fetch_chunks(store, src, per_doc, qt, (chunk_scores or {}).get(qid)) if store else []
         if store and extra_one and chunk_from_top:
             # tầng 2: doc hạng chunk_from_top..extra_one chỉ lấy 1 chunk (rộng hơn, mỏng hơn)
             chunks += fetch_chunks(store, docs[chunk_from_top:extra_one], 1, qt)
@@ -256,6 +300,10 @@ def main():
                          "Precision chunk cao hơn vì doc hạng cao dễ là nhãn vàng hơn")
     ap.add_argument("--extra-one", type=int, default=None, metavar="N",
                     help="doc hạng (chunk-from-top, N] lấy thêm 1 chunk mỗi doc")
+    ap.add_argument("--zip-method", choices=["deflate", "bzip2", "lzma"], default="deflate",
+                    help="bzip2 nhỏ hơn ~35% (đã được leaderboard chấp nhận 07/10) -> nhét được ~1,5x chunk dưới trần 100 MB")
+    ap.add_argument("--chunk-scores", default=None, metavar="chunk_scores.jsonl",
+                    help="điểm Qwen từng chunk (chunk_rerank.py): doc có >per_doc chunk thì lấy chunk điểm cao nhất")
     ap.add_argument("--chunk-query", default=None, metavar="QUERIES.jsonl",
                     help="chọn chunk KHỚP câu hỏi nhất trong mỗi doc thay vì những chunk đầu")
     ap.add_argument("--int-ids", action="store_true",
@@ -275,7 +323,8 @@ def main():
           f"| doc_id kiểu {id_type.__name__}")
     records = build(cands, args.topk, args.min_score, args.store, args.chunks_per_doc,
                     id_type=id_type, chunk_from_top=args.chunk_from_top, extra_one=args.extra_one,
-                    queries=load_queries(args.chunk_query) if args.chunk_query else None)
+                    queries=load_queries(args.chunk_query) if args.chunk_query else None,
+                    chunk_scores=load_chunk_scores(args.chunk_scores) if args.chunk_scores else None)
 
     errs = validate(records, id_type=id_type)
     if errs:
@@ -284,7 +333,7 @@ def main():
     nd = sum(len(r["relevant_docs"]) for r in records)
     nc = sum(len(r["relevant_chunks"]) for r in records)
     empty = sum(1 for r in records if not r["relevant_docs"])
-    js, zp = write_zip(records, args.out)
+    js, zp = write_zip(records, args.out, args.zip_method)
     print(f"Hợp lệ: đủ {len(records)} câu | {nd:,} doc ({nd/len(records):.1f}/câu) | "
           f"{nc:,} chunk | {empty} câu rỗng")
     fd, fc = fingerprint(records)
