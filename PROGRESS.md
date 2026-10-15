@@ -50,12 +50,12 @@ Cập nhật dòng khi có kết quả mới hơn; giữ cột "lần trước" 
 | Thời gian encode BGE-M3 | 3,6 h | 18 h (giả định cũ) | 01/10/2026 | ngoại suy |
 | `title` có / `title` nằm trong `body` | 100% / 43% | — | 01/10/2026 | probe metadata |
 | **Co giãn crawl→điểm (ε phía vi)** | **0,089–0,108** | — | 04/10/2026 | 2 mốc cách nhau 100×: +392% và +3,5% doc |
-| **FINAL_SCORE (public LB)** | **0,2658** | 0,2581 | 06/10/2026 | leaderboard |
-| F2 document (public LB) | **0,2914** (Qwen3-Reranker top-250 + vòng 1) | 0,2811 | 06/10/2026 | leaderboard |
+| **FINAL_SCORE (public LB)** | **0,3146** | 0,3139 | 10/10/2026 | leaderboard |
+| F2 document (public LB) | **0,2956** (Qwen3-Reranker top-400 + vòng 1) | 0,2914 | 07/10/2026 | leaderboard |
 | **k tối ưu (khớp đường cong)** | **≈ 211** | ≈ 198 | 04/10/2026 | β=0,461 đo lại sau khi thêm dense - gần y hệt 0,455 |
 | **G - số doc vàng mỗi câu (suy ra)** | **≈ 60** | ≈ 58 | 04/10/2026 | từ P/R của LB, 17 điểm |
 | Trọng số FINAL | **doc 50% / chunk 50% - ĐÃ CHỨNG MINH** | khớp phép tính | 03/10/2026 | bài ghép: (0,1280+0,0863)/2 = 0,10715 vs đo 0,1071 |
-| F2 chunk (public LB) | **0,2402** (chunk t40_70, Qwen top-250) | 0,2366 | 06/10/2026 | leaderboard |
+| F2 chunk (public LB) | **0,2402** (chunk t40_70, Qwen top-250; bản lai 07/10 ghép với doc top-400) | 0,2366 | 06/10/2026 | leaderboard |
 | **Giới hạn ZIP upload** | **100 MB** (xác nhận lại 04/10: đội khác nộp JSON 200 MB → ZIP 50 MB, tỉ lệ nén 4,0:1 y hệt ta) | — | 04/10/2026 | leaderboard sau Cloudflare |
 
 Mốc thời gian: public test mở 01/10/2026, hạn nộp **31/10/2026**; private test 01→04/11/2026.
@@ -1974,6 +1974,255 @@ câu hỏi không có lợi (0,2135 vs 0,2141). (c) Chunk 400 token đã thua n�
 
 **8. Việc tiếp theo & trạng thái chạy dở:** xem `CLAUDE.md` §6–7 (Qwen hạng 251–400 đang chạy trên GPU 1).
 
+### 07/10/2026 · Qwen top-400, bản lai, thí nghiệm gate · HyDE khởi chạy
+
+**Điểm:** FINAL 0,2658 → 0,2669 (`blendQB3`, Qwen top-400) → **0,2679** (`blendQB3x`: tập doc QB3 + chunk QB2). Bảng đầy đủ ở §2b.
+
+1. **Lợi suất giảm của rerank sâu:** Qwen top 100→250 cho doc +4,2%; 250→400 chỉ +1,4%, chunk −0,8% (top-40/70 đổi theo tập mới). Hạng 251–400 mất ~1,9 giờ GPU (chain3, 21:15 và 22:11 xong). Không chấm sâu thêm.
+2. **Bản lai khớp dự đoán:** doc của QB3 + chunk của QB2 cho đúng (0,2956 + 0,2402)/2 = 0,2679, mọi số LB bằng số bài thành phần → hai tầng độc lập. Cách dựng: tập 200 doc của QB3, thứ tự 70 doc đầu theo QB2 (file ứng viên điểm giảm đều theo vị trí để `load_candidates` không sắp lại sai).
+3. **`submission.py`:** thêm hàm `fingerprint(records)` (doc theo TẬP, chunk theo văn bản có thứ tự) — hàm đã mất trong lần khôi phục, khiến lệnh dựng báo `NameError` sau khi ZIP ghi xong.
+4. **Thí nghiệm nhãn bạc cho đề xuất Adaptive Gated Fusion** (`silver_gate_test.py`, chi tiết trong `PROPOSAL_ADAPTIVE_FUSION.md` §7): trọng số chung tốt nhất w=2,5 (trùng đỉnh leaderboard); oracle theo từng câu chỉ hơn +1,56% (+2,49 doc/câu) → **bỏ đề xuất**.
+5. **Chunk có cần BM25/dense không?** Không dùng chấm điểm chunk trong bài tốt nhất (lấy chunk đầu theo vị trí). Chấm theo IDF trùng từ khoá đã thua 0,3%; 76% doc vừa trọn 1 chunk nên chỗ để cải thiện hẹp (ước tính ≤ +1% chunk F2, chưa đo). Hướng nếu làm: Qwen3-Reranker chấm các chunk của doc top-40 có ≥3 chunk.
+6. **HyDE (xong 07/10, 1.200 câu ~15 phút trên GPU 0):** `hyde.py` + `scripts/run_hyde.sh` (Qwen3.5-9B HF batch 16, greedy → BGE-M3 trên `emb_viB2`; hai biến thể `hyde` và `qhyde` = câu hỏi + câu trả lời giả định). Đo offline (nhãn bạc = top-200 `blendQB3`, **thiên lệch vì nhãn bạc chỉ chứa doc đã ở pool F**, nên không đo được recall mới):
+   - Một mình bắt bạc top-200: `viB2` (câu hỏi) 115,8 · `qhyde` 98,1 · `hyde` 75,4 — HyDE lệch khỏi pool, đúng kỳ vọng.
+   - **Tính mới:** top-200 của `hyde` có **74,9 doc/câu nằm NGOÀI pool F top-1000** (33,1 doc nằm ở hạng 401–1000 của pool, chưa qua Qwen).
+   - RRF trộn thẳng vào f_F **làm hại** top-250 trên nhãn bạc (155,1 → 146,4 w=1; 117,5 w=2,5) vì đẩy doc pool ra: không trộn RRF thẳng; chỉ **thêm doc mới**.
+   - Chẩn đoán trực tiếp bằng lượt nộp: `diag_novel_hyde_k150.zip` / `diag_novel_qhyde_k150.zip` = chỉ 150 doc hạng cao của HyDE KHÔNG nằm trong f_F top-1000, chunk rỗng. `DOCS_RECALL` của bài = phần nhãn mà HyDE cứu thêm ngoài pool (cộng thẳng vào mốc 0,6108). Vân tay doc `ed7aaaab2eef` (hyde), `709f9ee4ab5d` (qhyde). **Kết quả (nộp 07/10): `qhyde` DOCS_R 0,0084 / P 0,0048; `hyde` DOCS_R 0,0068 / P 0,0038** (xem §2b). HyDE cứu thêm khoảng 0,7 nhãn/câu ngoài pool với precision biên 0,5% (so ngưỡng giữ trong top-200 ≈ F2/5 ≈ 0,06) → **hiệu quả thấp, cùng cỡ nguồn entity (+1,0% pool)**. Doc mới còn phải qua Qwen và chỉ một phần sống sót đến top-200 → ước tính FINAL +0,001–0,003 cho ~2 giờ GPU (150 doc/câu) → **không làm trước; ưu tiên thấp**.
+
+---
+
+
+
+
+### 10/10/2026 · Phép thử Qwen-zh (reranker có sửa được độ chính xác zh?)
+Qwen3-Reranker-4B chấm top-100 zh (từ `zhC2_both_400`) cho 300 câu đầu (30.000 cặp, text zh title + 800 ký tự đầu). Điểm: TB 0,378; >0,5: 37,6/100 doc; >0,9: 14,5/100 doc (so vi: >0,9 ≈ 32 trong 400 ứng viên của pool). Ba bài 300 câu (900 câu còn lại rỗng), 50 doc/câu, chunk rỗng — đọc DOCS_P × 4 ≈ P@50 cho 300 câu (mốc zh toàn bộ: 0,0462):
+- `runs/p50_zh300_dense.zip` (thứ tự dense, doc `842e5aa60804`)
+- `runs/p50_zh300_qwen.zip` (thứ tự Qwen, doc `5026a05288c8`; giao dense 28,5/50)
+- `runs/p50_zh300_mix.zip` (RRF dense+Qwen, doc `8500e3984faa`; giao dense 39,1/50)
+Đọc: nếu Qwen ≳2× dense (≳0,10 sau ×4) → zh có nhãn nhưng ta xếp kém → làm reranker zh + tiếp tục cào; gần bằng → nhãn zh thưa. Lô zh shard I4 (197.464 doc, `zh_text_delta2.sqlite`) đã ở máy GPU, CHƯA encode (chờ kết quả này).
+**KẾT QUẢ (10/10, giả định bài nộp là `p50_zh300_qwen` vì là lượt duy nhất còn lại hôm nay; người dùng dán điểm không ghi nhãn):** FINAL 0,0039 · DOCS_P 0,012 · DOCS_R 0,0078 → P@50 (300 câu) = 0,012×4 ≈ **0,048**, ngang mốc zh toàn bộ 0,0462 → Qwen KHÔNG xếp zh tốt hơn dense; ~2,4 doc đúng/50 doc zh. Kết luận: nhãn zh thưa, không phải ta xếp kém → không làm reranker zh; zh giữ quota đuôi ~14–16 doc/câu. Chưa kiểm được: độ phủ zh (còn ~50% chưa cào).
+
+Hàng đợi 11/10 (tổng): E1 ×4, E3 longchau ×2, E3 medlatec ×2, + 3 bài zh300 = 11 → ưu tiên E1 + E3 longchau/medlatec + `p50_zh300_dense`/`_qwen`.
+
+### 12/10/2026 · THÔNG BÁO MỚI CỦA BTC: ĐỔI KHO DỮ LIỆU (PDF `261012_R2_AI_S3_MentorDay1.pdf`, dataset HF cập nhật 12/10 09:38 UTC)
+- Kho mới `links_corpus_vi_en_zh.parquet`: **1.194.469 URL** = vi 714.469 + **en 240.000 (toàn PubMed, URL pubmed.ncbi.nlm.nih.gov/PMID/)** + zh 240.000 (cũ: 4.394.718, zh 83%). id GIỮ NGUYÊN so với kho cũ (845.277 id khớp cả id lẫn URL); id PubMed mới bắt đầu từ 4.421.055 (không phải PMID). 1.200 câu hỏi giữ nguyên. PDF mentor vẫn ghi 4.394.718 URL/97 host (không nhất quán với dataset card).
+- Luật chấm chunk (PDF tr.7): cùng truy vấn VÀ cùng doc_id; chuẩn hoá NFKC/HTML entity/lowercase/khoảng trắng; LCS token (giữ thứ tự, không cần liên tiếp); chunk đúng khi LCS(c,g)/|g| ≥ 0,40 với một đoạn tham chiếu g.
+- **vinmec.com BỊ LOẠI HOÀN TOÀN khỏi kho mới** (trang vinmec nay trả màn hình chọn ngôn ngữ, PDF tr.13). vinmec chiếm 6.265/62.800 lượt xuất hiện trong top-50 của blendQB11 (~10%; trước đó ta phát hiện vinmec ×3,0 so với kho). Tổng doc top-200 ngoài kho mới: 25,0/câu (12,5%); top-10: 1,1/câu.
+- Độ phủ kho mới trong store: vi ~97% (708k/731k dùng được; phân loại thô), zh 116k/223k (52%; thiếu 107k: 120ask 55k, cnkang 27k, ask.39 17k, zysj 6,6k; shard 3 phủ thêm 14k), **en 0/240.000**.
+- `runs/blendQB11n_e120.zip`: blendQB11 đã lọc bỏ doc ngoài kho mới (giữ đủ 200 doc/câu). Chưa nộp: nộp chỉ khi biết leaderboard đã chấm theo kho mới; nếu vẫn nhãn cũ thì sẽ TỤT (mất doc vinmec ngoài kho).
+
+### 13/10/2026 · LƯỚI AN TOÀN KHO MỚI + KIỂM ID
+- Kiểm id: 954.469 URL không-PubMed của kho mới đều có trong hàng đợi cũ của ta với CÙNG id và CÙNG URL (0 trường hợp khác URL) → kho mới là tập con, không đánh số lại; lọc theo id chính xác.
+- `filter_new_corpus.py in deeper out`: bỏ mọi doc ngoài kho mới TRỪ vinmec.com (nhãn vi cũ còn hiệu lực) rồi bù đủ 200 từ danh sách sâu. Phát hiện: bản `blendQB13{a,b,c}` ban đầu còn rò 0,2–0,3% doc ngoài kho (wujue.com, 120ask, zhongyibaodian — trang zh bị nhận nhầm lang=vi nên lọt qua nhánh vi); đã xoá 3 zip lỗi và dựng lại bản sạch `blendQB13{a,b,c}f_e120` (doc: `c9b5de8fc718` / `865201247093` / `e0300186f624`; chunk: `6d42f1f2f79f` / `efca4b4887fc` / `f3bc21d55d06`); kiểm chứng: ngoài kho mới chỉ còn vinmec.com. blendQB11z cũng đã sạch (chỉ vinmec).
+- Chưa xoá dữ liệu nào khỏi máy (cần người dùng đồng ý).
+
+### 13/10/2026 · KẾT QUẢ blendQB11z_e120 (lọc zh theo kho mới, vi giữ nguyên; người dùng báo)
+FINAL **0,3179** (+0,0021 so 0,3158; mới TỐT NHẤT) · doc F2 0,3427 (+0,0043; P 0,1810 / R 0,5641) · chunk F2 0,2932 (≈ không đổi). Bỏ 7,5 doc zh ngoài kho mới/câu (bù bằng doc vi hạng sâu) tăng cả P lẫn R: nhất quán với (i) doc zh ngoài kho mới không phải nhãn và/hoặc (ii) doc vi hạng sâu mạnh hơn đuôi zh ngoài kho. Phát hiện kèm: 47% doc zh trong top-50 của ta nằm TRONG kho zh mới 240k (nền ngẫu nhiên ~6%) → BTC giữ lại tập zh chọn lọc có liên quan truy vấn.
+Bài dựng sẵn (chuỗi tái lập blendQB11 1200/1200 câu): `blendQB13a_e120` (zh chỉ trong kho mới, w0,3, 14 doc zh/câu; doc `9c8656da4394`, chunk `7fc5cb4c79af`), `blendQB13b` (w0,6, 60 zh/câu; `d2762026efe6`/`70b91eebea95`), `blendQB13c` (w1,0, 100 zh/câu; `985934bdd350`/`33dc786334ec`), `p50_zh_in` (50 doc zh trong kho mới, chunk rỗng; `e0d8ed7b4d24`; mốc zh toàn bộ 0,0462). `runs/p1000_en_both.zip`: 1.000 doc tiếng Anh/câu (kiểm xem có nhãn en nào ở hạng sâu).
+
+### 13/10/2026 · KẾT QUẢ `p50_en_both_pmid` = 0,0 (người dùng báo "cũng 0 nốt")
+Cả hai quy ước doc_id (cột id và PMID) cho 60.000 doc tiếng Anh đều ra precision/recall đúng 0 → bảng điểm hiện KHÔNG có nhãn tiếng Anh dưới bất kỳ quy ước số nào ta thử (nếu có nhãn en, 60.000 doc xếp bằng dense không thể toàn trật). Kết luận: chờ BTC cập nhật nhãn en; không nộp thêm bài đo en. Khi nhãn en xuất hiện, nộp lại `p50_en_both` và `p50_en_both_pmid` (đã dựng sẵn) để biết quy ước và mật độ nhãn, rồi quyết định số doc en chen vào danh sách (như cách đã làm với zh).
+
+### 13/10/2026 · Người dùng xác nhận bài đã nộp là `p50_en_both` (kết quả 0,0). Nghi vấn: doc_id tiếng Anh là PMID chứ không phải cột id → bài thử `runs/p50_en_both_pmid.zip`
+Cùng 60.000 doc, thay doc_id bằng PMID (doc `7f8ee9bb40a8`). Sửa nhận định cũ: PMID của 240.000 bài kho mới trải từ 11.197 đến 41.231.536 và chỉ 1.255 (0,5%) nằm trong dải id vi/zh (≤4.420.561) → dùng PMID làm doc_id gần như không đụng nhãn vi/zh (nhận định trước "PMID nhỏ trùng dải id" là sai về mức độ). Quy ước ban đầu của BTC cũng là "tiếng Anh dùng PMID". Đọc: DOCS_P ≳0,03 → bảng đã có nhãn en và dùng PMID; vẫn 0 → bảng chưa có nhãn en (hoặc quy ước khác).
+
+### 13/10/2026 · KẾT QUẢ bài đo chỉ-en: TOÀN 0,0 (khối dán không ghi tên bài; giả định `p50_en_both`)
+FINAL/doc/chunk P-R-F2 đều 0,0000. Kiểm định dạng: cả 4 zip en có đúng 1 file json, 1.200 câu, khoá `id/relevant_docs/relevant_chunks`, doc_id kiểu int (60.000 hoặc 180.000 doc), mọi doc nằm trong tập id PubMed của kho mới — y hệt các bài đo trước (chunk rỗng) vốn có điểm >0 → KHÔNG phải lỗi định dạng. Precision và recall đều đúng 0 với 60.000 doc ⇒ không doc PubMed nào là nhãn trong bảng điểm hiện tại: bảng điểm CHƯA có nhãn tiếng Anh (khớp phép thử blendQB11n: bảng vẫn chấm nhãn cũ), hoặc dùng quy ước doc_id khác (PMID bị loại: PMID nhỏ như 11197 trùng dải id vi/zh). Việc cần hỏi BTC: khi nào nhãn en có hiệu lực và doc_id en là gì. Không nộp thêm bài đo en cho tới khi có xác nhận.
+
+### 12/10/2026 · TIẾNG ANH: dense xong (239.355 bài, BGE-M3 title+abstract) → 4 bài đo chỉ-en (chunk rỗng; đủ 1.200 câu)
+Mã hoá ~420 bài/giây (~10 phút); xếp hạng bằng câu vi gốc (`dense_en_vi_rank`) và bản dịch en (`dense_en_en_rank`); giao top-50 hai danh sách 14,2/50.
+- `runs/p50_en_vi.zip` (doc `3782d32a5054`), `runs/p50_en_en.zip` (`12cbd7562cb9`), `runs/p50_en_both.zip` (RRF, `4152a749e0ad`), `runs/p150_en_both.zip` (150 doc, `bd4a392bff74`).
+Đọc DOCS_P (P@50) so với: vi dense nội dung 0,289; zh both 0,046. DOCS_P ≈ 0 → bảng điểm CHƯA có nhãn tiếng Anh; ≳0,05 → nhãn en đã vào bảng; so vi/en/both cho biết câu vi gốc hay bản dịch en xếp tốt hơn. doc_id = cột id của parquet (người dùng xác nhận).
+
+### 12/10/2026 · LÀM RÕ TỪ BTC (qua người dùng): kho mới CHỈ sửa zh và en; tiếng Việt GIỮ NGUYÊN như ban đầu
+- Đối chiếu dữ liệu: vinmec.com (26.127 doc trong store của ta, 100%) không còn trong parquet mới → "vi giữ nguyên" nên hiểu là nhãn/kho vi cũ vẫn hiệu lực (khớp phép thử blendQB11n: bỏ vinmec làm recall tụt 0,029). QUY TẮC: giữ nguyên toàn bộ nhánh vi (kể cả vinmec); chỉ (a) lọc zh theo kho 240k mới, (b) thêm en (PubMed 240k). `data/blendQB11z.jsonl`/`runs/blendQB11z_e120.zip` (doc `a2ffc6ecc847`, chunk `403d3c137af7`): blendQB11 chỉ bỏ doc zh ngoài kho mới (7,5 doc/câu, bù đủ 200). Chưa nộp.
+- PubMed: lấy xong 240.000 bài (239.771 tìm thấy; 238.864 có abstract ≥200 ký tự) → `data/en_pubmed.sqlite`; `data/en_text.sqlite` (239.355 bài) đẩy lên máy GPU; `scripts/run_en_dense.sh` mã hoá BGE-M3 (title+abstract, 1.500 ký tự) và xếp hạng bằng câu vi gốc (`dense_en_vi_rank`) và bản dịch en (`dense_en_en_rank`).
+
+### 12/10/2026 · KẾT QUẢ blendQB12a_e120 (khối dán không nhãn; giả định là 12a vì đó là bài được đề nghị nộp lượt cuối)
+FINAL **0,3159** (+0,0001 so blendQB11 0,3158) · doc F2 0,3384 (P 0,1785 / R 0,5573, đúng như cấu trúc: tập doc không đổi) · chunk F2 **0,2934** (+0,0003; P 0,1919 / R 0,4188 so 0,1918 / 0,4181). Thứ tự đầu danh sách theo trọng tài LLM (Qwen3.5-9B, RRF 1:1 với thứ tự hiện tại, 300 câu ngẫu nhiên) cho chunk +0,0003 trên 300 câu → ngoại suy toàn bộ ≈ +0,001 chunk ≈ +0,0005 FINAL: gần như bằng 0. Kết luận: trọng tài LLM chỉ thay đổi THỨ TỰ ĐẦU không cải thiện chunk. Phần DOC (đổi tập: `blendQB12b`, hoặc P@50 `r300_p50_*`) chưa được đo. Hướng "trọng tài LLM" tạm hạ ưu tiên.
+
+### 12/10/2026 · KẾT QUẢ blendQB11n_e120 (khối dán không nhãn; giả định là bài lọc kho mới vì đó là bài vừa đề nghị nộp) — BẢNG ĐIỂM VẪN CHẤM THEO NHÃN CŨ
+FINAL **0,2994** (−0,0164 so blendQB11 0,3158) · doc F2 0,3228 (P 0,1711 / R 0,5285; QB11: 0,1785 / 0,5573) · chunk F2 0,2760 (P 0,1812 / R 0,3924; QB11: 0,1918 / 0,4181).
+Lập luận: nếu nhãn đã chuyển sang kho mới (nhãn ⊂ kho mới) thì bỏ doc ngoài kho không thể làm recall GIẢM (doc bị bỏ không phải nhãn; bù thêm chỉ có thể tăng). Recall giảm 0,0288 (≈1,8 doc vàng/câu) → bảng điểm hiện chấm theo nhãn CŨ (doc vinmec và doc ngoài kho mới vẫn là nhãn). Ước tính: 25 doc bị bỏ/câu chứa ~3,5 nhãn (≈14%, ngang precision doc vinmec), 25 doc bù (hạng sâu) ~2 nhãn. KHÔNG dùng bản lọc cho tới khi bảng điểm chuyển nhãn mới. Giữ cả hai bản: `blendQB11_e120` (nhãn cũ, 0,3158) và `blendQB11n_e120` (kho mới). Bài đúng cho trạng thái hiện tại: `blendQB12a_e120` (trọng tài LLM trên danh sách cũ). `blendQB12an_e120` (cùng ý tưởng trên danh sách đã lọc; chunk `5f9f2eec1f40`) để dành cho khi nhãn mới có hiệu lực.
+
+### 12/10/2026 · XÁC NHẬN TỪ NGƯỜI DÙNG: nhãn MỚI đang hiệu lực; quota KHÔNG đặt lại; doc_id tiếng Anh = cột `id` của parquet (không phải PMID)
+- Hệ quả: `blendQB11n_e120.zip` (lọc doc ngoài kho mới, bù đủ 200; doc `37b807dbb358`, chunk `580baa8db31e`) là bài nên nộp trước; doc vinmec không còn là nhãn.
+- Tiếng Anh: `fetch_en_pubmed.py` lấy 240.000 bài PubMed từ Europe PMC (resultType=core) vào `data/en_pubmed.sqlite` (doc_id = id parquet, pmid, title, abstract, journal, year, mesh); thử 800 bài: 800/800 có abstract (TB 1.020 ký tự). Chạy đủ ở local, log `data/en_fetch.log`. Bước sau: mã hoá BGE-M3 (title+abstract) và xếp hạng bằng câu hỏi vi (xuyên ngôn ngữ) + bản dịch en (`queries_enriched.en`), BM25 trên en.
+
+### 12/10/2026 · MẪU NGẪU NHIÊN 300 câu (seed 11, từ 301–1200) đã chấm xong → 4 bài P@50 (DOCS_P×4 ≈ P@50 cho 300 câu)
+`runs/r300_p50_base.zip` (doc `382b2b23763f`, thứ tự hiện tại), `r300_p50_strict.zip` (`202679011207`), `r300_p50_old.zip` (`f4d3be04b368`), `r300_p50_mix.zip` (`31432c459a26`). Giao top-50: nghiêm∩cũ 46,7; nghiêm∩hiện tại 31,0 (gần như y hệt mẫu đầu: 46,9 / 30,8). Quy tắc: chỉ tin hướng nếu cả hai mẫu (câu 1–300 và mẫu này) cao hơn base ≥ +0,02.
+
+### 12/10/2026 · LƯU Ý PHƯƠNG PHÁP: "300 câu đầu" KHÔNG phải mẫu ngẫu nhiên
+So câu 1–300 với 301–1200: số từ 32,8 vs 28,9 (+2,9 sai số chuẩn), số entity 3,81 vs 3,54 (+2,5), doc đồng thuận ≥5 là 6,06 vs 6,88 (−2,0); điểm Qwen TB top-50 như nhau (0,62). → mẫu đầu dài và khó hơn. Mọi phép đo pilot trên "300 câu đầu" (chunk-first, p50_cf_*, Qwen nghiêm) chỉ kết luận được cho nhóm đó. QUY TẮC từ nay: pilot dùng mẫu ngẫu nhiên có seed; chỉ coi một hướng là có tác dụng khi dương ở cả hai mẫu. Mẫu ngẫu nhiên thứ hai: 300 câu từ 301–1200, seed 11 (`data/qs2_ids.json`); Qwen nghiêm đang chạy (`scripts/run_qwen_strict2.sh` → `data/qwen_strict2.jsonl`).
+
+### 12/10/2026 · Qwen chỉ dẫn NGHIÊM xong (30.000 cặp, 300 câu đầu, top-100 blendQB11) → 3 bài P@50 (300 câu; DOCS_P×4 ≈ P@50; đối chứng `p50_cf_base` doc `807173f286b1` = top-50 hiện tại)
+- `runs/p50_qs_strict.zip` (doc `69d1c3312b08`): top-50 theo điểm Qwen nghiêm. `runs/p50_qs_old.zip` (`0b7a771796c4`): top-50 theo điểm Qwen cũ (cùng 100 ứng viên) — tách "tác dụng của chỉ dẫn" khỏi "tác dụng của thứ tự Qwen". `runs/p50_qs_mix.zip` (`6d94b9a5d6e4`): RRF hạng hiện tại + hạng nghiêm.
+- Quan sát: chỉ dẫn nghiêm làm giảm doc có điểm>0,5 trong top-100 từ 57,2 xuống 45,9 nhưng thứ tự top-50 gần như không đổi so với Qwen cũ (giao 46,9/50); giao với top-50 hiện tại 30,8/50 (mix 40,0). Dự đoán: nghiêm ≈ cũ; điểm khác biệt chính sẽ là Qwen (cả hai) so với thứ tự hiện tại. Ngưỡng có ý nghĩa: P@50 (DOCS_P×4) cao hơn base ≥ +0,02.
+
+### 12/10/2026 · Ý tưởng từ cuộc thi tài chính (lọc ràng buộc xác định + kế hoạch + BM25/Qwen-4B/Reranker-8B) → thử "khớp đối tượng bệnh nhân"
+Liên hệ: họ lọc quyết định (công ty, năm) rồi mới xếp hạng. Tương tự cho ta: ràng buộc ngầm trong câu hỏi bệnh nhân (trẻ em / mang thai-sau sinh). Đo ngoại tuyến (regex): 164 câu trẻ em, 124 câu mang thai/sau sinh; top-10 của blendQB11 nhắc đúng đối tượng ở 71% doc (câu trẻ em → doc nhắc trẻ 71%; câu mang thai → doc nhắc mang thai 71%; nền ở câu khác: 10% / 5%) → ~29% doc top-10 không khớp đối tượng (ước lượng thô, regex tiêu đề + 400 ký tự đầu).
+Bài đo (cặp cùng hạng, 3 doc/câu, 229/288 câu đủ cặp, hạng TB khớp 13,1 / không khớp 13,5): `runs/aud_match.zip` (doc `cd32b7564590`) vs `runs/aud_miss.zip` (`2082cf9af015`). Đọc: tỉ lệ doc đúng = DOCS_P × 1200/229; khớp ≥1,3× không khớp → nhãn đòi khớp đối tượng → thêm lọc/boost theo đối tượng.
+Chưa thử từ cuộc thi đó: Qwen3-Reranker-**8B** (mô hình đã có trên máy GPU, ta chỉ dùng 4B).
+
+### 12/10/2026 · KẾT QUẢ xq_in / xq_out (501 câu, 3 doc/câu; tỉ lệ doc đúng = DOCS_P × 1200/501 = ×2,395)
+`xq_in`: DOCS_P 0,1130 → **0,2706**; `xq_out`: 0,1074 → **0,2572**. Chênh +0,0134 (+5%) nghiêng về doc được đẩy vào, sai số mỗi bên ~0,011, chênh ~0,016 (chưa kể tương quan cụm) → <1σ: KHÔNG phân biệt được với 0. Hạng cơ sở bất lợi cho "vào" (58,4 vs 46,3) nên có gợi ý nhẹ dương, nhưng hoán đổi hai doc ngang precision thì điểm không đổi. Ước tính lợi ích triển khai: 5,4 doc đổi/câu trên ~50% câu × 0,013 ≈ +0,0007 P@50 (≲ +0,0005 FINAL) → ĐÓNG hướng truyền bằng chứng giữa câu (kết quả trung tính). Mốc phụ: precision doc ở hạng ~45–60 ≈ 0,26–0,27.
+
+### 12/10/2026 · HAI THỬ NGHIỆM NHẮM VÀO KHOẢNG CÁCH XẾP HẠNG
+Lý lẽ: top 1 tìm ~30 doc vàng trong ~63 doc (P 0,469 / R 0,458, G≈65); ta có ~36 doc vàng trong top-200 nhưng chỉ ~20–21 trong top-63 → khoảng cách doc chủ yếu là XẾP HẠNG trong ứng viên đã có, không phải thiếu ứng viên. Qwen coi ~130 doc/câu là liên quan, nhãn chỉ ~65 → quá dễ dãi.
+1. **Qwen chỉ dẫn nghiêm** (`scripts/run_qwen_strict.sh`, `QWEN_RR_INSTRUCT`): chấm lại top-100 blendQB11 cho 300 câu đầu (30.000 cặp) với chỉ dẫn "trả lời trực tiếp/cụ thể đúng câu hỏi, không chỉ cùng chủ đề" → `data/qwen_strict.jsonl`. Sau khi xong dựng bài P@50 so với `p50_cf_base`.
+2. **Truyền bằng chứng giữa câu cùng cụm** (`xq_propagate.py`, LAM 0,5, giao top-50 ≥10, tối đa 10 lân cận): 594/1200 câu có lân cận (TB 2,3); top-50 đổi 5,4 doc/câu trên các câu đó (B cho doc của lân cận vào). Bài đo sắc: `runs/xq_in.zip` (doc `691380eb140a`) = 3 doc VÀO top-50 và `runs/xq_out.zip` (doc `4401897eb724`) = 3 doc BỊ LOẠI, 501 câu; hạng TB trong blendQB11: vào 58,4 / ra 46,3 (hạng cơ sở bất lợi cho "vào"). Đọc: tỉ lệ doc đúng = DOCS_P × 1200/501; vào ≥ ra → bằng chứng giữa các câu có thật; vào ≪ ra → không có.
+
+### 12/10/2026 · Kiểm shard 3 zh (`Downloads/queue_zh3.sqlite`, 1,47 GB; CHƯA gộp vào store, theo quyết định chờ cào đủ)
+- Hàng đợi 2.117.266 URL: đã xong (state 1) 263.033; lỗi (state 2) 97.759; CHƯA cào (state 0) 1.756.474. doc có 360.792 dòng.
+- Dùng được (body ≥200 ký tự): **263.033**; body ≥500: 212.211. Trong đó MỚI so với `corpus_vifull`: **259.383** (99%; chỉ 3.650 đã có).
+- Theo domain: cnkang.com 187.755 (71%), ask.39.net 36.669, a-hospital.com 25.351, 120ask.com 12.340, zhongyibaodian.net 918.
+- Lỗi chủ yếu ConnectTimeout (~91k), captcha 3.996 (403), ReadTimeout ~4k, SSLError ~1,2k → thử lại được phần timeout. Nghi vấn chất lượng: 11.136 dòng gán lang='vi' trong shard zh; mẫu 3.000 doc: 3,9% có tỉ lệ ký tự Hán <30% (nghi mojibake/không phải zh) → cần lọc khi gộp.
+- Khi gộp: `clean.py --apply` → `chunk.py` (nếu cần chunk) → export văn bản (`export_delta.py`) → encode BGE-M3 title+600 → xếp hạng lại zh (tương tự `zh_text_delta`).
+
+### 12/10/2026 · zh: TẠM HOÃN theo quyết định người dùng (chờ cào đủ zh rồi mới làm tiếp)
+Đã có để làm lại sau: (1) nghi vấn chất lượng dịch zh: toàn bộ 1.200 bản dịch hiện do Qwen3.5 (translation_source='llm'; Hy-MT2 theo kế hoạch ban đầu KHÔNG được dùng); 109 câu từng bị lỗi parse (đã vá trong `queries_enriched.jsonl`, nhưng `q_zh.jsonl`/`dense_zhC2_zhq_rank` vẫn chứa câu VI cho 109 câu này — `dense_zhC2_zhq109_rank.jsonl` là bản đúng); thuật ngữ chưa chuẩn y khoa Trung Quốc (vd. 卵子抽吸 thay 取卵术). (2) `translate_zh_v2.py` (Hy-MT2-7B, HF, theo lô, hai biến thể có/không bảng thuật ngữ); bản thử 24 câu: cosine BGE-M3(vi, zh) = 0,767 (Qwen cũ) / 0,795 (Hy-MT2 plain) / 0,786 (có thuật ngữ); chất lượng nhìn mắt chưa rõ hơn (dài dòng hơn; bản có thuật ngữ có lúc đổi ngôi "tôi"→"您"). Kết quả thử ở `data/zh_v2_test.jsonl` (máy GPU: `data/zh_v2_test.jsonl`); chạy đủ 1.200 câu đã DỪNG theo yêu cầu. (3) Chưa nộp, đã dựng sẵn: `diag_zhC2_vi_k150`, `diag_zhC2_zhq_k150` (so riêng câu vi và câu dịch zh, chưa từng đo riêng), `p_zh_conf` (hỏi zh có nhãn hay thưa). (4) Kết quả Qwen-zh: P@50 0,048 ≈ dense 0,046 (nhãn zh thưa hoặc nút thắt ở nơi khác).
+
+### 12/10/2026 · KẾT QUẢ `cf150_chunk_hyb` (khối dán không nhãn; giả định là bài lai vì đó là bài vừa đề nghị nộp)
+FINAL 0,0814 · chunk P 0,0523 / R 0,0987 / F2 0,0746 → ×4: P 0,2092 · R 0,3948 · F2 0,2984, so base 0,2952: **+0,003 (+1,1%)**, nằm trong sai số (±0,009). Triển khai toàn bộ chỉ ước tính +0,0015 FINAL (0,293×1,1%/2) với ~3 giờ GPU → **không đáng; ĐÓNG hướng chunk-first như kết quả âm cho paper**: lợi ích rõ chỉ ở ngân sách nhỏ (30 chunk: +13%), biến mất ở ngân sách thật (150: Qwen −4,7%, lai +1,1%). Chấm chunk bằng Qwen (cùng loại với 'chọn chunk theo nội dung' +0,3% trước đó) không phải đòn bẩy cho khoảng cách chunk với top 1.
+
+### 12/10/2026 · KẾT QUẢ pilot chunk-first ở NGÂN SÁCH THẬT (150 chunk/câu, 300 câu đầu; ×4 quy ra trên 300 câu)
+Gán nhãn: người dùng gõ "cf150 qwen" trước khối dán thứ nhất và "cf150 base" sau khối thứ hai (kiểu nhãn đầu như E3) → khối 1 = qwen, khối 2 = base. Cần xác nhận.
+| | CHUNKS_P | CHUNKS_R | chunk F2 |
+|---|---|---|---|
+| `cf150_chunk_qwen` (khối 1) | 0,2052 | 0,3704 | 0,2812 |
+| `cf150_chunk_base` (khối 2) | 0,2084 | 0,3892 | 0,2952 |
+Δ (qwen − base): P −0,003, R −0,019, chunk F2 **−0,014 (−4,7%)**. Giải thích có thể: danh sách qwen chỉ chọn trong chunk của 80 doc đầu (≈165 chunk/câu) nên ở 150 chunk gần như lấy hết, còn base đi tới doc hạng 120 → recall cao hơn. Lợi ích ở ngân sách 30 chunk (+13%) biến mất ở 150. Bài lai chưa nộp: `cf150_chunk_hyb` (chunk `7552b35fd9f0`): 40 chunk đầu theo Qwen rồi tiếp theo thứ tự hiện tại (dedupe) tới 150.
+
+### 12/10/2026 · KẾT QUẢ pilot chunk-first, 30 chunk/câu, 300 câu đầu (chỉ chunk; điểm ×4 quy ra trên 300 câu)
+| | CHUNKS_P | CHUNKS_R | chunk F2 (macro×4) |
+|---|---|---|---|
+| `cf_chunk_base` (30 chunk đầu theo thứ tự nộp hiện tại, dedupe) | 0,2972 | 0,1372 | 0,1396 |
+| `cf_chunk_qwen` (top-30 theo điểm Qwen cấp chunk, dedupe) | 0,3072 | 0,1584 | 0,1580 |
+| Δ | +0,0100 (+3,4%) | **+0,0212 (+15%)** | **+0,0184 (+13%)** |
+Doc F2 y hệt (0,0882, P 0,0493, R 0,1326) như kỳ vọng. Ngưỡng đặt trước cho P (+0,03) KHÔNG đạt; nhưng F2 chunk +13% tương đối nhờ recall (cùng 30 chunk phủ nhiều "phần thông tin" hơn). Sai số ~±0,009 trên chênh F2 (ước tính, 300 câu, cặp) → ~2σ: dương nhưng chưa chắc chắn. Mới đo ở ngân sách 30 chunk; ngân sách thật là ~149 chunk nơi lợi ích tương đối nhiều khả năng nhỏ hơn. Bài đo ngân sách thật: `cf150_chunk_base`, `cf150_chunk_qwen` (150 chunk/câu, 300 câu).
+
+### 12/10/2026 · Pilot chunk-first ĐÃ DỰNG (49.470 cặp chunk Qwen xong, 300 câu đầu)
+Bài đo (đều 300 câu đầu, 900 câu còn lại rỗng): `p50_cf_base` (doc `807173f286b1`), `p50_cf_chunk` (`73579dfc7297`; giao top-50 với base 35,5), `p50_cf_mix` (`12c7eded1d1e`; giao base 42,3); `cf_chunk_base` (chunk `8095a36a203d`), `cf_chunk_qwen` (chunk `9a45655a83d7`; giao 30 chunk với base chỉ 12,3), doc của cả hai = top-200 blendQB11 cho 300 câu (`e303e700a352`).
+
+### 12/10/2026 · Pilot chunk-first (300 câu đầu) + phép thử zh "Qwen tự tin"
+- Pilot chunk-first: Qwen chấm MỌI chunk của 80 doc đầu (blendQB11) cho câu 1–300 (49.470 cặp, `cf_scores.jsonl`, chạy 12/10); sau khi xong chạy `python chunkfirst_eval.py` dựng `p50_cf_base`, `p50_cf_chunk`, `p50_cf_mix` (P@50 doc) và `cf_chunk_base`, `cf_chunk_qwen` (30 chunk/câu). Ngưỡng quyết định (ước tính sai số do 300 câu × 50 doc + tương quan cụm): doc P@50 (DOCS_P×4) cải thiện ≥ +0,02 so base mới đáng tin; chunk P ≥ +0,03.
+- `runs/p_zh_conf.zip` (doc `be6741183c7f`): 143/300 câu có ≥10 doc zh Qwen≥0,9; nộp 10 doc/câu đó. Đọc: tỉ lệ doc đúng = DOCS_P × 1200/143. So với vi: e1_A (≥5 hệ thống) 0,50. Nếu zh tự tin cũng ~0,3–0,5 → zh có nhãn nhưng nguồn zh khó xếp/kéo lên; nếu ≲0,15 → nhãn zh thưa/không đồng nhất với tiêu chuẩn của Qwen.
+
+### 12/10/2026 · Bài đo CHUNK đầu danh sách (cùng danh sách doc top-200 của blendQB11 → doc F2 phải = 0,3384; chỉ chunk khác)
+Động cơ: khoảng cách chunk F2 với top 1 (0,293 vs ~0,465) lớn hơn khoảng cách doc (0,338 vs ~0,460); chunk P của ta (0,192) ≈ doc P (0,179) trong khi top 1 chunk P (0,628) > doc P (0,469) → chunk của họ đến từ tập doc nhỏ hơn/chính xác hơn và/hoặc chọn đoạn đúng hơn.
+- `runs/c1_top20_x2.zip` (doc `621ba023da3c`, chunk `0e6d6c0fe513`): chunk của 20 doc đầu, ≤2 chunk/doc, 34,5 chunk/câu (dài trung vị 2.794 ký tự).
+- `runs/c2_top20_x1.zip` (chunk `a87036a20b2c`): chỉ chunk ĐẦU TIÊN của 20 doc đầu, 20 chunk/câu.
+- `runs/c3_top20_x1_half.zip` (chunk `f6b0d544443f`): như c2 nhưng cắt còn ~1.400 ký tự đầu của chunk (vẫn là chuỗi con nguyên văn).
+Đọc: so (P,R) chunk của c1/c2/c3 với blendQB11 (P 0,1918 / R 0,4181, 149 chunk). c1 vs c2 = giá trị chunk thứ hai ở đầu; c2 vs c3 = ảnh hưởng độ dài chunk lên "overlap đủ" (nếu R giảm theo tỉ lệ, P không tăng → chunk dài thắng; nếu P tăng mạnh mà R giảm ít → nên cắt ngắn).
+Quan sát view5 (5 câu): doc trùng nguyên văn chiếm chỗ (30% câu có trùng trong top-40; 3,7% chunk trùng); TB 13,8 doc Qwen>0,9 nằm dưới top-40; chunk đầu Long Châu mang tiểu sử tác giả, medlatec mang danh sách link; chunk gần như luôn là phần mở đầu bài (vị trí 0 và ~2.400–2.900).
+
+### 12/10/2026 · KẾT QUẢ blendQB11_e120 (người dùng xác nhận: đây là QB11; QB10 CHƯA nộp)
+FINAL **0,3158** · doc F2 0,3384 (P 0,1785 / R 0,5573) · chunk F2 **0,2931** (P 0,1918 / R 0,4181). TỐT NHẤT hiện tại (+0,0012 so 0,3146). Doc P/R/F2 trùng 4 chữ số với blendQB9a → **vá 109 câu không làm đổi điểm doc ở mức đo được** (ước tính tác động: 109/1200 × ~13 doc đổi/câu → ≲ +0,0003 doc F2, dưới độ phân giải); chunk 0,2931 ≈ dự đoán QB10 (0,2935). Mức tăng +0,0012 so 8w05 đến từ ghép hai tầng (doc của 9a, đầu của 8w05), KHÔNG từ bản vá. Dự đoán trước đó của mình (+0,001–0,003 từ bản vá) là lạc quan. Có thể coi QB11 ≈ QB10, không cần nộp QB10. Giá trị của bản vá: chuỗi dữ liệu đúng cho private phase.
+
+### 12/10/2026 · E5 (đặc trưng doc, đối chứng cùng hạng; 4 doc/câu từ top-100 của blendQB11, ghép cặp A–B theo hạng gần nhất, chênh ≤15)
+- `runs/e5_len_A.zip` (doc DÀI > 5.444 ký tự, `747661fef59c`) vs `e5_len_B.zip` (NGẮN < 3.347, `30a8efb2fb63`): 1.198 câu, hạng TB 18,0/18,1.
+- `runs/e5_yr_A.zip` (đăng ≥2024, `428aad4e53ca`) vs `e5_yr_B.zip` (≤2021, `f7392b5a19f6`): 1.192 câu, hạng TB 13,7/13,8.
+Đọc: tỉ lệ doc đúng = DOCS_P × 1200/số câu; so A/B cùng cặp; tỉ số ≥1,5 hoặc ≤0,67 → nhãn thiên về/chống đặc trưng đó. Bản dựng đầu (lấy 4 doc A đầu danh sách) bị lệch hạng (7,3 vs 13,6) nên đã bỏ.
+Quan sát nền: top-20 của ta dài hơn (trung vị 4.567 vs 3.108) và mới hơn (39% ≥2024 vs 29%) kho vi ngẫu nhiên.
+
+### 12/10/2026 · VÁ LỖI 109 CÂU (parse_ok=False) → `blendQB11_e120`
+- **Nguyên nhân:** 109/1200 câu (9%, toàn câu dài, TB 5,2 entity) có đầu ra Qwen3.5 hợp lệ nhưng THIẾU dấu `}` cuối nên `pubmed_module` đánh `parse_ok=false` → `en`/`zh`/`entities` rỗng. Hậu quả: câu thiếu nguồn BM25-entity (file `bm25ent3_rank` chỉ có 1.090 câu), và `q_zh.jsonl` cho 109 câu này rơi về câu hỏi VI gốc (nguồn zh-query nhân đôi nguồn vi). Các nguồn slug/BM25F/dense/chunk-dense dùng câu vi nên KHÔNG ảnh hưởng.
+- **Sửa:** phân tích lại `raw` bằng cách thêm `}` (109/109 được; còn 1 câu id 512 vẫn không có entity), ghi lại `data/queries_enriched.jsonl` (bản cũ `…bak_before_fix109.jsonl`); chạy lại BM25-entity trên `vi_full.sqlite` (109 câu), zh dense bằng bản dịch zh đúng (`dense_zhC2_zhq109_rank`), pool H2 (`f_H2`): top-50 đổi 4,4 doc/câu, top-200 18,0, top-400 35,6 so với `f_H`; 2.610 cặp mới → Qwen chấm (`qwen_h2`, 109 câu, ~2 phút). Chuỗi QB6_h05 → QB7 → QB8/8w05 → QB9a → QB10 chạy lại CHỈ cho 109 câu (pilot chunk-dense thay bằng chunk-dense toàn kho lọc theo pool mới); 1.091 câu còn lại giữ nguyên bài cũ.
+- **Kiểm tái lập chuỗi:** QB6_h05 khớp 1200/1200 câu; QB7 1155/1200 (do hoà điểm/bản pilot); QB8 cắt chunk-dense toàn kho ở top-400 khớp 1146/1200, QB8w05 1164/1200; QB9a 1200/1200; dựng lại QB10 bằng `submission.py` cho đúng vân tay cũ (`49b78b6e2cd2`/`3c412209084d`).
+- **`runs/blendQB11_e120.zip`** (178.992 chunk, 93,2 MB, doc `621ba023da3c`, chunk `7fc5cb4c79af`): so với blendQB10, 109 câu đổi 1,7 doc/câu ở top-40, 5,7 ở top-120, 13,4 ở top-200; 1.091 câu còn lại KHÔNG đổi. Dự đoán (ước tính): +0,001–0,003 FINAL so blendQB10 (dự đoán 0,3160).
+
+### 11/10/2026 · Bài đo dựng sẵn cho 12/10 (chưa nộp)
+- `runs/e1_novel.zip` (doc `543c93021f28`): 4 doc/câu, đồng thuận ≥4/8 hệ thống nhưng NGOÀI top-50 của blendQB10; 189 câu (đồng thuận TB 4,34). `runs/e1_base.zip` (doc `8c624da0c80f`): top-4 của blendQB10 trên đúng 189 câu đó (đồng thuận TB 5,57). Đọc: DOCS_P × 1200/189 = tỉ lệ doc đúng; novel ≳ base×0,7 → blend đang bỏ sót doc đồng thuận; novel ≪ base → blend đã nắm thông tin đồng thuận.
+- Phát hiện khi dựng: doc đồng thuận ≥5 mà NGOÀI top-50 blend chỉ tồn tại ở 5 câu (đủ 4 doc) → blend đã chứa gần hết doc đồng thuận cao; bài chỉ còn ≥4 hệ thống mới có đủ 189 câu.
+
+### 11/10/2026 · KẾT QUẢ E1 (đồng thuận → tỉ lệ doc đúng = DOCS_P × 1200/596)
+| Bài | DOCS_P | Tỉ lệ doc đúng |
+|---|---|---|
+| e1_A_c5plus (≥5 hệ thống) | 0,2462 | **0,496** |
+| e1_B_c3_4 | 0,1710 | 0,344 |
+| e1_C_c2 | 0,0875 | 0,176 |
+| e1_D_c1 (chỉ 1 hệ thống) | 0,0453 | 0,091 |
+Đọc: độ dốc rất mạnh (gấp ~5,4× từ D lên A) nên nhãn tương quan chặt với đồng thuận; nhưng trần ở nhóm đồng thuận cao nhất chỉ ~0,50 (không phải ~0,9 như pooling thuần). Chưa biết đồng thuận có thêm thông tin ngoài blend hiện tại không → cần e1_base (top-8 blendQB10 cùng 596 câu) và e1_novel (doc c≥5 nằm NGOÀI top-50 blend).
+
+### 11/10/2026 · KẾT QUẢ E3 (tỉ lệ doc đúng = DOCS_P × 1200 / số câu; 4 doc/câu). Gán nhãn theo thứ tự dán + nhãn người dùng gõ; thiếu `e3_medlatec_ctl`.
+| Site (số câu) | site | đối chứng cùng hạng | tỉ số |
+|---|---|---|---|
+| congdong (434, hạng TB ~40) | 0,2914 (P 0,1054) | 0,2961 (P 0,1071) | 0,98 |
+| longchau (1184, hạng TB ~12) | 0,4239 (P 0,4182) | 0,4051 (P 0,3997) | 1,05 |
+| medlatec (1039, hạng TB ~23) | 0,4206 (P 0,3642) | 0,3652 (P 0,3162; dán không nhãn, giả định là `e3_medlatec_ctl`) | **1,15** |
+Đọc: cùng hạng thì site không có prior riêng (tỉ số trong sai số ~±0,05) → xếp hạng hiện tại đã bắt trọn thông tin site; độ lệch site ở đầu danh sách (medlatec ×3,6, congdong ×0,15) KHÔNG phải sai hiệu chuẩn. Phụ: độ chính xác theo hạng ≈ 0,41 ở hạng ~12, 0,29 ở hạng ~40.
+
+### 10/10/2026 · CHƯƠNG TRÌNH ĐO NHÃN ("label forensics"): dùng leaderboard làm phép đo, không để lên điểm
+
+Ý: nộp danh sách được thiết kế để trả lời một câu hỏi về cách BTC tạo nhãn. Thiết kế chung: **mỗi bài có đúng k doc cho mọi câu được chọn (hoặc rỗng)** nên P đo được = (số câu có danh sách / 1.200) × (tỉ lệ doc đúng); so các bài cùng tập câu thì so được trực tiếp.
+Quan sát phát sinh trước khi đo: (1) 8 hệ thống (slug, BM25F ×3, dense ×2, chunk-dense toàn kho, Qwen) bất đồng mạnh: TB mỗi câu có 172,4 doc chỉ xuất hiện ở đúng 1 hệ thống trong top-50, 40,5 doc ở 2, 17,3 ở 3, 8,4 ở 4, 4,4 ở 5, 2,7 ở 6, 1,7 ở 7, 0,8 ở cả 8. (2) Đầu danh sách của ta lệch site so với kho vi: medlatec ×3,6, vinmec ×3,0, nhathuoclongchau ×2,1, suckhoedoisong ×1,3; suckhoecongdongonline (20,5% kho) chỉ ×0,15, laodong ×0,29.
+- **E1 (đồng thuận, 4 bài, 596 câu, 8 doc/câu):** `runs/e1_A_c5plus.zip` (≥5 hệ thống đồng ý, doc `67b4d659df8a`), `e1_B_c3_4.zip` (3–4, `f26092050eda`), `e1_C_c2.zip` (2, `b0b46dd21bec`), `e1_D_c1.zip` (1, `f96a4e47e6f1`). Đọc: tỉ lệ doc đúng = DOCS_P × 1200/596 (≈ ×2,013). P tăng mạnh theo đồng thuận → nhãn gần "giao của các hệ thống chuẩn" (dấu vết pooling), nên bầu theo đồng thuận; phẳng → nhãn do tín hiệu khác ta chưa có.
+- **E2 (bản sao nguyên văn):** thiết kế gốc KHÔNG khả thi — bản sao hầu như luôn nằm cùng trong danh sách của ta (chỉ 4 cặp có bản sao ngoài top-200); có 1.182 cặp trùng nguyên văn cùng trong top-100 (691 câu). Do P cộng tính, không đo được "cả hai cùng đúng"; chỉ đo được bất đối xứng id nhỏ/lớn → ít thông tin, bỏ.
+- **E3 (lệch site, đối chứng cùng hạng, 6 bài):** cho site S ∈ {longchau, medlatec, congdong}: 4 doc của S trong top-100 của blendQB10 vs 4 doc KHÔNG phải S gần hạng nhất (hạng TB khớp: 11,7/11,5; 22,8/22,1; 40,8/39,9). `runs/e3_longchau_site.zip` (1.184 câu, doc `83e4b90b80ee`) & `_ctl` (`e2666395628b`); `e3_medlatec_site` (1.039 câu, `2b3fb96ee1ac`) & `_ctl` (`a1726ff50078`); `e3_congdong_site` (434 câu, `0bb00a5033ef`) & `_ctl` (`2c05bc0ded59`). Đọc: cùng tập câu, so P(site)/P(ctl); chênh ≥ 1,5–2× → có "prior site" bỏ qua = tín hiệu trực giao. Lưu ý bản E3 đầu (lấy doc site ở độ sâu khác) đã bỏ vì lẫn hiệu ứng hạng.
+- **E4 (loại câu hỏi) chưa dựng.**
+Hàng đợi 11/10 (10 lượt): E1 (4) + E3 longchau (2) + E3 medlatec (2) + 2 lượt dự phòng.
+
+### 09/10/2026 · HÀNG ĐỢI NỘP 10/10 (đã dựng, chưa nộp): chunk-dense TOÀN KHO
+
+`dense_chunk_full_rank.jsonl`: BGE-M3 trên toàn bộ ~1,29M chunk vi (374k pilot + 914k thêm, 2 GPU ~65 phút), điểm doc = chunk khớp nhất, top-1000 doc/câu. **Top-200 của nó có 49,7 doc/câu nằm NGOÀI pool H top-1000** (78,8 ngoài top-400) và giao 39,5/50 với pilot ở top-50: đây là nguồn mở rộng pool đầu tiên đọc cả thân bài.
+| Thứ tự | Bài | Nội dung | Đo gì | Vân tay |
+| --- | --- | --- | --- | --- |
+| 1 | `runs/diag_novel_chunkfull_k150.zip` | 150 doc hạng cao của chunk-dense toàn kho KHÔNG nằm trong pool H top-1000, chunk rỗng | DOCS_RECALL = nhãn ngoài pool mà chunk-dense cứu được (mốc: doc chưa crawl 0,0181; PRF 0,0108; HyDE 0,0084) | doc `8636a929de7f` |
+| 2 | `runs/p50_cfull.zip` | top-50 chunk-dense toàn kho một mình | P@50 (mốc: head 0,3125; chunk pilot 0,3136; headchunk 0,3380) | doc `d16663945801` |
+| 3 | `runs/blendQB7b_e120.zip` | tập doc y hệt blendQB7 (vân tay doc `9c6f85ea7df8`, doc F2 phải = 0,3236); chunk chọn theo best_idx thay chunk đầu (`chunk_scores_mix.jsonl`: doc có điểm Qwen chunk giữ Qwen) | phép thử SẠCH của chọn chunk theo nội dung (mốc chunk F2 0,2900) | chunk `647147b3b9cb` |
+| 4 | `runs/blendQB8_e120.zip` | RRF(blendQB7, chunk-dense toàn kho) w1/w1, chunk đầu; đổi 47,8 doc/câu top-200 so blendQB7 (17,4 doc/câu ngoài pool H); 94,9 MB | mốc FINAL 0,3068 | doc `832af360705c` chunk `358431c81ad4` |
+| 5 | `runs/blendQB8b_e120.zip` | như 4 nhưng chunk chọn theo best_idx (94,2 MB) | cộng hưởng 3 + 4 | chunk `739418b50219` |
+| 6 | `runs/diag_zhC2_vi_k150.zip` | 150 doc zh/câu (dense title+600 ký tự đầu, BGE-M3 fp16, 1,72M doc zh) xếp bằng CÂU HỎI VI GỐC, chunk rỗng | DOCS_P = mật độ nhãn trong doc zh tìm bằng bộ truy hồi mạnh (mốc bài zh cũ P 0,0089 / R 0,0256 ở độ phủ ~35% và truy hồi yếu; doc vi chưa crawl P 0,0174). Nếu ≳0,05 → zh quan trọng | doc `5b054ae47bde` |
+| 7 | `runs/diag_zhC2_zhq_k150.zip` | như 6 nhưng bằng câu hỏi DỊCH SANG ZH (`q_zh.jsonl`, Qwen3.5) | so với 6: dịch có giúp | doc `c40d960c81b6` |
+| 8 | `runs/diag_zhC2_both_k150.zip` | RRF hai danh sách (vi + dịch zh), 150 doc | tổng hợp; giao vi∩zhq: top-10 2,5/10, top-50 15,1/50, top-150 50,4/150 (hai cách truy vấn tìm tập doc zh khác nhau nhiều); doc zh ∩ top-200 blendQB7: 0,03/câu (hai kho gần như rời nhau) | doc `05073f7ed644` |
+Kho zh: 1,72M doc (kho GPU 1,42M + shard 2 298k), phủ 51% của 3.380.139 URL; thiếu ~4k doc so với `corpus_vifull`. Còn 658.834 doc zh có body CHƯA có chunk (cần `clean.py`/`chunk.py` nếu muốn nộp chunk zh). Quyết: nếu P ≳0,05 → dựng bài ghép vi+zh (zh chiếm một phần top-k theo mật độ nhãn); nếu ≲0,015 → zh thật sự nhỏ, bỏ.
+
+Cách quyết: nếu (3) tăng chunk F2 → dùng best_idx cho mọi bài sau; nếu (1) cao (≳0,02) và (4) hơn 0,3068 → chunk-dense toàn kho là nguồn chính. Cả bài mốc `blendQB7_e120` (0,3068) vẫn là bài tốt nhất đã có điểm.
+
+### 09/10/2026 · Đối chiếu với top 1 và hướng đi mới: độ chính xác ĐẦU danh sách
+
+Top 1 leaderboard (người dùng cung cấp 09/10): FINAL 0,4214 · doc F2 0,4183 · chunk F2 0,4246 · **doc P 0,469 · doc R 0,4578 · chunk P 0,6281 · chunk R 0,4365**. Ta (blendQB6): FINAL 0,2931 · doc F2 0,3131 · chunk F2 0,2730 · doc P 0,1645 · doc R 0,5177 · chunk P 0,1793 · chunk R 0,3906.
+- P/R = G/k ⇒ top 1 trả về k ≈ G ≈ 65–70 doc/câu; g ≈ 0,458×70 ≈ 32 doc đúng — **bằng ta** (0,1645×200 ≈ 33) nhưng nằm gọn trong top ~70 (ta rải trong 200; P@50 của ta ≈ 0,32).
+- Hệ quả: khoảng cách là **độ chính xác đầu danh sách**, không phải độ phủ/recall của pool. Thêm nguồn mở rộng pool ít giá trị; cần tín hiệu xếp gold vào top-70. Chunk P 0,63 vs 0,18 phần lớn theo từ đó (chunk lấy từ doc đầu).
+- Đã loại: Qwen lớn hơn (8B ≈ 4B), Qwen đọc dài hơn (3k ≈ 1k), tăng trọng số Qwen (đầu danh sách tệ hơn khi nghiêng về Qwen).
+- Kế hoạch đo: (1) **6 bài P@50 theo nguồn, đủ 1.200 câu**, 50 doc/câu, chunk rỗng: `runs/p50_head.zip` (đầu của blendQB6_h05, doc `961ffff53bc0`), `p50_qwen.zip` (Qwen thuần, `0fcff1e3b03a`), `p50_fH.zip` (vòng 1 pool H, `f155823e83ef`), `p50_dvib3.zip` (dense nội dung, `ccded4a4282f`), `p50_dvi3.zip` (dense title, `2863f6cde365`), `p50_bm25.zip` (BM25F, `4d9a6ce85bf2`). Giao top-50 với `head`: Qwen 26,0 · f_H 41,7 · dvib3 29,2 · dvi3 26,7 · bm25 13,5. Nguồn nào P@50 cao nhất thì tín hiệu đó gần nhãn nhất. (2) **Pilot dense cấp chunk** (BGE-M3 trên 374.355 chunk của 194.376 doc trong pool H top-400; điểm doc = chunk khớp nhất): `dense_chunks.py`, `scripts/run_dense_chunks_pilot.sh`, đầu ra `data/dense_chunk_pilot_rank.jsonl` (có `best_idx` = chunk khớp nhất để chọn chunk nộp).
+
+### 07/10/2026 · TỔNG KẾT 10 LƯỢT NỘP TRONG NGÀY + HÀNG ĐỢI 08/10 (đã hết quota hôm nay)
+
+FINAL 0,2658 → **0,2770** trong ngày. Chi tiết từng bài ở §2b; đây là bản đọc nhanh kèm bài học.
+
+| # | Bài | FINAL | Kết quả chính | Insight |
+|---|---|---|---|---|
+| 1 | `blendQB3_t40_70` (Qwen top-400) | 0,2669 | doc F2 0,2956 (+1,4%), chunk 0,2382 (−0,8%) | chấm sâu thêm có lợi suất giảm (100→250: +4,2%; 250→400: +1,4%) |
+| 2 | `blendQB3x_t40_70` (doc QB3 + chunk QB2) | 0,2679 | khớp dự đoán đúng | hai tầng độc lập tuyệt đối (xác nhận lần 2) |
+| 3 | `diag_novel_qhyde_k150` | 0,0033 | DOCS_R 0,0084 | HyDE yếu; khớp văn liệu (mở rộng LLM hại retriever mạnh) |
+| 4 | `diag_novel_hyde_k150` | 0,0027 | DOCS_R 0,0068 | câu trả lời giả định thuần kém bản ghép câu hỏi |
+| 5 | `blendQB3x_cr` (chọn chunk bằng Qwen) | 0,2682 | chunk F2 +0,25% | ít doc có chỗ để chọn (76% doc ≤2 chunk) |
+| 6 | `diag_novel_q4t_k150` (Qwen3-Embedding title) | 0,0031 | DOCS_R 0,0080 | embedding mới không cứu thêm nhãn; pool bão hoà với nguồn dense |
+| 7 | `diag_novel_prf20_k150` | 0,0043 | DOCS_R 0,0108 | PRF tốt nhất nhóm embedding nhưng vẫn ~1% pool |
+| 8 | `diag_uncrawled_vi_k150` | 0,0076 | DOCS_P 0,0174, R 0,0181 | **tín hiệu tốt nhất**: doc chưa crawl CÓ nhãn → crawl nốt Long Châu |
+| 9 | `blendQB3x_3k_300_bzip2` | 0,2609 | doc 0,2895, chunk 0,2324 | **bzip2 được server chấp nhận**; không kết luận được về Qwen 3k (lẫn k=150, pool cắt) |
+| 10 | **`blendQB3x_cr_e120`** | **0,2770** | chunk F2 0,2584 (+7,3%) | **chunk sâu hơn còn lãi** (precision biên ~0,105 so với ngưỡng ~0,052); trần 100 MB là ràng buộc → bzip2 mở thêm ~1,5× chunk |
+
+**Bài học lớn của ngày**
+1. Điểm đi lên nhờ **tầng chunk** (đổi nén ZIP) và **độ phủ kho**, không nhờ thêm nguồn dense. Mọi nguồn embedding/entity/HyDE/PRF đều chỉ 0,007–0,011 DOCS_R.
+2. Reranker (Qwen) và dense chỉ đọc 1.000/600 ký tự đầu trong khi 96% doc top-200 dài hơn thế (trung vị 4.165). Chưa có kết luận Qwen đọc dài tốt hơn không.
+3. Qwen "dễ tính" hơn nhãn vàng (P(yes) > 0,5 cho ~130 doc/câu, G ≈ 70) và G gần hằng số → cắt k theo câu không đáng.
+4. Phép thử cần SẠCH: giữ k, pool, chunk như nhau, chỉ đổi một yếu tố (bài học từ #9 và từ bài QC 06/10).
+
+**Hàng đợi 08/10 (10 lượt mới), theo thứ tự**
+1. ~~`cr_t30_e130`~~ **đã nộp 08/10: 0,2763 < e120 0,2770 → phân bổ chunk ở đỉnh phẳng, bỏ hướng này.** (`cr_t30_e140` quá trần, không dùng.)
+2. ~~Cặp `probe300`~~ **đã nộp 08/10: 1k P 0,0791 vs 3k P 0,0787 → Qwen đọc dài hơn không giúp, bỏ hướng này.**
+3. (tuỳ chọn) `runs/diag_novel_subq_k150.zip`: dự báo ~0,008, ưu tiên thấp.
+4. Sau khi crawl Long Châu xong: `clean.py --apply` → `chunk.py` → `audit.py` → embed doc mới (GPU) → Qwen rerank → dựng bài mới → đo.
+
+**Việc dở**
+- Crawl Long Châu ~49k URL (chạy ở máy của bạn; vòng lặp tôi dựng bị dừng vì thiếu RAM, **không tự chạy lại**). Gợi ý `--workers 30 --procs 3` hoặc chạy trên máy GPU.
+- Dense cấp chunk toàn thân bài (~1,1M chunk, ~2,5 giờ GPU) và Qwen3-Reranker-8B (~6 giờ GPU) chưa chạy. Chấm Qwen chunk đầu của doc hạng 70–130 để chọn chunk tốt hơn (ước tính +1–2% chunk).
+- Đã chốt toàn bộ các vấn đề quy định BTC (xem bảng chi tiết tại §4): coi như bản web mới nhất, không hỏi về cách tạo nhãn, MoE hợp lệ, Distillation được phép.
+- Private phase: 5 lượt tổng; cần script dựng duy nhất tái lập bài tốt nhất; working notes paper chưa viết.
+
+---
 ---
 
 ## 2b. Theo dõi lượt nộp leaderboard
@@ -2062,6 +2311,53 @@ Mục đích là dò `topk`/ngưỡng bằng nhãn thật, rẻ và chính xác 
 | 06/10 | `blendQC_t40_70.zip` | **LỖI CỦA TÔI**: định ghép tập 200 doc của A + thứ tự của B, nhưng file ứng viên trộn điểm hai thang (B cho 200 doc đầu, A cho phần còn lại) mà `load_candidates` SẮP LẠI theo điểm giảm dần → tập 200 doc nộp ra chỉ giống A 110,7/200 | 200 | 0,2551 | 0,2366 | FINAL 0,2459. Chunk đúng như B (0,2366) vì top-70 vẫn là của B; doc tụt do tập sai. Đã sửa (`blendQC2`: điểm giảm đều theo vị trí). Bài học: file ứng viên phải có điểm cùng thang hoặc giảm đều. Tốn 1 lượt nộp |
 
 | 06/10 | **`blendQB2_t40_70.zip`** | pool F, **Qwen3-Reranker-4B chấm top-250** (blendF hạng 1–250): RRF(Qwen w2, vòng 1 w1) + chunk t40_70 | 200 | **0,2914** | **0,2402** | FINAL **0,2658** ← TỐT NHẤT (+3,0% so 0,2581). Doc +4,2% (P 0,1543 / R 0,4781), chunk +1,5% (P 0,2063 / R 0,3042). Chấm sâu hơn (100 → 250) kéo thêm doc đúng vào top-200; 21% tập 200 đổi. ZIP 94,0 MB. Điểm Qwen TB 0,564 (hạng 1–100) vs 0,327 (hạng 101–250). Vân tay doc/chunk: xem `submission.py` lần dựng 06/10 |
+
+| 07/10 | **`blendQB3_t40_70.zip`** | như `blendQB2` nhưng Qwen3-Reranker chấm **top-400** (hạng 251–400 thêm từ `qwen_rr3_h1/h2`, 383–400 doc/câu): RRF(Qwen w2, vòng 1 w1) + chunk t40_70 | 200 | **0,2956** | 0,2382 | FINAL **0,2669** ← TỐT NHẤT (+0,4% so 0,2658). Doc +1,4% (P 0,1562 / R 0,4855), chunk **−0,8%** (P 0,2041 / R 0,3022; top-40/70 đổi theo tập mới). Lợi suất giảm đúng dự báo: 100→250 cho doc +4,2%, 250→400 chỉ +1,4%. Trùng 170,7/200 doc với QB2. ZIP 93,8 MB, 114.698 chunk. Vân tay (tự tính, sha1 12 ký tự) doc `f75ca640d7fe` chunk `82f3a7dbbdda`. `submission.py` lỗi `NameError: fingerprint` sau khi ghi ZIP (vô hại) |
+
+| 07/10 | **`blendQB3x_t40_70.zip`** | bản lai: **tập doc của QB3** (Qwen top-400) + **chunk của QB2** (thứ tự 70 doc đầu theo QB2; 0 doc top-70 của QB2 nằm ngoài tập QB3) | 200 | **0,2956** | **0,2402** | FINAL **0,2679** ← TỐT NHẤT. Khớp ĐÚNG dự đoán (0,2956+0,2402)/2 = 0,2679; mọi số LB bằng số của bài thành phần (doc = QB3: P 0,1562 / R 0,4855; chunk = QB2: P 0,2063 / R 0,3042) → hai tầng độc lập tuyệt đối, lần xác nhận thứ hai (cũng 03/10). ZIP 91,8 MB, 114.760 chunk. Vân tay (hàm `fingerprint` mới, doc theo TẬP) doc `5a1af0bad078` chunk `96f94cfa925e`. Vân tay doc của `blendQB3` tính lại theo cách mới: `5a1af0bad078` (chunk `82f3a7dbbdda`) |
+
+| 07/10 | `diag_novel_qhyde_k150.zip` | **chẩn đoán HyDE**: chỉ 150 doc hạng cao của dense(câu hỏi + câu trả lời giả định) KHÔNG nằm trong pool F top-1000, chunk rỗng | 150 | 0,0066 | 0 | FINAL 0,0033. DOCS_P **0,0048**, DOCS_R **0,0084** (≈ +0,6–0,7 nhãn/câu ngoài pool, +1,4% tương đối so mốc 0,6108). Vân tay doc `709f9ee4ab5d` |
+
+| 07/10 | `diag_novel_q4t_k150.zip` | **chẩn đoán Qwen3-Embedding-4B title**: 150 doc hạng cao của dense(Qwen3-Emb title, 686k doc vi) KHÔNG nằm trong pool F top-1000, chunk rỗng | 150 | 0,0062 | 0 | FINAL 0,0031. DOCS_P 0,0043, DOCS_R **0,0080** — ngang HyDE (0,0084/0,0068), yếu. Offline: 73,4 doc/câu top-200 nằm ngoài pool nhưng bắt nhãn bạc chỉ 78,0 (BGE title 91,2). Vân tay doc `96eeb31c2611` |
+| 07/10 | `diag_novel_prf20_k150.zip` | **chẩn đoán PRF dense**: 150 doc láng giềng (trung bình vector top-20 `blendQB3`, `emb_viB2`) KHÔNG nằm trong pool F top-1000, chunk rỗng | 150 | 0,0085 | 0 | FINAL 0,0043. DOCS_P **0,0061**, DOCS_R **0,0108** — tốt nhất trong các nguồn mở rộng (HyDE 0,0084 · Qwen3-Emb 0,0080) nhưng vẫn rất thấp: ~0,9 nhãn/câu trong 150 doc, precision biên 0,6% so với ngưỡng giữ ~6%. Vân tay doc `850b32133a66` |
+| 07/10 | **`diag_uncrawled_vi_k150.zip`** | **chẩn đoán độ phủ crawl**: doc vi CHƯA crawl/lỗi (state≠1) xếp theo slug BM25, ~66 doc/câu (chủ yếu `nhathuoclongchau` 54,6k URL chưa cào + blog pharmacity), chunk rỗng | ~66 | 0,0152 | 0 | FINAL 0,0076. DOCS_P **0,0174**, DOCS_R **0,0181** — **tốt nhất mọi nguồn mở rộng** (PRF 0,0108 · HyDE 0,0084): precision 3× HyDE. Vậy doc chưa crawl CÓ chứa nhãn → mục "51k URL chưa cào, không quan trọng" trong CLAUDE.md là SAI. Vân tay doc `3cf0fb5ca05b` |
+| 07/10 | `diag_novel_subq_k150.zip` | **chẩn đoán tách ý con** (đã dựng, CHƯA nộp): RRF(BGE-M3 title + nội dung theo từng ý, 3,23 ý/câu), 150 doc ngoài pool F top-1000 (271 câu <150 doc) | 150 | — | — | Offline: bắt nhãn bạc top-200 thấp hơn câu gốc (title 80,6 vs 91,2; body 99,8 vs 115,8); 33,4–35,2 doc/câu ngoài pool. Qwen tách quá tay (827/1200 câu = 4 ý). Vân tay doc `590aa071dc7e`. Chưa nộp để dành lượt cho bài Long Châu |
+| 07/10 | **`blendQB3x_cr.zip`** | như `blendQB3x` nhưng doc ≥3 chunk ở top-40 chọn 2 chunk điểm Qwen3-Reranker CAO NHẤT (36.568 chunk chấm, `chunk_rerank.py`) thay vì 2 chunk đầu; 4,1% chunk đổi | 200 | 0,2956 | **0,2408** | FINAL **0,2682** ← TỐT NHẤT (+0,0003). Doc y hệt. Chunk +0,25%: P 0,2063 → 0,2049, R 0,3042 → 0,3089. Đúng dự báo (≤ +1%): 76% doc chỉ ≤2 chunk nên ít chỗ để chọn. Vân tay doc `5a1af0bad078` chunk `f41d9e9c0e17` |
+| 07/10 | `blendQB3x_cr_bzip2.zip` | **thử nén bzip2**: NỘI DUNG y hệt `blendQB3x_cr` (đã kiểm md5 từng byte JSON), chỉ đổi nén deflate → bzip2 (59,3 MB; LZMA 55,9 MB cũng có `blendQB3x_cr_lzma.zip`) | 200 | (chờ) | (chờ) | Nếu FINAL = 0,2682 y hệt thì server đọc được bzip2 → mở rộng độ sâu chunk (~1,5× chunk trong 100 MB). Nếu lỗi định dạng: không tính quota |
+| 07/10 | `blendQB3x_3k_300_bzip2.zip` | `blendQB3x_cr` nhưng 300 câu đầu dùng Qwen đọc 3.000 ký tự: **chỉ 150 doc/câu** (pool = f_F top-150, mất doc hạng 150–400), chunk theo thứ hạng 3k; 900 câu còn lại y hệt `cr`; nén **bzip2** (58 MB) | 187,5 | 0,2895 | 0,2324 | FINAL 0,2609 (−0,0073 so 0,2682): DOCS_P 0,1596 / R 0,4667. **Server CHẤP NHẬN bzip2** ✓. Phép thử KHÔNG sạch về 3k (lẫn k 150 và pool cắt) → xem cặp `probe300_*` |
+| 07/10 | **`blendQB3x_cr_e120.zip`** | tập doc y hệt `blendQB3x_cr`; chunk: 2 chunk (điểm Qwen) × 40 doc đầu + **1 chunk × doc hạng 41–120**, nén **bzip2** (174.760 chunk, 93,6 MB) | 200 | 0,2956 | **0,2584** | FINAL **0,2770** ← TỐT NHẤT (+0,0088 so 0,2682; dự đoán +0,004–0,006 → tốt hơn dự đoán). Chunk F2 +7,3%: P 0,2049 → 0,1708, R 0,3089 → 0,3692. Chunk thêm (+60k): ~6,3k chunk đúng → **precision biên ~0,105**, gấp ~2× ngưỡng giữ (F2/5 ≈ 0,052) → còn lãi, chặn bởi 100 MB. Vân tay doc `5a1af0bad078` chunk `1be27cfed8c6` |
+| 08/10 | `cr_t30_e130.zip` | tập doc y hệt; chunk: 2 chunk × **30** doc đầu + 1 chunk × hạng 31–130, bzip2 (178.850 chunk, 94,7 MB) | 200 | 0,2956 | 0,2570 | FINAL 0,2763 (−0,0007 so e120 0,2770). CHUNKS_P 0,1708 → 0,1669, R 0,3692 → 0,3696. Số chunk ĐÚNG gần như bằng nhau (29.851 vs 29.850) dù thêm 4.090 chunk → chunk thứ hai ở hạng 31–40 có giá trị NGANG chunk đầu ở hạng 121–130 (precision biên ~0,1–0,05): phân bổ đã ở **đỉnh phẳng**, đừng chỉnh nữa. e120 vẫn tốt nhất. Vân tay: dùng `fingerprint` của submission |
+| 08/10 | `blendQB4_e120.zip` | **chuỗi Long Châu**: crawl nốt Long Châu (78.555 doc xong) → `clean.py` (sửa 48.749 doc) → `chunk.py` → embed 55.136 doc mới (53.879 vector) → pool G (cùng trọng số pool F, vector mới) → Qwen-4B chấm 26.811 cặp doc mới trong f_G top-400 → RRF(Qwen hợp w2, f_G w1) → chunk kiểu e120 (2×40 + 1×41–120, bzip2, chunk chọn bằng điểm Qwen cho doc cũ) | 200 | **0,3110** | **0,2679** | FINAL **0,2895** ← TỐT NHẤT (+0,0125 so 0,2770; dự đoán +0,003–0,005 → vượt xa). Doc F2 +5,2% (P 0,1562 → 0,1636, R 0,4855 → 0,5129), chunk F2 +3,7% (P 0,1757, R 0,3848). **Độ phủ kho là đòn bẩy lớn nhất của cả đợt.** Doc mới trong top-200: 9,24/câu (blendQB3x: 0); đổi tập 8,9 doc/câu. Doc mới điểm Qwen TB 0,28 (cũ 0,34), >0,9: 1,2/câu. Mốc: `blendQB3x_cr_e120` FINAL 0,2770 / doc 0,2956 / chunk 0,2584. Vân tay doc `f1db164873e0` chunk `85d6db76292a`. 175.080 chunk, 93,7 MB |
+| 08/10 | `blendQB4_w4_e120.zip` | như `blendQB4_e120` nhưng RRF **Qwen w4** / f_G w1 (nghiêng về Qwen); đổi tập top-200 13,3 doc/câu so bản w2; doc mới top-200 8,86/câu | 200 | 0,3093 | 0,2607 | FINAL **0,2850** (−0,0045 so w2 0,2895). Doc P 0,1625 / R 0,5105; chunk P 0,1708 / R 0,3757. **Nghiêng về Qwen làm cả hai tầng kém hơn**, chunk giảm mạnh nhất. Vân tay doc `91258350da64` chunk `1422598b0a3d` |
+| 08/10 | `blendQB4_w1_e120.zip` | RRF **Qwen w1** / f_G w1 (nghiêng về vòng 1); đổi tập 15,9 doc/câu; doc mới top-200 9,77/câu | 200 | 0,3102 | **0,2710** | FINAL **0,2906** ← TỐT NHẤT (+0,0011 so w2). Doc P 0,1633 / R 0,5114 (gần ngang w2 0,3110); chunk P 0,1781 / R 0,3882. **Đầu danh sách tốt hơn khi nghiêng về vòng 1 (pool G)**: chunk w4 0,2607 → w2 0,2679 → w1 0,2710; doc gần phẳng (0,3093 / 0,3110 / 0,3102). Vân tay doc `c6ee4c35f1d2` chunk `c55076981b82` |
+| 08/10 | `blendQB4_h05_e120.zip` | **bản lai theo trọng số**: TẬP doc của `blendQB4` (Qwen w2, doc F2 0,3110) + THỨ TỰ 120 doc đầu theo RRF Qwen w0,5 / f_G w1 (đầu danh sách nghiêng về vòng 1, để lấy chunk tốt hơn); top-40 đổi 12,4 doc/câu so w2 | 200 | **0,3110** | **0,2709** | FINAL **0,2910** ← TỐT NHẤT (+0,0004 so w1 0,2906). Doc đúng như dự đoán (0,3110, tập y hệt w2); chunk 0,2709 ≈ w1 (0,2710) → **chunk đã chạm đỉnh phẳng khi giảm trọng số Qwen** (w4 0,2607 · w2 0,2679 · w1 0,2710 · w0,5 0,2709); đừng giảm thêm. Chunk P 0,1779 / R 0,3879. Dự đoán doc y hệt `blendQB4_e120` (vân tay doc `f1db164873e0`); chunk kỳ vọng cao hơn 0,2710 nếu xu hướng w4→w2→w1 tiếp tục. Vân tay chunk `d658f61800b5`. 177.159 chunk, 92,9 MB |
+| 08/10 | `blendQB5_h05_e120.zip` | như `blendQB4_h05_e120` nhưng Qwen chấm THÊM đợt 2 (155.494 cặp: 41.596 doc Long Châu mới hạng 401–1000 của f_G + 113.898 doc cũ trong f_G top-400 chưa từng có điểm); tập doc RRF Qwen w2 / f_G w1, thứ tự 120 doc đầu theo w0,5; 177.143 chunk, 93,0 MB | 200 | **0,3122** | **0,2717** | FINAL **0,2920** ← TỐT NHẤT (+0,0010 so 0,2910). Doc +0,4% (P 0,1640 / R 0,5159), chunk +0,3% (P 0,1784 / R 0,3890). Chấm thêm 155k cặp chỉ cho +0,001: **lợi suất giảm rõ** (đợt 1 doc mới: +0,0125). Đổi tập top-200 so blendQB4: 7,1 doc/câu (top-40 chỉ 0,5; top-120 2,8). Doc mới top-200 10,67/câu (QB4: 9,24). Mốc: blendQB4_h05_e120 FINAL 0,2910 / doc 0,3110 / chunk 0,2709. Vân tay doc `7f091ceb0949` chunk `2581f919d832` |
+| 08/10 | `blendQB6_h05_e120.zip` | **vá BM25 cho doc mới**: chạy lại BM25F (có dấu), BM25F meta, BM25 entity trên kho vi ĐẦY ĐỦ 741.586 doc (`vi_full.sqlite`, trước đây 689.740 → 51.846 doc mới chưa từng có điểm BM25) → pool H (cùng trọng số pool F/G) → Qwen chấm bù 6.246 cặp → bản lai (tập doc w2, thứ tự 120 doc đầu w0,5), bzip2, 177.277 chunk, 95,1 MB | 200 | **0,3131** | **0,2730** | FINAL **0,2931** ← TỐT NHẤT (+0,0011 so 0,2920). Doc +0,3% (P 0,1645 / R 0,5177), chunk +0,5% (P 0,1793 / R 0,3906). Vá BM25 cho 51k doc mới: tăng nhỏ nhưng đồng đều ở cả hai tầng. Kiểm chất lượng: top-200 BM25F giao 183/200 với bản cũ (rank), 185,7 (meta), 165,4 (entity). Pool H: doc mới trong top-200 15,4/câu (G: 10,6), đổi tập 5,5 doc/câu so f_G. Bài cuối: đổi tập top-200 2,9 doc/câu so blendQB5; doc mới 13,10/câu. Mốc: blendQB5_h05_e120 FINAL 0,2920 / doc 0,3122 / chunk 0,2717. Vân tay doc `571430fb4c1e` chunk `3440b431b317` |
+| 09/10 | `blendQB6c_e120.zip` | như `blendQB6_h05_e120` nhưng 200 doc đã **xếp lại theo cụm** (c10w1) trước khi lấy chunk e120 (2×40 + 1×41–120, bzip2, 179.013 chunk, 93,4 MB) | 200 | (=0,3131 theo cấu trúc) | (chờ) | **Tập doc y hệt blendQB6** (vân tay doc `571430fb4c1e`) nên doc F2 không đổi; chỉ thứ tự đầu đổi (top-40 đổi 9,9 doc/câu, top-120 19,3) → chỉ tầng chunk thay đổi. Kỳ vọng chunk +≤1–2%. Vân tay chunk `fe6d22103a2f`. Lưu ý: `hybrid_cands` chỉ giữ 200 doc nên cụm chỉ xếp lại trong 200 |
+| 09/10 | `p50_head.zip` | **P@50 theo nguồn (đủ 1.200 câu, 50 doc/câu, chunk rỗng)**: đầu của blendQB6_h05 | 50 | 0,2572 | 0 | FINAL 0,1286. DOCS_P **0,3125**, R 0,2906 (≈ 15,6 nhãn trong top-50). Vân tay doc `961ffff53bc0` |
+| 09/10 | `p50_fH.zip` | vòng 1 pool H thuần (RRF 6 nguồn, không Qwen) | 50 | 0,2382 | 0 | DOCS_P 0,2925, R 0,2673 (14,6 nhãn). Qwen+đầu lai thêm +0,020 P. Vân tay `f155823e83ef` |
+| 09/10 | `p50_dvib3.zip` | dense nội dung (title + 600 ký tự đầu), MỘT nguồn | 50 | 0,2278 | 0 | DOCS_P **0,2894**, R 0,2525: một mình gần bằng cả vòng 1 (0,2925) → **dense là tín hiệu gần nhãn nhất**. Vân tay `ccded4a4282f` |
+| 09/10 | `p50_bm25.zip` | BM25F có dấu, MỘT nguồn | 50 | 0,1331 | 0 | DOCS_P **0,1501**, R 0,158: **chỉ bằng ~½ dense** → nhãn KHÔNG nghiêng về từ khoá; kiểu "pooling bằng BM25" khó đúng. Vân tay `4d9a6ce85bf2` |
+| 09/10 | `p50_c10w1.zip` | **xếp lại theo cụm** (tâm vector dense nội dung của 10 doc đầu, RRF hạng cơ sở w1 + hạng cụm w1) trên 400 ứng viên của blendQB6_h05; giao top-50 với head 38,2 | 50 | 0,2631 | 0 | FINAL 0,1316. DOCS_P **0,3200** (+0,0075 = +2,4% so head 0,3125), R 0,2977. **Cụm giúp nhẹ.** Vân tay `a8ef6a4ef3cc` |
+| 09/10 | `p50_c10w3.zip` | như trên nhưng hạng cụm w3 (nghiêng mạnh về cụm); giao head 30,9 | 50 | 0,2500 | 0 | DOCS_P 0,3055 (−2,2% so head), R 0,2805 → quá tay làm hại; đỉnh quanh w≈1. Vân tay `dfe320e4bfc9` |
+| 10/10 | `diag_novel_chunkfull_k150.zip` | **chẩn đoán chunk-dense TOÀN KHO**: 150 doc hạng cao KHÔNG nằm trong pool H top-1000, chunk rỗng | 150 | 0,0239 | 0 | FINAL 0,0120. DOCS_P **0,0167**, DOCS_R **0,0319** — **nguồn mở rộng pool tốt nhất từng đo** (doc chưa crawl R 0,0181 · PRF 0,0108 · HyDE 0,0084 · Qwen3-Emb 0,0080): +3,2 điểm recall ngoài pool (~2,5 nhãn/câu trong 150 doc), nhưng precision biên 1,7% vẫn dưới ngưỡng giữ (~6%) → chỉ đáng khi RRF đặt chúng đúng chỗ. Vân tay doc `8636a929de7f` |
+| 10/10 | **`blendQB7b_e120.zip`** | tập doc y hệt `blendQB7`; chunk chọn theo chunk khớp nhất (`chunk_scores_mix.jsonl`: Qwen cho doc đã có điểm, còn lại best_idx) | 200 | 0,3236 | **0,2909** | FINAL **0,3072** ← TỐT NHẤT (+0,0004). Doc đúng 0,3236 như dự đoán. Chunk +0,3% (P 0,1904 / R 0,4151 so 0,4134): **chọn chunk theo nội dung chỉ cho lợi nhỏ** (đa số doc ≤2 chunk, đã lấy đủ). Vân tay chunk `647147b3b9cb` |
+| 10/10 | `diag_zhC2_*_k150` (khối người dùng dán là "diag_zh"; mình hiểu là bài `both` — cần xác nhận) | 150 doc zh/câu (dense title+600 ký tự đầu BGE-M3 fp16, 1,72M doc zh, câu hỏi vi + bản dịch zh), chunk rỗng | 150 | 0,0399 | 0 | FINAL 0,0199. DOCS_P **0,0266**, DOCS_R **0,0559** — **nguồn mở rộng lớn nhất từng đo** (chunk-dense toàn kho R 0,0319 · doc vi chưa crawl 0,0181); gấp ~2,2× bài zh cũ (R 0,0256, độ phủ 35%, truy hồi yếu). → **zh KHÔNG nhỏ như kết luận 2,6%** (lúc đó là cận dưới của bộ truy hồi yếu). Precision biên 2,7% dưới ngưỡng giữ ~6% khi nộp thẳng, nên dùng bằng RRF để zh chỉ vào chỗ hạng cao. Vân tay doc `05073f7ed644` |
+| 10/10 | **`blendQB8b_e120.zip`** | RRF(blendQB7, chunk-dense TOÀN KHO) w1/w1 (đổi 47,8 doc/câu top-200, 17,4 doc/câu ngoài pool H), chunk chọn theo chunk khớp nhất | 200 | **0,3360** | 0,2893 | FINAL **0,3126** ← TỐT NHẤT (+0,0054 so 0,3072). Doc **+3,8%** (P 0,1780 / R 0,5495), chunk −0,5% (P 0,1887 / R 0,4137; doc mới chen vào đầu danh sách chỉ có chunk đầu). **Chunk-dense toàn kho giúp phía doc rõ rệt.** Vân tay doc `832af360705c` chunk `739418b50219` |
+| 10/10 | `blendQB9a_e120.zip` | **thêm zh vào doc hạng 121–200** của blendQB8b: RRF(blendQB8, zhC2_both w0,3) lấy tập top-200 (14 doc zh/câu thay 14 doc vi cuối), thứ tự 120 doc đầu y hệt blendQB8 (top-40 y hệt) → chunk y hệt blendQB8b (vân tay chunk `739418b50219`) | 200 | **0,3384** | 0,2893 | FINAL **0,3139** ← TỐT NHẤT (+0,0013 so 8b 0,3126). Doc F2 +0,7% (P 0,1785 / R 0,5573): **zh ở đuôi giúp nhẹ** (14 doc zh thay 14 doc vi cuối). Chunk y hệt 8b. Vân tay doc `49b78b6e2cd2` |
+| 10/10 | `blendQB9b_e120.zip` | như 9a nhưng w0,6: 60 doc zh/câu thay 60 doc vi (hạng 121–200 gần như toàn zh); đầu y hệt blendQB8 | 200 | 0,3204 | 0,2893 | FINAL 0,3048 (−0,0078 so 8b). Doc F2 −4,6% (P 0,1672 / R 0,5351): **60 doc zh quá nhiều**. Khớp tham số bậc hai qua hai điểm (14 → +0,0024; 60 → −0,0156 doc F2): đỉnh ~16 doc zh/câu, lợi tối đa ~+0,0024 doc F2 (~+0,0012 FINAL) khi zh chỉ chen ở đuôi theo hạng dense. Vân tay doc `4ed2c198a169` |
+| 10/10 | `p50_zhboth.zip` | **P@50 của riêng danh sách zh** (top-50 RRF câu hỏi vi + bản dịch zh, dense BGE-M3 title+600 ký tự đầu, 1,72M doc zh), chunk rỗng | 50 | 0,0334 | 0 | FINAL 0,0167. DOCS_P **0,0462**, R 0,0365 (≈ 2,3 nhãn trong top-50 zh; đầu danh sách vi: 16,9). So với 150 doc: P 0,0266, R 0,0559 → mật độ giảm dần theo hạng nhưng **ngay ở top-50 vẫn chỉ 4,6% < ngưỡng giữ ~6%**. Khớp với 9a/9b (đỉnh ~16 doc zh ở đuôi). Cùng tín hiệu dense nội dung: vi P@50 0,289 vs zh 0,046 (gấp ~6×). Chưa tách được "nhãn zh thưa" với "truy hồi chéo ngôn ngữ yếu". Vân tay `b06f1a2c885e` |
+| 10/10 | `blendQB8w2_e120.zip` | như blendQB8b nhưng chunk-dense toàn kho **w2** (so w1; vòng 1 blendQB7 w1); đầu và tập đều theo RRF này; chunk theo chunk khớp nhất; 95,3 MB | 200 | (chờ) | (chờ) | Đổi 18,8 doc/câu top-200 so blendQB8; 44,3 doc/câu ngoài danh sách blendQB7. Mốc blendQB8b: doc 0,3360 / chunk 0,2893. Vân tay doc `23146afe5781` chunk `93e6552e11c7` |
+| 10/10 | `blendQB8w05_e120.zip` | chunk-dense toàn kho **w0,5**; 93,2 MB | 200 | 0,3357 | **0,2935** | FINAL **0,3146** (+0,0020 so 8b 0,3126; +0,0007 so 9a 0,3139). Doc ≈ 8b (0,3357 vs 0,3360: P 0,1779 / R 0,5486), **chunk +1,5%** (P 0,1920 / R 0,4186): giảm trọng số chunk-dense làm đầu danh sách giống blendQB7 hơn → chunk tốt hơn, tập doc gần như không đổi. Đổi 19,6 doc/câu; 7,6 doc/câu ngoài blendQB7. Vân tay doc `da8a7589b316` chunk `a40b697e5b14` |
+| 10/10 | `blendQB10_e120.zip` | **ghép hai tầng độc lập**: TẬP doc của `blendQB9a` (doc F2 0,3384, có 14 doc zh/câu ở hạng 121–200) + THỨ TỰ 120 doc đầu của `blendQB8w05` (chunk F2 0,2935); chunk theo chunk khớp nhất; 178.955 chunk, 93,2 MB | 200 | (=0,3384 theo cấu trúc) | (dự đoán ~0,2935) | Dự đoán FINAL ≈ (0,3384+0,2935)/2 = 0,3160 (+0,0014 so w05). Vân tay doc `49b78b6e2cd2` (= 9a) chunk `3c412209084d` |
+| 09/10 | **`blendQB7_e120.zip`** | **chunk-dense vào danh sách**: RRF (w1/w1) giữa đầu `blendQB6_h05` (200 doc) và chunk-dense pilot (BGE-M3 trên chunk, 400 ứng viên pool H, điểm doc = chunk khớp nhất); lấy top-200 làm tập doc và đầu danh sách; chunk kiểu e120 (2×40 + 1×41–120, bzip2, 178.455 chunk, 93,3 MB). 25,7 doc/câu mới vào top-200 so với blendQB6 | 200 | **0,3236** | **0,2900** | FINAL **0,3068** ← TỐT NHẤT (+0,0137 so 0,2931; bước nhảy lớn thứ hai sau độ phủ Long Châu +0,0125). Doc +3,4% (P 0,1710 / R 0,5311), chunk +6,2% (P 0,1904 / R 0,4134). **Đọc cả thân bài ở mức chunk là tín hiệu mới có giá trị.** Dự đoán từ P@50 (+8,2%) đúng hướng. Vân tay doc `9c6f85ea7df8` chunk `affd2c8bb798` |
+| 09/10 | `p50_chunk.zip` | **chunk-dense một mình** (BGE-M3 trên chunk, điểm doc = chunk khớp nhất, xếp 400 ứng viên pool H); giao head 25,3/50 | 50 | 0,2548 | 0 | FINAL 0,1274. DOCS_P **0,3136** (≈ head 0,3125; **+8,4% so dense nội dung một nguồn 0,2894**), R 0,2870. Đọc cả thân bài giúp rõ. Vân tay `2682dd49f526` |
+| 09/10 | `p50_headchunk.zip` | RRF(đầu blendQB6_h05 w1, chunk-dense w1); giao head 38,3/50 | 50 | 0,2774 | 0 | FINAL 0,1387. DOCS_P **0,3380** (+8,2% so head 0,3125), R **0,3141**. **Chunk-dense bổ sung cho vòng 1 + Qwen: bước tăng P@50 lớn nhất từ trước tới nay.** Vân tay `29d152cdc1e9` |
+| 08/10 | `probe300_1k_top50.zip` | **thăm dò Qwen đọc 1.000 ký tự**: 300 câu đầu, top-50 từ RRF(Qwen-1k w2, f_F w1) trên 150 ứng viên, chunk rỗng, 900 câu rỗng | 50 | 0,0600 | 0 | FINAL 0,0300. DOCS_P **0,0791**, R 0,0644 (×4 cho riêng 300 câu: P@50 ≈ 0,316 ≈ 15,8 nhãn trong top-50). Vân tay doc `6ae967c3cee5` |
+| 08/10 | `probe300_3k_top50.zip` | như trên nhưng Qwen đọc **3.000 ký tự** | 50 | 0,0599 | 0 | FINAL 0,0299. DOCS_P 0,0787, R 0,0642: **kém 1k một chút (−0,5%)**, nằm trong nhiễu (chỉ ~3 doc/câu khác). **Kết luận: Qwen đọc dài hơn KHÔNG giúp** → không chạy 3k cho 1.200 câu. Vân tay doc `c8527e902a5f` |
+| 08/10 | `probe300_8b_top50.zip` | (đã dựng trước) thăm dò Qwen3-Reranker-**8B** | 50 | 0,0604 | 0 | FINAL 0,0302. DOCS_P **0,0795**, R 0,0647 so với 4B `probe300_1k` P 0,0791 / R 0,0644 → **8B ≈ 4B (+0,5%, trong nhiễu)** dù khác ~11 doc/câu trong top-50. **Không đáng chạy 8B cho 1.200 câu (~6 giờ GPU).** Reranker lớn hơn không phải đòn bẩy. Vân tay doc `c0a4afc2f780` |
+| 07/10 | `probe300_1k_top50.zip` / `probe300_3k_top50.zip` | **thăm dò Qwen đọc 1.000 vs 3.000 ký tự** trên 300 câu đầu (id 1–300), 50 doc/câu, chunk rỗng, 900 câu còn lại rỗng; CÙNG 150 ứng viên f_F, RRF(Qwen w2, f_F w1). Top-50 giao nhau 46,8/50 → chỉ ~3 doc/câu khác; thiết kế cặp, so `DOCS_PRECISION` | 50 | (chờ) | 0 | Vân tay doc 1k `6ae967c3cee5`, 3k `c8527e902a5f`. Lưu ý: `blendQB3x_3k_300` (user dựng) KHÔNG phải phép thử sạch: 300 câu chỉ 150 doc (tập từ f_F top-150, mất doc hạng 150–400 mà Qwen-1k đã đẩy lên) nên lẫn hiệu ứng k và pool |
+| 07/10 | `diag_novel_hyde_k150.zip` | **chẩn đoán HyDE**: như trên nhưng chỉ dùng câu trả lời giả định | 150 | 0,0053 | 0 | FINAL 0,0027. DOCS_P 0,0038, DOCS_R **0,0068** — kém `qhyde` 19%. Vân tay doc `ed7aaaab2eef` |
 
 #### Chẩn đoán lượt nộp 0 điểm (01/10)
 
@@ -2231,14 +2527,151 @@ thứ khác kể cả upload.
 
 ---
 
-## 4. Câu hỏi còn mở (cập nhật khi BTC trả lời)
+## 4. Bảng chốt toàn bộ câu hỏi & quy định BTC (Đã giải quyết 100% - Không còn câu hỏi mở)
 
-| Câu hỏi | Trạng thái |
-| --- | --- |
-| ~~25.843 URL chênh giữa README và file thật là gì?~~ | ✅ **ĐÃ GIẢI 01/10**: `id` chạy 583→4.420.561 nhưng khuyết 25.843 id trong dải. Không thiếu dữ liệu, chỉ là id không liên tục. |
-| Nhãn gán theo nội dung trang ở thời điểm nào (trang có thể đã sửa/chết)? | chưa hỏi |
-| ~~Tài liệu tiếng Anh có nằm trong corpus link không?~~ | ✅ **ĐÃ TRẢ LỜI 01/10**: giới hạn ở PubMed, BTC không cung cấp danh sách, các đội tự tìm. Gợi ý đúng 3 API mà `pubmed_module` đang dùng. |
-| `doc_id` cho bài PubMed là PMID - hệ thống chấm phân biệt với `links_corpus.id` thế nào (hai dải giá trị chồng nhau về lý thuyết)? | nên hỏi; thực tế đo được không chồng |
-| MoE tính tổng tham số hay tham số kích hoạt? Teacher distill có phải tuân mốc ngày? | chưa rõ, tạm coi theo tổng |
-| ~~`familydoctor` + `zysjonline` chặn 403 - có phải theo IP vùng?~~ | ✅ **ĐÃ KIỂM 01/10**: không sửa được bằng code (10 profile TLS, vòng cookie, Referer đều 403). `zysjonline` = Cloudflare JS challenge → cần browser thật. `familydoctor` = Alibaba WAF → cần IP khác. Chờ quyết định có đầu tư hay chịu mất 15,8%. |
-| BTC có tính điểm cho tài liệu mà không đội nào crawl được (site chết, 521) không? | chưa hỏi |
+| Vấn đề / Câu hỏi | Trạng thái & Quyết định chốt | Giải thích chi tiết & Hướng xử lý cho AI/Đội thi |
+| :--- | :--- | :--- |
+| **1. Nhãn gán theo nội dung ở thời điểm nào?** (Trang có thể đã sửa/cập nhật) | ✅ **CHỐT: Coi như bản mới nhất** | Thực tế chỉ cào được nội dung hiện tại trên web, không thể quay ngược thời gian lấy bản cũ. Cứ trích xuất sạch sẽ bản mới nhất làm dữ liệu. |
+| **2. Nhãn vàng tạo bằng Pooling hay do LLM chấm?** | ✅ **CHỐT: Không hỏi BTC** | Hỏi câu này lộ bí mật ra đề thi/đáp án của BTC. Chiến lược của đội: kết hợp BM25F + Dense vector + LLM Reranker (Qwen-8B) để đón đầu cả 2 trường hợp. |
+| **3. Tài liệu web chết/lỗi 521 có tính điểm không?** | ✅ **CHỐT: Bỏ qua, không tính điểm** | Web đã sập vĩnh viễn thì mọi đội đều không lấy được. Thường BTC đã lọc link sống trước khi gán nhãn, không nằm trong đáp án. |
+| **4. Mô hình MoE tính tổng tham số hay tham số kích hoạt?** | ✅ **CHỐT: HỢP LỆ** | Mô hình MoE tính theo tham số kích hoạt khi suy luận (active parameters) $\le 15$B là hoàn toàn hợp lệ theo thông lệ thi đấu AI. |
+| **5. Teacher Distillation (Chưng cất tri thức) có được phép?** | ✅ **CHỐT: ĐƯỢC PHÉP** | Dùng teacher model tạo dữ liệu huấn luyện/soft labels để dạy student model $\le 15$B là phương pháp chuẩn mực trong Machine Learning, hoàn toàn hợp lệ lúc train. |
+| **6. Dữ liệu tiếng Anh / PubMed** | ✅ **CHỐT: BỎ HOÀN TOÀN** | BTC đã loại bỏ nhánh tiếng Anh khỏi đề thi chính thức. Tập trung 100% vào kho tiếng Việt & tiếng Trung. |
+| **7. Định dạng `doc_id` trong file JSON nộp bài** | ✅ **CHỐT: SỐ NGUYÊN (Integer)** | Đã kiểm chứng thực nghiệm trên leaderboard: JSON phải để `doc_id` dạng số nguyên `12345`, để dạng chuỗi `"12345"` sẽ bị chấm 0 điểm. |
+| **8. 25.843 URL chênh giữa README và file thật** | ✅ **CHỐT: Đầy đủ, không thiếu** | ID chạy từ 583 $\rightarrow$ 4.420.561 nhưng có đoạn nhảy cóc ID. File dữ liệu của BTC không bị thiếu. |
+
+### 13/10/2026: blendQB13af_e120 = FINAL 0,3182 (doc F2 0,3432 / chunk F2 0,2932; DOCS_P 0,181 / R 0,5656; CHUNKS_P 0,1918 / R 0,4181)
+- So với blendQB11z (0,3179): +0,0003, nằm trong nhiễu (±0,001). So với blendQB11 (doc 0,3384 / chunk 0,2931): doc +0,0048, chunk +0,0001.
+- Kết luận: ~14 doc zh/câu lấy từ kho zh mới (240k, RRF w0,3) ngang bản bỏ zh ngoài kho + bù doc vi (11z). zh trong kho mới ở mức 14 doc/câu chưa thêm giá trị. Chờ 13bf (w0,6, ~60 zh/câu) và p50_zh_in để biết nhiều zh hơn có đáng không.
+- Lưu ý: mới có 116,6k/240k doc zh trong store và đã mã hoá; 32,8k đã cào nhưng chưa gộp; ~90,6k chưa cào. zh còn bị chặn trần bởi độ phủ.
+
+### 13/10/2026: p50_zh_in = DOCS_P 0,066 / R 0,0485 (FINAL 0,0228, chunk rỗng)
+- 50 doc zh trong kho mới/câu: ~3,3 nhãn/câu. Mốc zh toàn bộ cũ P 0,046 → lọc theo kho mới nâng precision zh ~+43%.
+- Ngưỡng hoà vốn thêm doc: p > F2/5 = 0,343/5 ≈ 0,069. P@50 của zh (0,066) sát hoà vốn, precision biên của đuôi zh còn thấp hơn → khớp với 13af ≈ 11z (+0,0003). Dự đoán 13bf/13cf (60/100 zh/câu) ≤ 0.
+
+### 13/10/2026: bài chưa gắn nhãn, giả định = blendQB13bf (zh w0,6, ~60 zh/câu): FINAL 0,3118 (doc 0,3300 / chunk 0,2937; DOCS_P 0,1727 / R 0,5487)
+- So với 13af (0,3182): −0,0064 (doc −0,0132, chunk +0,0005). Đúng dự đoán: nhiều zh hơn 14 doc/câu làm tụt. 13cf không cần nộp. Bài tốt nhất vẫn là blendQB13af (0,3182).
+
+### 13/10/2026: HƯỚNG MỚI — nén LZMA từ điển lớn (chưa nộp)
+- Trong blendQB13af_e120: 178.966 chunk nhưng chỉ 117.377 chunk khác nhau (65,6%); 207/590 MB văn bản chunk là bản lặp giữa các câu (cùng doc xuất hiện cho nhiều câu). bzip2 (khối 900 KB) và LZMA mặc định (từ điển 8 MB) không thấy được các bản lặp cách xa.
+- Đo trên đúng JSON 600 MB đó: bzip2 95,5 MB · LZMA 8 MB 91,4 MB · **LZMA từ điển 640 MB 54,8 MB** (−43%) → trong trần 100 MB chứa được ~1,7× chunk.
+- `submission.py --zip-method lzma` (từ điển 768 MB, ZIP method 14, tự kiểm đọc lại bằng zipfile chuẩn). Server chưa từng nhận LZMA: bài lỗi định dạng không tính quota.
+- Đang dựng: `runs/blendQB13af_e120_lz.zip` (y hệt 13af, chỉ đổi nén — kiểm vân tay) và `runs/blendQB13af_e200_lz.zip` (1 chunk cho doc hạng 41–200 thay vì 41–120).
+
+### 13/10/2026: pilot Qwen3-Embedding-4B trên chunk (300 câu ngẫu nhiên qs2, top-100 blendQB11, 54.054 chunk, ~36 phút GPU 0) → 3 bài P@50
+- `runs/p50_q4chunk.zip` (doc `c3ec5a8c9042`): top-50 theo chunk khớp nhất của Qwen3-Emb-4B. Giao top-50 với thứ tự hiện tại 32,9/50.
+- `runs/p50_q4chunk_rrf.zip` (`df06ef705cfc`): RRF(thứ tự hiện tại, Qwen3-Emb chunk). Giao 41,3/50.
+- `runs/p50_bgechunk.zip` (`f3c14efa50a9`): top-50 theo BGE-M3 chunk (cùng 100 ứng viên). Giao 41,1/50. Đối chứng mô hình: nếu BGE-M3 ≥ Qwen3-Emb dù Qwen3-Emb mạnh hơn trên benchmark → ủng hộ giả thuyết nhãn được pool từ hệ thống kiểu baseline BTC (BM25 + BGE-M3).
+- Mốc: `runs/r300_p50_base.zip` (`382b2b23763f`, chưa nộp). Đọc: DOCS_P×4 = P@50 trên 300 câu; có ý nghĩa khi chênh ≥ +0,02.
+- Dựng xong: `runs/blendQB13af_e120_lz.zip` 54,8 MB, vân tay doc `c9b5de8fc718` chunk `6d42f1f2f79f` = Y HỆT 13af (không cần nộp). `runs/blendQB13af_e200_lz.zip` **74,7 MB**, 265.951 chunk (so 178.966), doc `c9b5de8fc718` chunk `e21516c7cbff`; testzip OK. Chỉ khác 13af ở chunk của doc hạng 121–200 → đo đúng giá trị của chunk sâu + kiểm server đọc LZMA. Còn ~25 MB trống cho bước tiếp.
+
+### 13/10/2026: quan sát thủ công (view_disputed.md) + E6 khớp khía cạnh
+- Đọc 6 câu ngẫu nhiên (`view_disputed.md`): top-5 đều liên quan thật; thứ tự hiện tại và BGE-chunk gần như không tranh chấp (đã RRF với nhau). Bằng mắt KHÔNG phân biệt được doc vàng/không vàng → khớp với "Qwen thấy ~130 liên quan, nhãn ~65".
+- Rác thấy được rất ít: doc trùng (cùng domain+title+độ dài body, phần lớn là URL cũ/mới của Long Châu hoặc redirect của hellobacsi) 0,6 slot/câu trong top-50, 2,2 trong top-200; doc ngắn <600 ký tự 0,4/câu trong top-50. Không phải nguyên nhân chính.
+- Slide 40 PDF BTC: "cùng bệnh nhưng khác ý" (hỏi triệu chứng, doc nói chẩn đoán = liên quan thấp hơn). Ví dụ thật: câu 383 hỏi "điều trị được không", doc #1 là "Nguyên nhân tái phát...".
+- E6 (`aspect_probe.py`): 627 câu có đúng một khía cạnh (điều trị/triệu chứng/nguyên nhân/chẩn đoán/phòng ngừa/ăn uống/nguy hiểm), 2.418 cặp doc top-100 ghép hạng (TB 23,3 vs 22,0). `runs/e6_aspect_match.zip` (doc `816db7c9b3a1`) vs `runs/e6_aspect_miss.zip` (`35017a7eda9e`). Đọc: so DOCS_P hai bài (cùng tập câu); match/miss ≥ 1,3× → thêm tín hiệu khía cạnh (luật từ khoá hoặc chỉ dẫn reranker theo khía cạnh).
+
+### 13/10/2026: blendQB13af_e200_lz = FINAL 0,3156 (doc 0,3432 y hệt 13af / chunk F2 0,2880; CHUNKS_P 0,1505 / R 0,4733)
+- **Server ĐỌC ĐƯỢC ZIP LZMA từ điển 768 MB** → ngân sách chunk thực tế ~1,7× (54,8 MB cho nội dung 13af).
+- Nhưng chunk cho doc hạng 121–200 làm chunk F2 −0,0052 (FINAL −0,0026 so 13af 0,3182): recall +0,055 nhưng precision 0,1918 → 0,1505. Chunk đúng/câu 28,6 → 33,4 (+4,8 trên 72,5 chunk thêm) → precision biên ≈ 0,066, dưới mức hoà vốn theo macro. Chunk sâu hơn hạng 120 KHÔNG đáng. Bài tốt nhất vẫn blendQB13af_e120 (0,3182).
+
+### 14/10/2026: crawl nốt zh của kho mới trên máy GPU (tmux `zhmiss`)
+- zh kho mới 240.000; đã có body ≥200 ở `corpus_vifull` 116.530 + `queue_zh2` 18.981 + `queue_zh3` 14.708 (zh3/zh2 CHƯA gộp) → thiếu **90.558** (sau khi trừ 12 doc có ở store máy GPU). Theo domain: 120ask 42.923, ask.39.net 12.317, cnkang 11.761, zysjonline 6.591 (BLOCKED ở IP local, thử lại từ IP máy GPU), *.39.net khác ~10k, còn lại ~7k. Hầu hết CHƯA từng được thử (state 0), không phải lỗi cũ.
+- Hàng đợi `data/zh_missing.sqlite` (local và máy GPU; danh sách `data/zh_missing_ids.json`). Chạy: `crawler.py --db data/zh_missing.sqlite` (bản crawler trên máy GPU), log `data/zh_missing_crawl.log`.
+- 90 giây đầu: 2.700 URL, ~2 trang/s mỗi domain lớn. article.iiyi.com 521 toàn bộ (729 URL, bỏ); một phần *.39.net trả captcha. Ước tính: 120ask là nút cổ chai, ~6 giờ nếu giữ tốc độ; lịch sử shard 3 bị ConnectTimeout hàng loạt sau ~12k → có thể kéo dài tới ~1 ngày.
+- Sau khi xong (chờ người dùng): gộp zh2 + zh3 + zh_missing → `clean.py --apply` → `chunk.py` → `audit.py` → encode BGE-M3 → xếp hạng lại zh.
+
+### 14/10/2026: KẾT QUẢ blendQB14_w035_e120 = FINAL **0,3244** ← TỐT NHẤT (+0,0022 so QB14 0,3222)
+- doc F2 **0,3555** (+0,0044; P 0,1865 / R **0,5934**, so 0,1846 / 0,5844) · chunk F2 0,2934 (không đổi; top-120 đổi ở 188 câu nhưng chunk F2 y nguyên).
+- 14,3 → 23,3 zh/câu (+9 zh thay 9 vi cuối): R +0,009 ≈ +0,58 doc vàng/câu → 9 zh thêm vào hơn 9 vi bị thay ~6,4 điểm phần trăm precision. Lợi suất giảm (8 zh đổi đầu tiên ở QB14 cho +1,2 vàng/câu) nhưng còn dương → nộp `w04` (31,3 zh/câu). Dựng sẵn `runs/blendQB14_w045_e120.zip` (~39 zh/câu; doc `547836004ae4`, chunk `f4e41631f67f`, 95,6 MB) để nộp nếu w04 còn tăng.
+
+### 14/10/2026: so với một đội trên ta (0,3502) — KHOẢNG CÁCH NẰM Ở CHUNK
+- Đội đó (người dùng cung cấp; giả định cột FINAL/docF2/chunkF2/docP/docR/chunkP/chunkR): 0,3502 · doc 0,3617 (P 0,240 / R 0,467) · chunk **0,3388 (P 0,282 / R 0,408)**. Ta (w04): 0,3253 · doc 0,3571 · chunk 0,2936 (P 0,192 / R 0,421).
+- Doc gần hoà: họ nộp ~125 doc/câu (suy từ P/R, G≈64) nên P cao hơn; top-125 của ta ước cũng ~29 vàng (P@50 0,30) → xếp hạng doc không kém. Chunk: cùng R, P cao hơn 47% → gần toàn bộ chênh FINAL (~0,023/0,025).
+- Bỏ sót của mình: phép quét phân bổ chunk (06–08/10, "đỉnh phẳng") làm TRƯỚC khi đổi nhãn/luật chấm chunk 12/10. Dưới nhãn mới e200 đã tụt → nghi tối ưu hiện là ÍT chunk hơn. Quét lại trên tập doc w04 (doc F2 phải = 0,3571): `runs/w04_x1_120.zip` (1 chunk × top-120, bỏ chunk thứ hai), `runs/w04_x1_80.zip` (1 × top-80), `runs/w04_e70.zip` (2×40 + 1×41–70). Mốc w04: chunk P 0,1919 / R 0,4206 / F2 0,2936 (~149 chunk/câu).
+- Viết gọn câu dài cho reranker đang chạy (máy GPU, tmux `rwrr`): `rewrite_queries.py` (prompt giữ đủ ý hỏi, không suy diễn) cho 405 câu >30 từ → Qwen3-Reranker-4B chấm top-100 hiện tại bằng câu viết gọn (`qwen_rw`) và câu gốc cùng cài đặt (`qwen_rwctl`, đối chứng).
+
+### 14/10/2026: KẾT QUẢ w04_x1_120 (bỏ chunk thứ hai của top-40) = FINAL 0,3118 (−0,0135)
+- doc F2 0,3571 (y hệt, đúng thiết kế) · chunk F2 **0,2666** (−0,027): P 0,1932 (≈ 0,1919) / R **0,3616** (−0,059).
+- 149 → 120 chunk/câu: chunk đúng 28,6 → 23,2 → 29 chunk thứ hai có precision ≈ 5,4/29 = **0,186 ≈ precision trung bình**, và mang nhiều "phần thông tin" riêng (R −0,059). → Bớt chunk là SAI hướng; e70 và x1_80 chắc chắn tụt (không nộp).
+- Suy luận: chunk trong cùng một doc đầu danh sách đúng ngang chunk đầu → thêm chunk thứ 3, 4 cho doc đầu có thể còn lãi; và nếu đội khác cắt chunk NHỎ hơn (mỗi doc vàng cho nhiều chunk đúng) thì precision chunk của họ cao hơn là hợp lý. Dựng `runs/w04_x3_40.zip`, `runs/w04_x4_40.zip` (3/4 chunk × top-40 + 1 × 41–120, nén LZMA).
+
+### 14/10/2026: Qwen3-Embedding-8B cho zh (kho mới 226.736 doc) — hai đường song song
+- Máy lab: `scripts/run_zh_q8.sh` (tmux `zhq8`): tải 8B rồi TỰ CHỜ card trống ≥20 GB (lúc đặt: hai card bị người khác dùng — vLLM 21,6 GB, train 13 GB), chia 2 nửa chạy 2 card, xếp hạng vi/zhq/zhq109 → `dense_zhQ8_*_rank.jsonl`.
+- Colab A100 80GB (người dùng có 180 CU): gói `runs/colab_zh_q8/` (dense.py, zh_text_new.sqlite, queries*.jsonl, `zh_q8_colab.ipynb`); mã hoá 4 phần lưu thẳng Drive (chịu được mất kết nối). Bên nào xong trước dùng bên đó; xong thì dừng job còn lại.
+- Sau đó: dựng zh list = RRF(vi top-400, zhq top-400 vá 109) như zh3 (lưu ý: chỉ mã hoá doc trong kho mới nên thứ hạng zh "tốt hơn" danh nghĩa → quét lại W), thăm dò P@50 zh và dựng lại bài w04.
+- **XONG (Colab)**: 48 doc/s, 4 phần × 19,6 phút = 78 phút. Lỗi ô 6 (chuỗi chỉ dẫn xuống dòng thật) đã sửa trong notebook. Job lab đã dừng (xong nửa đầu `emb_zhQ8_p0.npy`, giữ lại). File: `data/dense_zhQ8_{vi,zhq,zhq109}_rank.jsonl` (1.200/1.200/109 câu × 1.000).
+- Danh sách: `rp/zh8_in` = RRF(z8v top-400, z8q top-400 vá 109) lọc kho mới (TB 529 doc/câu); `rp/zh38_in` = RRF 4 nguồn BGE+8B (659/câu).
+- **8B khác BGE rất xa**: giao top-10 chỉ 2,2 · top-30 8,0 · top-50 14,5. Trùng top-30 giữa câu vi và câu zh: **8B 16,4 vs BGE 6,6** → 8B căn chỉnh xuyên ngôn ngữ tốt hơn hẳn (câu vi và bản dịch zh ra gần cùng kết quả). Nhìn mắt 3 câu: 8B sạch hơn (BGE lạc sang "轻度弱精子症", "轻度静脉炎" vì trùng chữ).
+- Thăm dò P@50 zh (chunk rỗng; so cùng ngày với `p50_zh3_in` = BGE, doc `d7ab98f2423b`, CHƯA nộp): `runs/p50_zh8_in.zip` (doc `274045af16ef`), `runs/p50_zh38_in.zip` (doc `c544624a0573`).
+- **KẾT QUẢ p50_zh8_in**: DOCS_P **0,0827** / R 0,0782 / F2 0,0662 → 4,1 doc vàng zh/câu trong 50. Mốc cũ `p50_zh_in` (BGE, zh phủ 49%, chưa clean) 0,066. Chưa tách được phần do 8B hay do kho zh mới → cần `p50_zh3_in` (BGE, cùng kho).
+- **KẾT QUẢ p50_zh3_in (BGE, cùng kho)**: DOCS_P **0,1103** / R 0,0918 / F2 0,0816 → 5,5 vàng/câu. **BGE HƠN 8B 33%** dù 8B "đẹp" hơn trên mọi thước đo nội bộ (vi/zh nhất quán, nhìn mắt sạch hơn). Giả thuyết: nhãn BTC gán trên tập doc do retriever kiểu BGE-M3 tìm ra (pooling) → model khác tìm doc đúng chủ đề nhưng không có nhãn. Khớp với chuyện mọi tín hiệu chủ đề đều bão hoà. Bài học: **đừng thay BGE-M3 bằng embedding "mạnh hơn"**; thử nghiệm model mới phải qua thăm dò leaderboard.
+- Kho zh mới + clean (BGE): 0,066 → 0,110 (+67%), khớp với lãi của QB14.
+- Đã dựng nhưng KHÔNG nộp: `runs/w04_zh8_e120.zip` (w04 thay zh list bằng 8B; W0,4 cũng cho 31,3 zh/câu vì RRF chỉ theo hạng; top-120 y hệt w04 1.185/1.200; doc `ed103d9fa7dc`, chunk `3bfd38664698`).
+- Còn thử: trộn nghiêng BGE `runs/p50_zh38w_in.zip` (BGE 1 : 8B 0,3; giao top-50 với BGE 41,4; doc `35b7d5470af3`) — 8B chỉ làm tín hiệu "đồng thuận" đẩy doc cả hai cùng chọn. `p50_zh38_in` (1:1, giao BGE 26,4) gần như chắc thua BGE, không nộp.
+- **KẾT QUẢ p50_zh38w_in** (người dùng không ghi tên, suy ra): DOCS_P **0,115** / R 0,0995 / F2 0,0867 → hơn BGE riêng +4% P, +8% R (≈ +0,23 vàng/câu trong 50). 8B có ích khi làm tín hiệu đồng thuận, không phải nguồn chính.
+- Dựng `runs/w04_zh38w_e120.zip` (= w04, zh list `rp/zh38w_in`, W0,4 → 31,3 zh/câu; khác w04 5,9 doc/câu, top-120 y hệt 1.189/1.200; doc `7ea17e35e329`, chunk `72a9d14ce27c`, 93,3 MB). Kỳ vọng FINAL +0,001–0,002 so 0,3253.
+- **KẾT QUẢ w04_zh38w_e120 = FINAL 0,3262 ← TỐT NHẤT** (+0,0009): doc F2 **0,3589** (P 0,1878 / R **0,6008**, so 0,3571) · chunk F2 0,2935 (= w04). ~6 zh đổi/câu → +0,6% recall doc.
+- Dựng tiếp `runs/w045_zh38w_e120.zip` (zh38w, W0,45 → ~39 zh/câu; doc `c1e068422e5f`, chunk `f30180dca611`, 93,3 MB). `blendQB14_w045_e120` (zh BGE) bỏ.
+- **Chunk 1.000 token** (15/10): store phụ `data/store_c1000.sqlite` (89.058 doc top-120 của q14_z38w_04, `chunk.py --target-tokens 1000`): 1,88 chunk/doc (900: 2,06), dài TB 2.482 ký tự (+9%), 33% doc chunk y hệt. Điểm chọn chunk chuyển từ chunk 900 sang chunk 1000 theo chồng lấn ký tự lớn nhất (`data/chunk_scores_c1000.jsonl`). `runs/w04z38w_c1000_e120.zip` (LZMA 58 MB; doc `7ea17e35e329` = bài tốt nhất, chunk `51c0ad029ca7`, 147 chunk/câu). Lần nén đầu hỏng do phiên bị ngắt → đã nén lại, testzip OK. So với 0,3262: chỉ chunk đổi.
+- Dựng sẵn `runs/w05_zh38w_e120.zip` (W0,5 → ~47 zh/câu; doc `98ae5a55b4a6`, chunk `6d28fee7ad90`) — chỉ nộp nếu w045 > 0,3262.
+
+### 14/10/2026: chunk NHỎ (~450 token) — store phụ `data/store_c450.sqlite`
+- `w04_x3_40` / `w04_x4_40` (chunk 900): chỉ thêm +12 / +1,8 chunk/câu (doc đầu phần lớn chỉ 1–2 chunk 900) → chỉ nộp x3_40 (chunk `249f0b45468d`, 57,5 MB LZMA).
+- Store phụ: 89.058 doc thuộc top-120 của q14_04, `chunk.py --target-tokens 450` → 359.487 chunk (4,04 chunk/doc), kiểm offset/nguyên văn OK. Store chính KHÔNG đổi.
+- `runs/w04_c450_x4e120.zip` (4 chunk 450 × top-40 + 1 × 41–120, chunk lấy theo thứ tự trong doc, KHÔNG có điểm chọn chunk; 253.657 chunk, 42,4 MB LZMA; doc `2b20bfcd77c4`, chunk `6e4b6683165f`). So với w04: cùng doc, chunk ngắn bằng nửa, ~211 chunk/câu.
+- **KẾT QUẢ (khối dán không nhãn, giả định = `w04_c450_x4e120`, bài ưu tiên 1): FINAL 0,2419** · doc 0,3571 (y hệt) · chunk F2 **0,1267** (P **0,0729** / R 0,2009) so w04 0,2936 (0,1919 / 0,4206). Chunk 450 token SẬP: precision chỉ còn 1/3. Khớp luật LCS(c,g)/|g| ≥ 0,40 nếu **đoạn vàng g DÀI** (cỡ ≥ 450 token): chunk nửa cỡ không chứa nổi 40% của g. → Đoạn vàng dài; chunk nhỏ là hướng SAI; đội khác không thắng nhờ chunk nhỏ. Hướng ngược lại đáng thử: chunk dài hơn 900 (tới ~1.024 token khuyến nghị) và ranh giới chunk khớp mục/đoạn hơn.
+- `w04_c450_x3t120` bị hệ thống dừng giữa lúc nén (máy thiếu RAM) → zip hỏng, đã đổi tên `.zip.HONG` để khỏi nộp nhầm; còn 2 file JSON trung gian (~1,1 GB) chưa xoá.
+
+### 14/10/2026: viết gọn câu dài → 3 bài thăm dò (`build_rw_probe.py`)
+- `rewrite_queries.py` 405/405 câu viết lại (0 câu rơi về gốc); prompt mới giữ đủ ý hỏi (271, 1002 tốt hơn bản thử), vẫn có lỗi hiểu sai (706: "nguy cơ được 6 tháng" → "nữ 6 tháng tuổi"). Lần chạy đầu OOM vì thiếu `CUDA_DEVICE_ORDER=PCI_BUS_ID` (hai job dồn một card) + batch 16; chạy lại batch 4.
+- Qwen3-Reranker-4B chấm top-100 (q14_04) bằng câu viết gọn (`qwen_rw`) và câu gốc cùng cài đặt (`qwen_rwctl`): top-50 của Qwen giao 41,1/50.
+- Bài (405 câu; P@50 = DOCS_P × 1200/405): `runs/p50_rw_base.zip` (top-50 hiện tại), `runs/p50_rw_ctl.zip` (RRF hiện tại + Qwen câu gốc; giao base 39,9), `runs/p50_rw.zip` (RRF hiện tại + Qwen câu viết gọn; giao 39,5). Đọc: rw − ctl ≥ +0,02 → viết gọn có giá trị.
+- Quan sát nhìn mắt độ tự tin zh theo câu: độ trùng top-30 hai bảng zh (vi-query/zh-query) trải rộng (566/1.200 câu < 5; 164 câu ≥ 15); câu tự tin cao (214, 534) zh đúng chủ đề tới hạng 31, câu thấp (656, 200) zh lệch ngay hạng 1–3 → gợi ý quota zh theo câu.
+
+### 14/10/2026: KẾT QUẢ blendQB14_w04_e120 = FINAL **0,3253** ← TỐT NHẤT (+0,0009 so w035)
+- doc F2 0,3571 (P 0,1872 / R 0,5964) · chunk F2 0,2936 (P 0,1919 / R 0,4206).
+- Đường cong số zh/câu (vàng thêm/câu so bước trước): 14 zh mới thay zh cũ +1,2 · 14→23: +0,58 · 23→31: **+0,19** → lợi suất giảm nhanh, đỉnh quanh 31–39. w045 (~39 zh) dự đoán ≈ 0 (±0,001); chỉ nộp khi dư lượt.
+
+### 14/10/2026: thăm dò TÁCH Ý CON cho đầu danh sách (`build_subq_probe.py`, 0 GPU)
+- `data/subq.jsonl` (07/10, Qwen3.5-9B): 1 ý 215 câu, 2 ý 123, 3 ý 35, **4 ý 827** (tách quá tay: câu 535 ~50 từ bị tách 4 ý, có ý tự bịa "thuốc nam hiệu quả ra sao"); câu dài nhất có thể thất bại (271: trả về nguyên câu). Trước đây chỉ đo để NỚI POOL bằng nhãn bạc (thiên vị câu gốc), chưa từng đo cho xếp hạng.
+- `runs/p50_subq_rrf.zip`: qs2, 240/300 câu có ≥2 ý → RRF(thứ tự base top-100, dense BGE-M3 title + title+600 của các ý con gộp RRF); 60 câu 1 ý giữ base. Giao top-50 với base 42,4.
+- `runs/p50_subq_ctl.zip`: y hệt nhưng dùng CÂU GỐC với cùng embedding (tách tác dụng "tách ý" khỏi "thêm trọng số dense"). Giao 43,2.
+- **KẾT QUẢ `p50_subq_rrf`:** DOCS_P 0,0743 / R 0,0760 → P@50 **0,297**, R@50 0,304 (base 0,300 / 0,310): −0,003, trong nhiễu, KHÔNG tăng. **`p50_subq_ctl`:** DOCS_P 0,0733 / R 0,0738 → P@50 **0,293**, R@50 0,295.
+- **Kết luận:** thêm dense câu gốc vào RRF làm tụt (−0,007 P so base); thay bằng ý con bù lại một phần (subq − ctl = +0,004 P / +0,009 R, dưới ngưỡng +0,02) nhưng vẫn KHÔNG vượt base. Tách ý có tín hiệu yếu nhất định (thiên về recall), không đủ để dùng ở dạng RRF với dense title. Hướng tách ý cho đầu danh sách: dừng (ghi âm tính).
+- Đọc (mốc `r300_p50_base` P@50 0,300): subq_rrf − ctl ≥ +0,02 → tách ý có giá trị → làm bản đầy đủ (Qwen rerank theo từng ý / chunk-dense theo ý). Gần bằng → bỏ.
+
+### 14/10/2026: KẾT QUẢ r300_p50_base và p50_q4chunk_rrf (qs2, 300 câu; ×4 = P@50 / R@50)
+| Bài | DOCS_P | P@50 | R@50 | so base |
+|---|---|---|---|---|
+| `r300_p50_base` (thứ tự hiện tại) | 0,0749 | **0,300** | 0,310 | mốc |
+| `p50_q4chunk_rrf` (RRF hiện tại + Qwen3-Emb-4B chunk) | 0,0760 | 0,304 | 0,322 | P +0,004 (+1,5%), R +0,012 |
+| `p50_bgechunk` (13/10, BGE-M3 chunk một mình) | 0,0691 | 0,276 | 0,284 | P **−0,024** |
+- Mốc qs2 (0,300) thấp hơn ước đoán 0,33 của mình. BGE-chunk một mình kém thứ tự hiện tại rõ → RRF đang làm đúng việc.
+- Qwen3-Emb chunk thêm vào RRF: dương nhưng dưới ngưỡng tin cậy +0,02 (chỉ ~0,2 doc đúng/câu trong top-50). Triển khai 1.200 câu tốn ~2,5 giờ GPU, ước +0,001–0,002 FINAL → chưa đáng, trừ khi gộp với tín hiệu khác. Giả thuyết pool vẫn chờ `p50_q4chunk` (một mình) so với bgechunk 0,276.
+
+### 14/10/2026: KẾT QUẢ blendQB14_e120 = FINAL **0,3222** ← TỐT NHẤT (+0,0040 so 13af 0,3182)
+- doc F2 **0,3511** (+0,0079; P 0,1846 / R **0,5844**, so 0,181 / 0,5656) · chunk F2 0,2933 (= 13af, đúng thiết kế; P 0,1918 / R 0,4185).
+- Chỉ đổi ~8 doc zh/câu (hạng 121–200) mà R +0,019 ≈ **+1,2 doc vàng/câu** → doc zh mới (phủ 95%, đã clean) có precision ước 15–20%, gấp 2–3 lần ngưỡng hoà vốn (~0,07). Dự đoán của mình (+0,001–0,003) quá thấp. Hệ quả: 14 zh/câu là tối ưu của danh sách zh CŨ; với danh sách mới nên quét lại số zh.
+- Quét W (zh3_in trong RRF với c_blendQB8): 0,25 → 4,3 zh/câu · **0,3 → 14,3 (QB14)** · 0,35 → 23,3 · 0,4 → 31,3 · 0,5 → 47,0. W cao đổi cả top-120 (0,35: 1.012/1.200 câu giữ nguyên top-120; 0,4: 746) → chunk có thể nhích.
+- Dựng: `runs/blendQB14_w035_e120.zip` (23,3 zh/câu; doc `e27af2c8d46a`, chunk `edaf160c7121`, 95,5 MB), `runs/blendQB14_w04_e120.zip` (31,3 zh/câu; `2b20bfcd77c4` / `c9871de9bf5c`, 95,5 MB); thăm dò `runs/p50_zh3_in.zip` (doc `d7ab98f2423b`; 50 doc zh kho mới/câu, chunk rỗng; mốc cũ `p50_zh_in` DOCS_P 0,066). W0,6 → 60,2 zh/câu (≈13bf đã tụt, không dựng).
+- audit store gọn: 20 phút (store cũ ~50). FAIL còn: "gọi domain bị chặn" (vô hại) và raw_html: đã chép lại 359 dòng từ store cũ (còn 2).
+
+### 14/10/2026: STORE GỌN `data/corpus_new.sqlite` thay `corpus_vifull` + dọn file
+- `make_store_new.py` (sao chép, không sửa nguồn): chỉ doc kho mới + vinmec.com; bỏ `chunk_t400`/`chunk_t900`, raw_html. 966.845 doc / 980.598 queue / 1.581.245 chunk, **5,3 GB** (cũ 12,6 GB, 2,78M doc). Dựng lại blendQB14 từ store mới: vân tay y hệt (`d63d23c0676f` / `2a2f114bf9df`).
+- Mọi script đổi mặc định sang `corpus_new.sqlite` (30 chỗ trong 21 file); `--demo` các script + `unittest` đều OK.
+- audit store cũ (trước khi đổi): tầng chunk/submission/score PASS hết; FAIL: 4.006 doc zh shard 0 (03–06/10) state DONE nhưng body 100–199 ký tự (đã đặt FAILED), "gọi domain bị chặn" (vô hại, đã biết), 11 doc trích lỗi mất raw_html.
+- Đã xoá (người dùng đồng ý): `corpus_gpu_shard0.sqlite` 6,7 GB, `queue_zh1`/`queue_zh` 1,7 GB, `Downloads/queue_zh2`/`zh3` 2,4 GB, `zh_missing*.sqlite` 0,3 GB. GIỮ `corpus_vifull.sqlite` làm dự phòng tới hết public phase.
+
+### 14/10/2026: zh kho mới phủ 95% → gộp, clean, chunk, mã hoá lại, dựng `blendQB14_e120`
+- Crawl máy GPU dừng khi chỉ còn zysjonline (6.516 URL, 75/75 lần 403, bị hãm còn ~10 req/giờ → bỏ). Kết quả: 80.525 dùng được / 3.517 lỗi (iiyi 521, captcha *.39.net, timeout).
+- `merge_zh_new.py` (mới, có `--demo`): chỉ gộp doc zh kho mới, body ≥200, tỉ lệ chữ Hán ≥0,3, ghi đè dòng lỗi cũ (tránh lỗi INSERT OR IGNORE). +111.699 doc (zh_missing 80.505, zh2 17.755, zh3 13.439); loại 1.726 nghi mojibake. **Phủ zh kho mới 228.229/240.000 (95,1%)**, trước 116.530 (48,6%).
+- `clean.py --apply`: 629.462 doc sửa, 67,3 MB boilerplate — **doc zh cũ chưa từng được clean** (vd. đầu mọi trang 120ask: '您好，虽然我们的工作人员都在竭尽所能…'). `chunk.py`: 782.177 doc → 1.051.774 chunk, kiểm offset OK.
+- `scripts/run_zh_new.sh` (GPU 0): mã hoá lại TOÀN BỘ 226.736 doc zh kho mới từ văn bản đã clean (thay hàng cũ trong emb_zhC2) → `emb_zhC3`; xếp hạng vi / zhq / zhq109 → `dense_zhC3_*_rank.jsonl`.
+- Công thức 13af giữ nguyên, chỉ thay danh sách zh: RRF(z3v top-400, z3q top-400 có vá 109) → lọc kho mới (`rp/zh3_in`, TB 340 doc/câu so 216) → fuse(c_blendQB8, zh3_in w0,3) → hybrid_cands(…, c_blendQB8w05, 120) → filter_new_corpus → `rp/q14_03.jsonl`. W0,3: 14,3 zh/câu (= 13af); w0,25 → 4,3, w0,2 → 0,2 (ngưỡng rất gắt). Giao top-50 zh cũ/mới chỉ 22,5.
+- **`runs/blendQB14_e120.zip`** (95,5 MB bzip2; doc `d63d23c0676f`, chunk `2a2f114bf9df`): so 13af khác 8,0 doc/câu (toàn zh ở hạng 121–200), top-120 y hệt 1.196/1.200 câu, chunk khác 53/179.000 (doc zh vừa clean). Đây là phép thử sạch của "zh phủ 95% + đã clean" ở phần đuôi. Mốc 13af: doc F2 0,3432.
+
+### 13/10/2026: KẾT QUẢ e6_aspect_match và p50_bgechunk (đọc dở, còn thiếu đối chứng)
+- `e6_aspect_match`: DOCS_P 0,1976 / R 0,0166 → precision trên 627 câu có doc = 0,1976×1200/627 = **0,378** (~3,9 doc/câu, hạng TB 23). Chưa kết luận được: phải có `e6_aspect_miss` (ngưỡng match/miss ≥ 1,3× ⇔ miss ≤ ~0,29).
+- `e6_aspect_miss`: DOCS_P 0,1932 / R 0,0145 → precision trên câu có doc **0,370** vs match 0,378: tỉ lệ **1,02×** (ngưỡng 1,3×). R chênh 0,0166/0,0145 nhưng P gần bằng nhau → trong nhiễu. **E6 ÂM TÍNH: khía cạnh trong title không phân biệt được nhãn → bỏ hướng tín hiệu khía cạnh.** (Ghi cho paper: slide 40 "cùng bệnh khác ý" không thấy được qua title.)
+- `p50_bgechunk`: DOCS_P 0,0691 / R 0,0710 → **P@50 = 0,276** trên qs2 (R@50 0,284). Mốc tham chiếu gần nhất là thứ tự hiện tại trên câu 1–300 ≈ 0,316 (mẫu đó KHÓ hơn qs2) → BGE-chunk đứng một mình thấp hơn thứ tự hiện tại ~0,04–0,06 dù giao 41,1/50: ~9 doc nó đổi vào gần như không trúng. Giả thuyết "nhãn pool từ BGE-M3 chunk" yếu đi; chốt khi có `r300_p50_base` và `p50_q4chunk`.

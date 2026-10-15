@@ -8,13 +8,14 @@ Hạn nộp public  31/10/2026        Private phase  01–04/11/2026 (chỉ 5 l�
 Lượt nộp public 10 bài/ngày        Leaderboard    leaderboard.aiguru.com.vn
 ```
 
-**Điểm hiện tại: `FINAL_SCORE = 0.2658`** (doc F2 0,2914 · chunk F2 0,2402, k=200; 06/10/2026).
+**Điểm hiện tại: `FINAL_SCORE = 0.2679`** (doc F2 0,2956 · chunk F2 0,2402, k=200; 07/10/2026). Bài tốt nhất: `runs/blendQB3x_t40_70.zip`.
 
 > **Cập nhật 06/10/2026 — ĐỌC TRƯỚC:** tình hình đã đổi nhiều so với các mục bên dưới (viết lúc điểm 0,0457).
 > Trạng thái thật, pipeline đang cho điểm tốt nhất, việc đang chạy và việc tiếp theo: **`CLAUDE.md` §6–7**.
 > Nhật ký đo và các bài học: **`PROGRESS.md` mục 06/10 và §2b**. Các "Việc #1–#6" ở §4 dưới đây là **lịch sử**:
 > crawl vi gần đủ, zh chỉ ~2,6% nhãn (không đáng thêm), PubMed bị BTC bỏ, `bm25.py` đã có, đã có dense + Qwen3-Reranker.
-> Còn thật sự mở: working notes paper (#6), chuẩn bị private phase, các thí nghiệm mở rộng pool (HyDE...).
+> Còn thật sự mở: working notes paper (#6), chuẩn bị private phase, các thí nghiệm mở rộng pool (**HyDE đang chạy 07/10**: `hyde.py`, `scripts/run_hyde.sh`; Qwen3-Embedding title).
+> Đề xuất nghiên cứu `PROPOSAL_ADAPTIVE_FUSION.md` (gate BM25↔dense) đã thử trên nhãn bạc (07/10): oracle theo từng câu chỉ hơn trọng số chung +1,56% → **bỏ** (xem §6–7 của file đó).
 
 ---
 
@@ -74,7 +75,7 @@ links_corpus.parquet (4,39M URL)   query.parquet (1.200 câu)
                                  ↓
                             chunk.py ─→ bảng chunk: CHỈ (doc_id, start, end)
                                  ↓
-                         [CHƯA CÓ] bm25.py, dense.py, rerank.py
+                         bm25.py, bm25_ent.py, dense.py, fuse.py, qwen_rerank.py, chunk_rerank.py (xem METHODS.md)
                                  ↓
                           submission.py ─→ runs/*.zip ─→ leaderboard
                                  ↑
@@ -91,6 +92,8 @@ Không có đường nào để chunk lệch khỏi tài liệu. **Đừng bao g
 | --- | --- | --- |
 | **`README.md`** | file này | đầu tiên |
 | **`CLAUDE.md`** | luật cuộc thi, cách chấm, mô hình được dùng, hạ tầng, quy ước làm việc | trước khi viết code |
+| **`METHODS.md`** | **từng phương pháp đang dùng/đang thử: làm gì, vì sao, số đo, ✅❌⏳** (đọc cái này để hiểu hướng đi) | sau README |
+| **`LITERATURE.md`** | bài báo IR liên quan (đã tra) và hướng nào hợp với bài toán, kèm kỳ vọng | khi chọn hướng mới |
 | **`PIPELINE.md`** | thiết kế từng bước xử lý dữ liệu + lý do + thứ tự làm | khi làm một bước cụ thể |
 | **`PROGRESS.md`** | **sổ số đo mọi lần chạy**, quyết định đã chốt kèm lý do, bảng điểm leaderboard | khi cần con số, hoặc trước khi định làm lại gì |
 | `SETUP.md` | setup 2 máy (local PowerShell + máy GPU) | khi dựng môi trường |

@@ -25,7 +25,7 @@ import collections
 import sqlite3
 import sys
 
-DB = "data/corpus.sqlite"
+DB = "data/corpus_new.sqlite"
 # Ngưỡng đo trên dữ liệu thật ngày 01/10/2026. Ban đầu đặt 0,30 và TRƯỢT những ca rõ ràng:
 #   laodong.vn   24,9% 'Thực hiện theo các bước sau để tắt tiện ích chặn quảng cáo'
 #   medlatec.vn  29,9% 'Bác sĩ duyệt bài:BSCKI. Dương Ngọc Vân'

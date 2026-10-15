@@ -3,7 +3,58 @@
 Bài: `w04_zh38w_e120` — doc F2 0,3589 · chunk F2 0,2935 (leaderboard 15/10/2026).
 Vân tay khi dựng đúng: **doc `7ea17e35e329`, chunk `72a9d14ce27c`**.
 
-## 1. Code (trong repo)
+## 0. Kiến trúc pipeline hiện tại (từ đầu đến bài nộp)
+
+```
+[A] DỮ LIỆU (local + máy GPU)
+  profile_dataset.py              tải ViBioMIR → data/queries.jsonl
+  crawler.py                      crawl URL kho mới (resume, rate limit theo domain) → store sqlite
+  merge_zh_new.py                 gộp các đợt crawl zh vào store (ghi đè dòng lỗi cũ)
+  make_store_new.py               store gọn: CHỈ doc kho mới + vinmec → data/corpus_new.sqlite
+  clean.py --apply                bỏ dòng boilerplate lặp theo domain   (BẮT BUỘC trước chunk.py)
+  chunk.py                        chunk ~900 token theo OFFSET (doc_id, start, end) → bảng chunk
+  audit.py                        kiểm toàn chuỗi trên dữ liệu thật (PASS/FAIL)
+  export_vi_full.py / export_delta.py   xuất doc vi (toàn bộ / phần mới) ra sqlite nhỏ cho máy GPU
+  fetch_en_pubmed.py              240k bài PubMed (Europe PMC) → data/en_pubmed.sqlite   [en: chưa dùng]
+
+[B] HIỂU CÂU HỎI (máy GPU)
+  pubmed_module/ + scripts/remote_run_llm.sh   Qwen3.5-9B: thực thể y khoa + bản dịch en/zh
+                                  → data/queries_enriched.jsonl (109 câu lỗi parse đã vá, xem PROGRESS 11/10)
+
+[C] TRUY HỒI vi: 6 nguồn → RRF (pool H, top-1000)
+  slug_bm25.py                    BM25 trên slug URL                     → slug_rank1000
+  bm25.py --keep-diacritics       BM25F có dấu (title 3×, tags 2×, ...) → bm25d3_rank, bm25d3_meta
+  bm25_ent.py                     BM25 thực thể + bigram                 → bm25ent3_rank
+  dense.py (BGE-M3)               title / title+600 ký tự body          → dense_vi3_rank, dense_viB3_rank
+     (scripts/run_bm25_full.sh, scripts/run_delta2.sh)
+  fuse.py  slug:1 bm25d3:1 meta:1 dense_vi3:2.5 dense_viB3:2.5 ent:1  → f_H
+
+[D] RERANK + CHUNK-DENSE (máy GPU)
+  qwen_rerank.py (Qwen3-Reranker-4B, P(yes)) chấm top-400 của pool (scripts/wait_and_run_qwen_h.sh)
+  merge_scores.py                 hợp các đợt chấm Qwen → qwen_all_h
+  fuse.py  qwen_all_h:2 f_H:1 → QB6 ;  qwen_all_h:0.5 f_H:1 → QB6w05 ;  hybrid_cands.py → QB6_h05
+  dense_chunks.py (BGE-M3 trên TỪNG chunk, toàn kho vi; scripts/run_dense_chunks_full.sh)
+                                  điểm doc = chunk khớp nhất, kèm best_idx → dense_chunk_full_rank
+  fuse.py  QB6_h05:1 dense_chunk_pilot:1 → QB7   (pilot: chunk-dense trên top-400 pool H)
+  fuse.py  QB7:1 chunk_full:1 → blendQB8 ;  :0.5 → blendQB8w05
+     → (vá 109 câu) data/rp/c_blendQB8.jsonl, c_blendQB8w05.jsonl         ← ĐẦU VÀO của build_best.sh
+  chunk_rerank.py (Qwen chấm chunk) + best_idx → data/chunk_scores_mix.jsonl (chọn chunk nộp)
+
+[E] TRUY HỒI zh (máy GPU / Colab)
+  dense.py BGE-M3 trên 226k doc zh kho mới (scripts/run_zh_new.sh)        → dense_zhC3_*_rank
+  Qwen3-Embedding-8B cùng doc (scripts/run_zh_q8.sh hoặc scripts/zh_q8_colab.ipynb trên Colab A100) → dense_zhQ8_*_rank
+
+[F] GHÉP + NỘP (local, build_best.sh)
+  zh list = RRF(BGE 1 : 8B 0,3) → chen vào vi (W0,4) → thứ tự đầu theo c_blendQB8w05 → lọc kho mới
+  submission.py → ZIP (200 doc/câu; 2 chunk × top-40 + 1 chunk × hạng 41–120)
+```
+
+Mô hình: Qwen3.5-9B, BAAI/bge-m3, Qwen3-Reranker-4B, Qwen3-Embedding-8B (đều mở, ≤15B, trước 01/08/2026).
+Số đo từng bước và lý do từng quyết định: `PROGRESS.md` (sổ đo theo ngày), `METHODS.md` (từng phương pháp, đã đo gì),
+`CLAUDE.md` (bối cảnh cuộc thi, luật chấm, hạ tầng). Thử nghiệm thất bại (HyDE, tách ý con, viết gọn câu, chunk 450...)
+được ghi trong PROGRESS nhưng code của chúng KHÔNG đưa vào repo.
+
+## 1. Code để dựng lại nhanh (bước F)
 
 | File | Vai trò |
 | --- | --- |

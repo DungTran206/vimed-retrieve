@@ -16,11 +16,12 @@ Thiết kế dựa trên số đo thật (`PROGRESS.md`), không phải quy ư�
   python chunk.py --demo               # self-check, không cần dữ liệu
 """
 import argparse
+import os
 import re
 import sqlite3
 import sys
 
-DB = "data/corpus.sqlite"
+DB = "data/corpus_new.sqlite"
 TARGET_TOKENS = 900          # đề khuyến nghị chunk <= ~1.024 token; chừa biên an toàn
 
 # Ký tự trên mỗi token, theo ngôn ngữ. Giá trị khởi điểm; `--calibrate` đo lại bằng
@@ -369,6 +370,16 @@ def demo():
     print("demo OK")
 
 
+def store_banner(db):
+    """In store sắp dùng (đường dẫn, dung lượng, lần sửa cuối); thoát nếu không có file.
+    Lý do: 08/10 audit.py từng chạy nhầm store cũ và báo PASS cho dữ liệu cũ."""
+    import time
+    if not os.path.exists(db):
+        sys.exit(f"KHONG THAY STORE: {db}. Kiem tra duong dan --db (store song: data/corpus_new.sqlite)")
+    st = os.stat(db)
+    print(f"STORE: {db} | {st.st_size/1e9:.2f} GB | sua lan cuoi {time.strftime('%Y-%m-%d %H:%M', time.localtime(st.st_mtime))}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DB)
@@ -382,6 +393,8 @@ def main():
     ap.add_argument("--verify", action="store_true")
     ap.add_argument("--demo", action="store_true")
     args = ap.parse_args()
+    if not getattr(args, 'demo', False):
+        store_banner(args.db)
     if args.demo:
         return demo()
     demo()

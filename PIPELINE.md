@@ -215,6 +215,15 @@ Cách xử lý, do ràng buộc #2 quyết định:
 
 ## 5. Giai đoạn 5 — Truy hồi, gộp, rerank
 
+> **Cập nhật 07/10/2026 (FINAL 0,2679).** Luồng và bảng bên dưới là bản 04/10 (giữ làm lịch sử). Luồng hiện hành:
+> pool F (slug + BM25 có dấu + dense title vi w2,5 + dense nội dung vi w2,5 + BM25 entity; top-1000, recall 0,6108)
+> → **Qwen3-Reranker-4B** chấm top-400 (P(yes)) → RRF(Qwen w2, vòng 1 w1) → top-200 → chunk 900 token,
+> 2 chunk × 40 doc đầu + 1 chunk × doc 41–70. Bản tốt nhất ghép **tập doc của lần chấm top-400 với chunk của lần
+> top-250** (hai tầng độc lập). Chi tiết số đo: `PROGRESS.md` §2b. Đang thử: **HyDE** (nguồn dense thứ sáu, xem `hyde.py`).
+> Thêm vào "Đã thử và THUA": chọn chunk theo trùng từ khoá câu hỏi (−0,3%); trộn bge-reranker với Qwen (thua Qwen một mình);
+> chunk 400 token (thua nặng so với 900); zh (chỉ ~2,6% nhãn).
+> Chấm Qwen sâu hơn có lợi suất giảm: 100→250 doc +4,2%, 250→400 doc +1,4%.
+
 **Luồng ĐANG CHẠY THẬT (cập nhật 04/10/2026, FINAL 0,1841).** Mỗi nhánh kèm số đo trên
 leaderboard; nhánh đã thử mà thua được ghi rõ để không ai làm lại.
 
@@ -272,7 +281,7 @@ query (vi), 1.200 câu
 
 ### Hai điều về cách chấm, phát hiện bằng thực nghiệm
 
-1. **Cấp document CÓ tính thứ tự**, không chỉ tập hợp. `rr_2x55` giữ đúng cùng tập 200 doc
+1. ~~**Cấp document CÓ tính thứ tự**~~ — **ĐÍNH CHÍNH 06/10: SAI.** Điểm doc chỉ phụ thuộc TẬP doc nộp (cùng tập → P/R y hệt từng chữ số; rerank 04/10 đổi tập vì top-1000 rerank kéo doc mới vào). Ghi chú gốc: `rr_2x55` giữ đúng cùng tập 200 doc
    với `dvi25_2x55` (kiểm 1200/1200 câu) mà DOCS_F2 vẫn tăng 0,1845 → 0,1948. Trái với công
    thức `P = |D∩G|/|D|` trong đặc tả.
 2. **Cải thiện đầu danh sách ăn CẢ HAI tầng.** Chunk chỉ lấy từ `--chunk-from-top` doc đầu,

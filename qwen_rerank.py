@@ -14,9 +14,10 @@ import sqlite3
 import sys
 import time
 
-MODEL = "Qwen/Qwen3-Reranker-4B"
-INSTRUCT = ("Given a patient's health question in Vietnamese, judge whether the document "
-            "(a medical Q&A or health article) answers it or is relevant to it")
+MODEL = os.environ.get("QWEN_RR_MODEL", "Qwen/Qwen3-Reranker-4B")   # QWEN_RR_MODEL=Qwen/Qwen3-Reranker-8B để thử bản 8B
+INSTRUCT = os.environ.get("QWEN_RR_INSTRUCT") or (
+    "Given a patient's health question in Vietnamese, judge whether the document "
+    "(a medical Q&A or health article) answers it or is relevant to it")
 PREFIX = ('<|im_start|>system\nJudge whether the Document meets the requirements based on the Query '
           'and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n'
           '<|im_start|>user\n')
@@ -24,8 +25,9 @@ SUFFIX = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
 DOC_CHARS, QUERY_CHARS = 1000, 1200
 
 
-def build(query, doc):
-    return (PREFIX + f"<Instruct>: {INSTRUCT}\n<Query>: {query[:QUERY_CHARS]}\n<Document>: {doc[:DOC_CHARS]}"
+def build(query, doc, doc_chars=None):
+    dc = doc_chars if doc_chars is not None else DOC_CHARS
+    return (PREFIX + f"<Instruct>: {INSTRUCT}\n<Query>: {query[:QUERY_CHARS]}\n<Document>: {doc[:dc]}"
             + SUFFIX)
 
 
@@ -61,11 +63,11 @@ def load_model(device=None, mem_fraction=None):
     return tok, model, yes, no, dev
 
 
-def score_pairs(tok, model, yes, no, dev, pairs, batch=16, max_len=1536):
+def score_pairs(tok, model, yes, no, dev, pairs, batch=16, max_len=1536, doc_chars=None):
     """pairs: [(query, doc)] -> [P(yes)], sắp theo độ dài để giảm padding rồi trả đúng thứ tự gốc.
     Hết VRAM thì tự chia đôi lô (lần chạy trước chết giữa chừng vì OOM ở lô dài)."""
     import torch
-    texts = [build(q, d) for q, d in pairs]
+    texts = [build(q, d, doc_chars=doc_chars) for q, d in pairs]
     order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
     out = [0.0] * len(texts)
 
@@ -106,6 +108,8 @@ def main():
     ap.add_argument("--topk", type=int, default=150)
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--doc-chars", type=int, default=3000)
+    ap.add_argument("--max-len", type=int, default=2048)
     ap.add_argument("--mem-fraction", type=float, default=None)
     ap.add_argument("--demo", action="store_true")
     a = ap.parse_args()
@@ -132,14 +136,15 @@ def main():
     if todo:
         ids = {str(c["doc_id"]) for r in todo for c in r["candidates"][:a.topk]}
         texts = doc_texts(a.db, ids)
-        print(f"text cho {len(texts)}/{len(ids)} doc", flush=True)
+        print(f"text cho {len(texts)}/{len(ids)} doc (đọc tối đa {a.doc_chars} ký tự)", flush=True)
         tok, model, yes, no, dev = load_model(mem_fraction=a.mem_fraction)
         t0 = time.time()
         with open(part, "a", encoding="utf-8") as pf:
             for n, r in enumerate(todo, 1):
                 cs = [str(c["doc_id"]) for c in r["candidates"][:a.topk]]
                 have = [d for d in cs if d in texts]
-                sc = score_pairs(tok, model, yes, no, dev, [(qtext[r["id"]], texts[d]) for d in have], a.batch)
+                sc = score_pairs(tok, model, yes, no, dev, [(qtext[r["id"]], texts[d]) for d in have],
+                                 batch=a.batch, max_len=a.max_len, doc_chars=a.doc_chars)
                 rows = [{"doc_id": d, "score": round(s, 6)} for d, s in zip(have, sc)]
                 rows.sort(key=lambda x: -x["score"])
                 pf.write(json.dumps({"id": r["id"], "candidates": rows}, ensure_ascii=False) + "\n")
@@ -163,7 +168,7 @@ def main():
 
 def demo():
     import math
-    s = build("đau dạ dày", "Viêm dạ dày. " + "x" * 5000)
+    s = build("đau dạ dày", "Viêm dạ dày. " + "x" * 5000, doc_chars=1000)
     assert s.startswith(PREFIX) and s.endswith(SUFFIX) and len(s) < 2500, "doc phải bị cắt"
     assert abs(p_yes(0.0, 0.0) - 0.5) < 1e-9 and p_yes(-50.0, 50.0) > 0.999999
     assert 0.0 <= p_yes(1000.0, -1000.0) < 1e-9, "không được tràn số"

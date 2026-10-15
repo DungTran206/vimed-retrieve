@@ -1,7 +1,7 @@
 """Kiểm tra toàn chuỗi trên DỮ LIỆU THẬT, từng tầng một, báo PASS/FAIL.
 
 Khác với `--demo` của từng script (kiểm bất biến trên dữ liệu giả, chạy trong 2 ms),
-file này soi chính `data/corpus.sqlite` và bài nộp sinh ra từ nó. Mục đích: biết chắc
+file này soi chính `data/corpus_new.sqlite` và bài nộp sinh ra từ nó. Mục đích: biết chắc
 từng tầng đúng trước khi xây tầng trên.
 
   CRAWL      -> doc lưu đúng? metadata có? trích lỗi có giữ HTML? domain chặn có bị gọi?
@@ -20,7 +20,7 @@ import sys
 import tempfile
 import os
 
-DB = "data/corpus.sqlite"
+DB = "data/corpus_new.sqlite"
 _fails = []
 
 
@@ -287,6 +287,16 @@ def audit_score(recs):
           "covers: không nhận sai đoạn lệch chủ đề")
 
 
+def store_banner(db):
+    """In store sắp dùng (đường dẫn, dung lượng, lần sửa cuối); thoát nếu không có file.
+    Lý do: 08/10 audit.py từng chạy nhầm store cũ và báo PASS cho dữ liệu cũ."""
+    import time
+    if not os.path.exists(db):
+        sys.exit(f"KHONG THAY STORE: {db}. Kiem tra duong dan --db (store song: data/corpus_new.sqlite)")
+    st = os.stat(db)
+    print(f"STORE: {db} | {st.st_size/1e9:.2f} GB | sua lan cuoi {time.strftime('%Y-%m-%d %H:%M', time.localtime(st.st_mtime))}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DB)
@@ -294,6 +304,8 @@ def main():
     ap.add_argument("--cands", default=None,
                     help="file ứng viên để kiểm tầng submission; thiếu thì tự tìm")
     args = ap.parse_args()
+    if not getattr(args, 'demo', False):
+        store_banner(args.db)
     conn = sqlite3.connect(args.db)
     recs = None
     if args.stage in (None, "crawl"):
