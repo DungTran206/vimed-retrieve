@@ -40,9 +40,8 @@ vào quota** → thử nghiệm định dạng là miễn phí.
   không cộng dồn, và áp dụng cho **mọi** mô hình kể cả embedding và reranker.
 - Fine-tune từ mô hình gốc hợp lệ: **được**, nhưng giữ checkpoint ở chế độ **private**, không công khai.
 - Prune mô hình > 15B xuống ≤ 15B: được.
-- Dùng mô hình > 15B làm **teacher** để distill: được, miễn teacher chỉ dùng khi huấn luyện, không chạy lúc suy luận.
-- **Chưa rõ:** mô hình MoE tính theo tổng tham số hay tham số kích hoạt → coi như tính theo **tổng** cho an toàn.
-  Cũng chưa rõ teacher có phải tuân theo mốc ngày không.
+- Dùng mô hình > 15B làm **teacher** để distill: **ĐƯỢC PHÉP** (miễn student nộp bài $\le 15$B lúc suy luận).
+- Mô hình kiến trúc **MoE** (Mixture-of-Experts): **HỢP LỆ** khi tham số kích hoạt (active parameters) $\le 15$B theo thông lệ.
 - Dữ liệu ngoài: được dùng, nhưng phải trích dẫn nguồn đầy đủ.
 
 ### 1.2 Cách chấm
@@ -142,7 +141,8 @@ Dataset: https://huggingface.co/datasets/AIGuruTinix/ViBioMIR (giấy phép CC B
 
 **Ý tưởng nghiên cứu riêng của người dùng (làm SAU baseline):** dynamic fusion giữa BM25/SPLADE/dense với gate dựa trên
 bằng chứng lexical L(q,d) và độ rõ nghĩa C(q), cùng mở rộng truy vấn bằng từ điển y khoa. Chỉ coi là phần thử nghiệm thêm,
-đo xem nó có tăng recall của tập ứng viên trước bước rerank hay không. Lưu ý: SPLADE gần như chỉ dùng được cho tiếng Anh;
+đo xem nó có tăng recall của tập ứng viên trước bước rerank hay không.
+**Kết quả 07/10 (nhãn bạc, `PROPOSAL_ADAPTIVE_FUSION.md` §7): trọng số dense chung tối ưu w=2,5; oracle theo từng câu chỉ hơn +1,56% (+2,49 doc/câu) → bỏ phần gate, giữ như phân tích âm tính cho paper.** Mở rộng truy vấn bằng từ điển y khoa chưa thử. Lưu ý: SPLADE gần như chỉ dùng được cho tiếng Anh;
 nếu cần sparse đa ngôn ngữ thì dùng đầu ra sparse của BGE-M3.
 
 ---
@@ -157,6 +157,7 @@ nếu cần sparse đa ngôn ngữ thì dùng đầu ra sparse của BGE-M3.
 | `BAAI/bge-reranker-v2-m3` | 03/2024 | 568M | Apache-2.0 | Reranker vòng cũ (top-1000); nay chỉ còn làm tín hiệu phụ |
 | `Qwen/Qwen3-Reranker-4B` | 06/2025 | 4B | Apache-2.0 | **Reranker chính** (P(yes) của "yes"/"no"), chấm top-250 trở đi |
 | `Qwen/Qwen3-Embedding-4B` | 06/2025 | 4B | Apache-2.0 | Đã tải, đo 74 doc/s (2,4 giờ cho 646k doc), **chưa dùng** |
+| `Qwen/Qwen3-Embedding-8B` | 06/2025 | 8B | Apache-2.0 | Thử cho zh (15/10, Colab A100): P@50 zh **0,083 < BGE-M3 0,110** → không dùng (nghi nhãn BTC thiên về BGE) |
 
 Dự phòng: Gemma 4 12B (03/06/2026), Qwen3-8B. Không dùng được: Qwen3.6 (27B, 35B-A3B), Gemma 4 26B/31B,
 Hy-MT2-30B-A3B (vượt 15B nếu tính tổng tham số).
@@ -223,6 +224,17 @@ vimed/
 ├── PIPELINE.md               # PHƯƠNG ÁN xử lý dữ liệu (schema store, chunk, index, thứ tự làm)
 ├── profile_dataset.py        # tải ViBioMIR, xuất data/queries.jsonl, thống kê URL
 ├── slug_bm25.py              # BM25 trên slug URL (không crawl) → data/slug_rank.jsonl
+├── build_best.sh                 # dựng lại bài tốt nhất từ file trung gian (~20 phút, không GPU; 15/10 đã kiểm vân tay y hệt w04_zh38w_e120 0,3262)
+├── BTC_QUESTIONS.md / PAPER_DRAFT.md / LITERATURE.md  # câu hỏi gửi BTC (đơn giản, song ngữ) / bản nháp working notes / bài báo đã tra
+├── CLEANUP_PLAN.md           # dọn dự án 08/10: cái gì đã xoá/giữ và vì sao; STORE SỐNG = data/corpus_vifull.sqlite
+├── METHODS.md                # ĐỌC ĐỂ HIỂU TỪNG PHƯƠNG PHÁP: làm gì, vì sao, số đo, trạng thái ✅❌⏳
+├── PROPOSAL_ADAPTIVE_FUSION.md  # đề xuất gate BM25↔dense + đánh giá + kết quả nhãn bạc (đã bỏ)
+├── bm25.py / bm25_ent.py     # BM25F có trọng số trường (có dấu) / BM25 entity+bigram đa tiến trình
+├── dense.py                  # BGE-M3: --encode doc, --rank câu hỏi (cũng chạy Qwen3-Embedding)
+├── fuse.py                   # RRF nhiều nguồn xếp hạng
+├── qwen_rerank.py            # Qwen3-Reranker-4B (P(yes)); rerank.py = bge-reranker vòng cũ
+├── chunk_rerank.py           # chấm chunk bằng Qwen, chọn chunk cho submission.py --chunk-scores
+├── hyde.py / decompose.py / prf.py   # HyDE (đã đo: yếu) / tách ý con (đang chạy) / PRF dense (chờ điểm)
 ├── probe_crawl.py            # crawl thử mẫu phân tầng, đo tỉ lệ/byte/rate limit thật
 ├── crawler.py                # crawl 4,39M URL → data/corpus.sqlite (resume, rate limit/domain)
 ├── clean.py                  # lọc dòng boilerplate lặp theo domain (document frequency)
@@ -239,7 +251,7 @@ vimed/
 │   ├── query_gen.py          # prompt Qwen (few-shot), parse JSON chịu lỗi, fallback
 │   ├── translate.py          # Hy-MT2: build_glossary, build_prompt, translate_queries, enrich
 │   └── pipeline.py           # CLI: --stages expand,translate,search,fetch
-├── scripts/                  # remote_setup / download_models / remote_check(.py) / remote_run_llm / sync / run_pubmed_all
+├── scripts/                  # remote_setup / download_models / remote_check(.py) / remote_run_llm / sync / run_pubmed_all / run_hyde / run_qemb / run_subq
 ├── env/                      # requirements-local.txt, requirements-train.txt, requirements-pubmed.txt
 ├── tests/test_offline.py     # 16 test offline: python -m unittest discover tests
 ├── examples/                 # 2 câu mẫu + expansions viết tay (để test PubMed không cần GPU)
@@ -256,7 +268,7 @@ vimed/
 
 ## 6. Trạng thái hiện tại
 
-**Điểm leaderboard: `FINAL_SCORE = 0,2658`** (doc F2 0,2914 · chunk F2 0,2402, k=200; cập nhật 06/10/2026). Bài tốt nhất: `runs/blendQB2_t40_70.zip` = pool F (slug + BM25 có dấu + dense title/nội dung vi + BM25 entity) → Qwen3-Reranker-4B chấm top-250 → RRF(Qwen w2, vòng 1 w1) → chunk 900 token, 2 chunk × 40 doc + 1 chunk × doc 41–70. Trước đó (04/10) là 0,0457 với slug thuần. **Chi tiết đã đo: `PROGRESS.md` §2b.**
+**Điểm leaderboard: `FINAL_SCORE = 0,3262`** (doc F2 0,3589 · chunk F2 0,2935; cập nhật 15/10/2026). Bài tốt nhất: `runs/w04_zh38w_e120.zip` (= w04 nhưng zh list `rp/zh38w_in` = RRF BGE-M3 1 : Qwen3-Emb-8B 0,3; 8B một mình THUA BGE). Trước đó `runs/blendQB14_w04_e120.zip` 0,3253 (= QB14 nhưng zh w0,4 → 31 zh/câu; w035 0,3244). `runs/blendQB14_e120.zip` (0,3222) = công thức 13af (0,3182) nhưng danh sách zh mới (zh kho mới phủ 95%, đã clean, mã hoá lại; chi tiết PROGRESS 14/10). Trước đó `runs/blendQB11_e120.zip` (0,3158) (= blendQB10 [tập doc của blendQB9a + thứ tự đầu của blendQB8w05] + vá 109 câu parse lỗi; QB10 chưa nộp). Trước đó `runs/blendQB9a_e120.zip` (0,3139) = `blendQB8b` + 14 doc zh/câu (dense zh BGE-M3, RRF w0,3) chen ở hạng 121–200 (zh nhiều hơn ~16 doc/câu thì tụt). Trước đó `runs/blendQB8b_e120.zip` (0,3126) = RRF(`blendQB7`, chunk-dense TOÀN KHO vi) + chunk chọn theo chunk khớp nhất. **Đo zh lại (10/10): 150 doc zh/câu cho DOCS_R 0,0559, P 0,0266 → zh có nhãn đáng kể, đừng bỏ.** Trước đó `runs/blendQB7b_e120.zip` (0,3072) = `blendQB7_e120` + chunk chọn theo chunk khớp nhất (`chunk_scores_mix.jsonl`). Trước đó `runs/blendQB7_e120.zip` (0,3068) = `blendQB6_h05` RRF với **chunk-dense** (BGE-M3 trên chunk, `dense_chunks.py`, điểm doc = chunk khớp nhất; pilot trên 400 ứng viên pool H) → top-200 → chunk e120 bzip2. Đang mở rộng chunk-dense ra TOÀN kho vi (`scripts/run_dense_chunks_full.sh`). Trước đó `blendQB6_h05_e120.zip` (0,2931) = như `blendQB5_h05_e120` nhưng pool H (BM25F, BM25F meta và BM25 entity chạy lại trên kho vi đầy đủ 741.586 doc, `vi_full.sqlite`) + Qwen chấm bù 6.246 cặp. Trước đó `blendQB5_h05_e120.zip` (0,2920) = bản lai (tập doc: RRF Qwen w2 / pool G w1; thứ tự 120 doc đầu: Qwen w0,5 / pool G w1; Qwen chấm cả đợt 2) dựng bằng `hybrid_cands.py`. Trước đó `blendQB4_e120.zip` (0,2895) = chuỗi Long Châu (crawl nốt 78.555 doc, embed 55k doc mới, pool G = f_F với vector mới, Qwen chấm 26.811 cặp doc mới, RRF Qwen w2 / f_G w1, chunk e120 bzip2). Trước đó `runs/blendQB3x_cr_e120.zip` (0,2770) = `blendQB3x_cr` + nén **bzip2** (`--zip-method bzip2`, server chấp nhận) + 1 chunk cho doc hạng 41–120 (174.760 chunk, 93,6 MB). Trước đó `runs/blendQB3x_cr.zip` (0,2682) = `blendQB3x_t40_70` + chọn chunk bằng điểm Qwen (`chunk_rerank.py`, chỉ +0,0003). `blendQB3x_t40_70.zip` (0,2679) = bản lai (tập doc của `blendQB3` với Qwen chấm top-400, chunk của `blendQB2`; QB3 một mình 0,2669, QB2 0,2658). Mô tả dưới đây là QB2; khác biệt chỉ là Qwen chấm top-400 thay vì top-250 ở phần tập doc. Còn lại = pool F (slug + BM25 có dấu + dense title/nội dung vi + BM25 entity) → Qwen3-Reranker-4B chấm top-250 → RRF(Qwen w2, vòng 1 w1) → chunk 900 token, 2 chunk × 40 doc + 1 chunk × doc 41–70. Trước đó (04/10) là 0,0457 với slug thuần. **Chi tiết đã đo: `PROGRESS.md` §2b.**
 Số đo chi tiết từng lần chạy: `PROGRESS.md`. Cửa vào cho người mới: `README.md`.
 
 ### Pipeline đang cho điểm tốt nhất (06/10/2026, FINAL 0,2658)
@@ -275,8 +287,8 @@ qwen_rerank.py (Qwen3-Reranker-4B, máy GPU) chấm blendF hạng 1-250 -> qwen_
 submission.py --topk 200 --store data/corpus_vifull.sqlite --chunks-per-doc 2 --chunk-from-top 40 --extra-one 70 --int-ids
         -> runs/blendQB2_t40_70.zip (94,0 MB, 114.760 chunk)
 ```
-Store: **`data/corpus_vifull.sqlite`** (vi 689k doc đã `clean.py` + `chunk.py`; cả 1,05M zh từ GPU) và `data/vi_slim.sqlite` (vi-only, có index `doc_id`).
-Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `prio=0` chưa cào, không quan trọng). zh: shard 0/5 trên máy GPU **đã chạy xong**
+Store: **`data/corpus_new.sqlite`** (từ 14/10, mặc định của mọi script; `make_store_new.py`): CHỈ doc thuộc kho mới của BTC (`data/vibiomir_new/links_corpus_vi_en_zh.parquet`) + vinmec.com, 966.845 doc, 5,3 GB; zh kho mới phủ 95% (228k/240k), đã clean + chunk. Dựng lại blendQB14 từ store này cho vân tay y hệt. Store cũ `corpus_vifull.sqlite` (2,78M doc, gồm zh/vi ngoài kho mới) không còn dùng. `data/vi_slim.sqlite` (vi-only, `bm25_ent.py`) và `vi_full.sqlite` (nguồn cho script GPU) vẫn dùng.
+Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `prio=0` chưa cào (**07/10: ĐO ĐƯỢC CÓ NHÃN, P 0,0174 → đang crawl nốt, xem PROGRESS §2b**)). zh: shard 0/5 trên máy GPU **đã chạy xong**
 (273.511 URL, 9,8 giờ, 85,8% dùng được); shard 1/5–4/5 (~1,68M URL) chưa chạy và **chưa đáng chạy** (xem dưới).
 
 ### Số đo quan trọng đã chốt (chi tiết: `PROGRESS.md` §2 mục 06/10 và §2b)
@@ -289,15 +301,11 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 - **k=200 vẫn ở vùng phẳng** (tính từ β≈0,46: k=290 ngang k=200). Không đáng quét lại.
 - Trần ZIP **100 MB**; bài tốt nhất 94 MB. Bản `submission.py` hiện tại cho ZIP lớn hơn ~1,2% so với trước 06/10 (xem "Nợ kỹ thuật").
 
-### Việc đang chạy lúc viết (06/10 ~20:00 giờ máy GPU)
-- Qwen3-Reranker chấm **hạng 251–400** của blendF trên GPU 1 (`data/chain3.sh`, log `data/qwen_chain3.log`, đầu ra `data/qwen_rr3_h1.jsonl`, `qwen_rr3_h2.jsonl`, trên máy GPU).
-  Ước ~1,8 giờ (150 doc/câu ≈ 5,5 giây/câu × 1.200). Tự chạy lại tối đa 6 lần nếu chết; dòng cuối log là `CHAIN_DONE`.
-  **Ước tính "100 phút cho hạng 251–500" đưa ra trước đó là SAI** (250 doc/câu ≈ 3,1 giờ).
-- Khi xong: kéo về, gộp `qwen_rr.jsonl` + `qwen_rr2.jsonl` + `qwen_rr2_h2.jsonl` + `qwen_rr3_*` thành `qwen_all.jsonl` (sắp theo điểm giảm dần),
-  `fuse.py qwen_all:2 f_F:1`, dựng bài `t40_70`, nộp. Kỳ vọng thêm vài % điểm doc (lợi suất giảm dần: điểm Qwen TB 0,564 ở hạng 1–100, 0,327 ở hạng 101–250).
+### Đã xong (07/10)
+- Qwen hạng 251–400 xong, đã gộp (`data/qwen_all.jsonl`, bản cũ `qwen_all_250.jsonl`) và nộp: FINAL 0,2669 (+0,4%). Doc +1,4%, chunk −0,8%. **Lợi suất giảm rõ: chấm sâu thêm không còn đáng GPU** (xem `PROGRESS.md` §2b 07/10).
 
 ### Ý tưởng chưa làm (xếp theo kỳ vọng)
-1. **HyDE** (LLM mở viết câu trả lời giả định 2 câu → dense BGE-M3): nhắm đúng nút cổ chai pool (recall 0,61), chưa có số đo.
+1. ~~**HyDE**~~ — **đã đo 07/10: yếu.** 150 doc HyDE ngoài pool F chỉ cho DOCS_R 0,0084 (`qhyde`) / 0,0068 (`hyde`), precision biên ~0,5%. Cùng cỡ nguồn entity; không đáng rerank trước. `hyde.py`, `scripts/run_hyde.sh` giữ để tái lập. Pool recall 0,61 hầu như đã bão hoà với nguồn rẻ. **Qwen3-Embedding-4B title cũng yếu (DOCS_R 0,0080, 07/10).** Ba nguồn embedding/entity đều cho ~0,008 → nhãn bị mất khác loại với thứ embedding bắt được.
 2. **Cấp số chunk theo ngân sách MB** (đặt chunk ở nơi precision biên cao nhất) thay vì quy tắc hạng cố định; ngưỡng theo MB, không theo P(yes) cố định (điểm Qwen bão hoà).
 3. Qwen3-Embedding-4B (bản title ~45 phút) làm nguồn dense thứ ba cho pool; thử bằng bài k=1000.
 4. Trộn Qwen với bge (bài A) kém bài chỉ Qwen (B): giữ Qwen một mình.
@@ -318,8 +326,10 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 
 ## 7. Việc tiếp theo (theo thứ tự ưu tiên)
 
-1. **Gộp Qwen hạng 251–400 và nộp** (xem "Việc đang chạy"). Quota public 10 lượt/ngày; đã dùng đủ ngày 06/10.
-2. Thử **HyDE** hoặc **Qwen3-Embedding title** để nới pool; đo bằng bài k=1000 (chỉ nhìn DOCS_RECALL, mốc hiện 0,6108).
+**Quota 07/10 đã hết (10/10). Hàng đợi nộp 08/10 và tổng kết 10 bài hôm nay: `PROGRESS.md`, mục "TỔNG KẾT 10 LƯỢT NỘP" (trước §2b).**
+
+1. ~~Gộp Qwen 251–400~~ và ~~bản lai doc-QB3 + chunk-QB2~~ (xong 07/10, **0,2679** đúng dự đoán). **HyDE đang chạy** trên GPU 0 (`scripts/run_hyde.sh`, log `data/hyde_run.log` trên máy GPU, đầu ra `dense_hyde_viB2_rank.jsonl`, `dense_qhyde_viB2_rank.jsonl`).
+2. ~~HyDE~~ (yếu, xem trên). Còn thử **Qwen3-Embedding title** hoặc tách ý con cho câu dài để nới pool; đo bằng bài chỉ-doc-mới (như `diag_novel_*`), nhìn DOCS_RECALL.
 3. Thử cấp chunk theo ngân sách MB.
 4. **Chuẩn bị private phase** (01–04/11, 5 lượt tổng cộng): chốt cấu hình ổn nhất, có sẵn 2–3 bài đã dựng, ZIP < 100 MB, vân tay ghi sổ. 1.200 câu đã chứa cả hai phase nên tính trước được hết.
 5. **Viết working notes paper**.
@@ -333,10 +343,10 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 | Tài liệu tiếng Anh nằm trong corpus link hay chỉ PubMed? | ✅ **chỉ PubMed**, BTC không đưa danh sách, các đội tự tìm. Gợi ý E-utilities / Europe PMC / PubTator. |
 | 25.843 URL chênh giữa README và file thật? | ✅ `id` khuyết trong dải, không thiếu dữ liệu. |
 | Kiểu `doc_id` trong JSON? | ✅ **SỐ NGUYÊN** - thí nghiệm trên leaderboard: chuỗi → 0, số nguyên → 0,0497. |
-| Nhãn gán theo nội dung trang ở thời điểm nào (trang có thể đã sửa/chết → `chunk_text` không khớp)? | ❓ **chưa hỏi** |
+| Nhãn gán theo nội dung trang ở thời điểm nào (trang có thể đã sửa/chết → `chunk_text` không khớp)? | ✅ **Đã chốt (đội, xem `BTC_QUESTIONS.md`): coi như bản mới nhất, không hỏi BTC** |
 | PubMed/tiếng Anh còn trong đề không? | ✅ **Đã bị bỏ khỏi trang chính thức** (người dùng xác nhận 06/10); nhánh PubMed dừng. |
-| MoE tính tổng hay tham số kích hoạt? Teacher distill có phải tuân mốc ngày? | ❓ chưa rõ, tạm coi theo tổng |
-| `doc_id` của bài PubMed là PMID - hệ thống chấm phân biệt với `links_corpus.id` thế nào? | ❓ nên hỏi; thực tế đo được hai dải không chồng (PMID > 28M, id ≤ 4,39M) |
+| MoE tính tổng hay tham số kích hoạt? Teacher distill có phải tuân mốc ngày? | ✅ **Đã chốt (quyết định của đội, CHƯA có xác nhận chính thức của BTC):** MoE tính theo tham số KÍCH HOẠT ≤ 15B là hợp lệ; teacher distill được phép khi huấn luyện. Rủi ro tuân thủ: nên ghi rõ trong paper; hiện bài tốt nhất không dùng mô hình MoE nào |
+| `doc_id` của bài PubMed là PMID - hệ thống chấm phân biệt với `links_corpus.id` thế nào? | ✅ **Hết hiệu lực:** PubMed/tiếng Anh đã bị BTC bỏ khỏi đề |
 
 ## 9. Quy ước khi làm việc
 

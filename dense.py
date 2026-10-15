@@ -16,7 +16,7 @@ corpus phía tiếng Trung.
 Đầu ra cùng định dạng với `slug_bm25`/`bm25` nên `fuse.py` nhận được ngay:
     {"id": 1, "candidates": [{"doc_id": "254453", "score": 0.8123}, ...]}
 
-    python dense.py --encode --db data/corpus.sqlite --out data/dense_emb   # cần GPU
+    python dense.py --encode --db data/corpus_new.sqlite --out data/dense_emb   # cần GPU
     python dense.py --rank --emb data/dense_emb --out data/dense_rank.jsonl
     python dense.py --demo
 """
@@ -57,7 +57,10 @@ def load_model(device=None, name=None, mem_fraction=None):
         kw = {"model_kwargs": {"torch_dtype": torch.float16},
               "tokenizer_kwargs": {"padding_side": "left"}}
     print(f"Nạp {name} trên {dev}" + (f" (trần VRAM {mem_fraction:.0%})" if mem_fraction else ""))
-    return SentenceTransformer(name, device=dev, **kw)
+    model = SentenceTransformer(name, device=dev, **kw)
+    if dev.startswith("cuda") and "qwen3" not in name.lower():
+        model.half()          # BGE-M3 fp16: ~2x nhanh, ~1,1 GB thay vì 2,3 GB; vector lưu fp16 nên không đổi thứ hạng ở mức cần
+    return model
 
 
 def iter_titles(db, min_title=10, limit=None, min_body=200, body_chars=0):
@@ -219,7 +222,7 @@ def demo():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default="data/corpus.sqlite")
+    ap.add_argument("--db", default="data/corpus_new.sqlite")
     ap.add_argument("--queries", default="data/queries.jsonl")
     ap.add_argument("--emb", default="data/dense_emb", help="tiền tố file vector")
     ap.add_argument("--out", default="data/dense_rank.jsonl")

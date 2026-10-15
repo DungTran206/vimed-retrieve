@@ -55,7 +55,7 @@ def tok_vi(s):
     s = unicodedata.normalize("NFC", s or "").lower()
     return [t for t in _WORD.findall(s) if len(t) > 1 and not t.isdigit()]
 
-DB = "data/corpus.sqlite"
+DB = "data/corpus_new.sqlite"
 K1, B = 1.5, 0.75
 WEIGHTS = {"title": 3.0, "tags": 2.0, "descr": 1.5, "body": 1.0}
 FIELDS = ("title", "descr", "tags", "body")

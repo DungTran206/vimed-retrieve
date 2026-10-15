@@ -49,7 +49,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-DB = "data/corpus.sqlite"
+DB = "data/corpus_new.sqlite"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 HEADERS = {
@@ -893,8 +893,19 @@ def writer_loop(conn, q, commit_every=COMMIT_EVERY):
     không bắt là crawler chạy không tải - fetch bình thường, lưu được 0 doc.
     """
     n = skipped = 0
+    last_commit = time.monotonic()
     while True:
-        rec = q.get()
+        try:
+            rec = q.get(timeout=1.0)
+        except queue.Empty:
+            if time.monotonic() - last_commit >= 1.0:
+                try:
+                    conn.commit()
+                    last_commit = time.monotonic()
+                except (sqlite3.OperationalError, sqlite3.ProgrammingError):
+                    pass
+            continue
+
         if rec is None:
             break
         try:
@@ -908,14 +919,15 @@ def writer_loop(conn, q, commit_every=COMMIT_EVERY):
         except Exception as e:                  # không để thread ghi chết vì bất cứ gì
             skipped += 1
             print(f"  ⚠️ lỗi ghi {type(e).__name__}: {str(e)[:120]}")
-        if n and n % commit_every == 0:
+        if n and (n % commit_every == 0 or time.monotonic() - last_commit >= 2.0):
             try:
                 conn.commit()
-            except sqlite3.OperationalError:
-                pass                            # commit sau sẽ gộp luôn phần này
+                last_commit = time.monotonic()
+            except (sqlite3.OperationalError, sqlite3.ProgrammingError):
+                pass
     try:
         conn.commit()
-    except sqlite3.OperationalError:
+    except (sqlite3.OperationalError, sqlite3.ProgrammingError):
         pass
 
 
@@ -952,6 +964,8 @@ def run(conn, workers, batch, limit, retry_failed, retry_blocked, procs=None,
     wt.start()
 
     done = ok = 0
+    cycle_lc = 0
+    consecutive_403 = 0
     t0 = time.monotonic()
     nproc = procs if procs is not None else max(1, (os.cpu_count() or 4) - 1)
     pool = ProcessPoolExecutor(nproc) if nproc > 1 else None
@@ -960,6 +974,8 @@ def run(conn, workers, batch, limit, retry_failed, retry_blocked, procs=None,
         with ThreadPoolExecutor(workers) as ex:
             while limit is None or done < limit:
                 n = batch if limit is None else min(batch, limit - done)
+                if domains and "nhathuoclongchau.com.vn" in domains:
+                    n = min(n, 850)
                 # Rate HIỆN TẠI (đã tính backoff) để chia hạn mức theo tỉ lệ
                 cur_rates = {d: 1.0 / lim.interval for d, lim in limiters.items()
                              if getattr(lim, "interval", 0) > 0}
@@ -989,6 +1005,8 @@ def run(conn, workers, batch, limit, retry_failed, retry_blocked, procs=None,
                             f.cancel()
                         break
                     for fut in got:
+                        if fut.cancelled():
+                            continue
                         try:
                             rec = fut.result()
                         except Exception as e:
@@ -1019,12 +1037,48 @@ def run(conn, workers, batch, limit, retry_failed, retry_blocked, procs=None,
                                 if iv != before and n_str in (1, 5, 20, 100):
                                     print(f"  ⚠️ {rec['domain']} {why} "
                                           f"({n_str} lần) → hạ xuống {1/iv:.2f} req/s")
+                        # Giám sát Long Châu: chỉ ngắt nếu bị Cloudflare chặn thật sự (>= 5 lần 403 liên tiếp)
+                        if rec.get("domain") == "nhathuoclongchau.com.vn":
+                            if rec.get("status") == 200:
+                                consecutive_403 = 0
+                                cycle_lc += 1
+                            elif rec.get("status") == 403:
+                                consecutive_403 += 1
+                                if consecutive_403 >= 5:
+                                    print(f"\n⚠️ [Long Châu 403] Gặp {consecutive_403} lỗi 403 liên tiếp! IP bị chặn tạm thời, tạm dừng 300s (5 phút)...")
+                                    for f in pending:
+                                        f.cancel()
+                                    while not q.empty():
+                                        time.sleep(0.5)
+                                    time.sleep(1.0)
+                                    time.sleep(300)
+                                    cycle_lc = 0
+                                    consecutive_403 = 0
+                                    lim = limiters.get("nhathuoclongchau.com.vn")
+                                    if lim and hasattr(lim, "interval"): lim.interval = lim.base
+                                    print("⚡ Đã hết 5 phút nghỉ! Tiếp tục cào...\n")
+                                    break
+
                         if done % 500 == 0:
                             rate = done / (time.monotonic() - t0)
                             left = (f" | còn lại ~{(limit - done) / rate / 3600:.1f}h"
                                     if limit else "")
                             print(f"  {done:,} xong | dùng được {ok/done*100:.1f}% | "
                                   f"{rate:.1f} trang/s{left}")
+
+                # Sau khi hoàn thành trọn vẹn chu kỳ 850 URL của Long Châu: chủ động nghỉ 300s (5 phút)
+                if domains and "nhathuoclongchau.com.vn" in domains and cycle_lc >= 850:
+                    print(f"\n💤 [Hoàn tất chu kỳ] Đã cào {cycle_lc} URL Long Châu! Chủ động nghỉ 300s (5 phút) để Cloudflare reset hạn mức...")
+                    while not q.empty():
+                        time.sleep(0.5)
+                    time.sleep(1.0)
+                    time.sleep(300)
+                    cycle_lc = 0
+                    consecutive_403 = 0
+                    lim = limiters.get("nhathuoclongchau.com.vn")
+                    if lim and hasattr(lim, "interval"): lim.interval = lim.base
+                    print("⚡ Đã hết 5 phút nghỉ! Bắt đầu chu kỳ 850 URL tiếp theo...\n")
+
                 if done == done_at_start:
                     time.sleep(1.0)         # cả lô bị hoãn: đừng quay vòng nóng lấy lại URL cũ
     finally:
