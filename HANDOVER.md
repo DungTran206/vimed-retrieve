@@ -1,7 +1,7 @@
-# Bàn giao: dựng lại bài tốt nhất (FINAL 0,3262)
+# Bàn giao: dựng lại bài tốt nhất (FINAL 0,3272)
 
-Bài: `w04_zh38w_e120` — doc F2 0,3589 · chunk F2 0,2935 (leaderboard 15/10/2026).
-Vân tay khi dựng đúng: **doc `7ea17e35e329`, chunk `72a9d14ce27c`**.
+Bài: `w045_zh38w_e120` — doc F2 0,3605 · chunk F2 0,2939 (leaderboard 15/10/2026; w04 0,3262, w05 0,3272 hoà).
+Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `f30180dca611`**.
 
 ## 0. Kiến trúc pipeline hiện tại (từ đầu đến bài nộp)
 
@@ -45,7 +45,7 @@ Vân tay khi dựng đúng: **doc `7ea17e35e329`, chunk `72a9d14ce27c`**.
   Qwen3-Embedding-8B cùng doc (scripts/run_zh_q8.sh hoặc scripts/zh_q8_colab.ipynb trên Colab A100) → dense_zhQ8_*_rank
 
 [F] GHÉP + NỘP (local, build_best.sh)
-  zh list = RRF(BGE 1 : 8B 0,3) → chen vào vi (W0,4) → thứ tự đầu theo c_blendQB8w05 → lọc kho mới
+  zh list = RRF(BGE 1 : 8B 0,3) → chen vào vi (W0,45) → thứ tự đầu theo c_blendQB8w05 → lọc kho mới
   submission.py → ZIP (200 doc/câu; 2 chunk × top-40 + 1 chunk × hạng 41–120)
 ```
 
@@ -87,13 +87,13 @@ Tuỳ chọn (tiếng Anh, CHƯA dùng vì bảng điểm chưa có nhãn en): `
 bash build_best.sh runs/best      # ~20–30 phút, không cần GPU → runs/best.zip (~93 MB, bzip2)
 ```
 
-Dòng cuối phải in `vân tay: doc=7ea17e35e329 chunk=72a9d14ce27c`. Khác là thiếu/sai file dữ liệu.
+Dòng cuối phải in `vân tay: doc=c1e068422e5f chunk=f30180dca611`. Khác là thiếu/sai file dữ liệu.
 
 ## 4. Chuỗi làm gì
 
 1. **zh**: mỗi model (BGE-M3, Qwen3-Emb-8B) lấy top-400 theo câu vi và top-400 theo câu dịch zh →
    RRF với trọng số BGE 1 : 8B 0,3 (8B một mình THUA BGE trên leaderboard; chỉ có ích làm tín hiệu đồng thuận) → lọc kho mới.
-2. **Chen zh vào vi**: RRF(danh sách vi w1, danh sách zh w0,4) → ~31 doc zh/câu, rơi vào hạng 121–200.
+2. **Chen zh vào vi**: RRF(danh sách vi w1, danh sách zh w0,45) → ~39 doc zh/câu, rơi vào hạng 121–200.
 3. **Thứ tự đầu**: 120 doc đầu xếp theo `c_blendQB8w05` (chunk chỉ lấy từ top-120 nên thứ tự đầu quyết định chunk).
 4. **Nộp**: 200 doc/câu; chunk = 2 chunk × 40 doc đầu + 1 chunk × doc hạng 41–120 (chọn chunk điểm cao nhất).
 
