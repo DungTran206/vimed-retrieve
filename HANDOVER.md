@@ -1,7 +1,8 @@
-# Bàn giao: dựng lại bài tốt nhất (FINAL 0,3272)
+# Bàn giao: dựng lại bài tốt nhất (FINAL 0,3442)
 
-Bài: `w045_zh38w_e120` — doc F2 0,3605 · chunk F2 0,2939 (leaderboard 15/10/2026; w04 0,3262, w05 0,3272 hoà).
-Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `f30180dca611`**.
+Bài: `w045_TF` — doc F2 0,3605 · chunk F2 0,3279 (leaderboard 15/10/2026). Tập doc = `w045_zh38w_e120` (0,3272);
+chỉ khác ở cách cấp chunk theo p(gold) (`val_calib.py`), lãi +0,017.
+Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `fd07f9fc029a`**.
 
 ## 0. Kiến trúc pipeline hiện tại (từ đầu đến bài nộp)
 
@@ -46,7 +47,10 @@ Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `f30180dca611`**.
 
 [F] GHÉP + NỘP (local, build_best.sh)
   zh list = RRF(BGE 1 : 8B 0,3) → chen vào vi (W0,45) → thứ tự đầu theo c_blendQB8w05 → lọc kho mới
-  submission.py → ZIP (200 doc/câu; 2 chunk × top-40 + 1 chunk × hạng 41–120)
+  val_calib.py --score            p(gold) mỗi doc = logistic(logit P(yes) Qwen, cosine chunk-dense, cosine zh BGE)
+                                  β khớp từ ĐIỂM TỔNG 41 bài đã chấm (val_calib.py --logit → data/val/beta.json)
+  kế hoạch chunk: top-120 p<0,04 → bỏ chunk; hạng 121–200 p≥0,05 → thêm 1 chunk
+  submission.py --chunk-plan → ZIP LZMA (200 doc/câu; 2 chunk × top-40 + 1 chunk × hạng 41–120, theo kế hoạch)
 ```
 
 Mô hình: Qwen3.5-9B, BAAI/bge-m3, Qwen3-Reranker-4B, Qwen3-Embedding-8B (đều mở, ≤15B, trước 01/08/2026).
@@ -62,9 +66,10 @@ Số đo từng bước và lý do từng quyết định: `PROGRESS.md` (sổ �
 | `fuse.py` | RRF nhiều danh sách xếp hạng |
 | `hybrid_cands.py` | lấy TẬP doc từ một danh sách, THỨ TỰ 120 doc đầu từ danh sách khác |
 | `filter_new_corpus.py` | chỉ giữ doc thuộc kho mới của BTC (+ vinmec), bù đủ 200 |
-| `submission.py` | xuất JSON + ZIP đúng định dạng (doc_id số nguyên, chunk nguyên văn theo offset) |
+| `val_calib.py` | chấm p(gold) cho doc (`--score`); khớp lại β khi có điểm mới (`--extract`, `--logit`) |
+| `submission.py` | xuất JSON + ZIP đúng định dạng (doc_id số nguyên, chunk nguyên văn theo offset); `--chunk-plan` |
 
-Cần Python 3.10+ với `pandas`, `pyarrow` (`pip install pandas pyarrow`), và bash (Linux/macOS, hoặc Git Bash trên Windows).
+Cần Python 3.10+ với `pandas`, `pyarrow`, `numpy` (`pip install pandas pyarrow numpy`), và bash (Linux/macOS, hoặc Git Bash trên Windows).
 
 ## 2. Dữ liệu (KHÔNG có trong git — lấy riêng, đặt đúng đường dẫn)
 
@@ -77,6 +82,12 @@ Cần Python 3.10+ với `pandas`, `pyarrow` (`pip install pandas pyarrow`), và
 | `data/dense_zhQ8_{vi,zhq,zhq109}_rank.jsonl` | 103 MB | như trên bằng Qwen3-Embedding-8B |
 | `data/chunk_scores_mix.jsonl` | 79 MB | điểm từng chunk để chọn chunk nộp |
 | `data/vibiomir_new/links_corpus_vi_en_zh.parquet` | 37 MB | danh sách kho mới của BTC |
+| `data/qwen_all_h.jsonl` | 27 MB | P(yes) Qwen3-Reranker-4B cho ~555 doc/câu (đặc trưng của p(gold)) |
+| `data/dense_chunk_full_rank.jsonl` | 67 MB | cosine chunk-dense BGE-M3 (đặc trưng của p(gold)) |
+| `data/val/beta.json` | 160 B | hệ số logistic của p(gold) |
+
+Gói chia sẻ: `vimed_data_nho.zip` (13 file cũ) + `vimed_data_val.zip` (3 file p(gold) mới) — giải nén tại thư mục gốc repo,
+giữ nguyên đường dẫn `data/...`; cộng `data/corpus_new.sqlite` tải riêng.
 
 Tuỳ chọn (tiếng Anh, CHƯA dùng vì bảng điểm chưa có nhãn en): `data/en_pubmed.sqlite` (0,5 GB, 240k bài PubMed),
 `data/dense_en_{vi,en}_rank.jsonl`.
@@ -84,10 +95,10 @@ Tuỳ chọn (tiếng Anh, CHƯA dùng vì bảng điểm chưa có nhãn en): `
 ## 3. Chạy
 
 ```bash
-bash build_best.sh runs/best      # ~20–30 phút, không cần GPU → runs/best.zip (~93 MB, bzip2)
+bash build_best.sh runs/best      # ~30–40 phút, không cần GPU → runs/best.zip (~58 MB, LZMA)
 ```
 
-Dòng cuối phải in `vân tay: doc=c1e068422e5f chunk=f30180dca611`. Khác là thiếu/sai file dữ liệu.
+Dòng cuối phải in `vân tay: doc=c1e068422e5f chunk=fd07f9fc029a`. Khác là thiếu/sai file dữ liệu.
 
 ## 4. Chuỗi làm gì
 
@@ -95,7 +106,12 @@ Dòng cuối phải in `vân tay: doc=c1e068422e5f chunk=f30180dca611`. Khác l�
    RRF với trọng số BGE 1 : 8B 0,3 (8B một mình THUA BGE trên leaderboard; chỉ có ích làm tín hiệu đồng thuận) → lọc kho mới.
 2. **Chen zh vào vi**: RRF(danh sách vi w1, danh sách zh w0,45) → ~39 doc zh/câu, rơi vào hạng 121–200.
 3. **Thứ tự đầu**: 120 doc đầu xếp theo `c_blendQB8w05` (chunk chỉ lấy từ top-120 nên thứ tự đầu quyết định chunk).
-4. **Nộp**: 200 doc/câu; chunk = 2 chunk × 40 doc đầu + 1 chunk × doc hạng 41–120 (chọn chunk điểm cao nhất).
+4. **p(gold)**: logistic trên đặc trưng sẵn có, khớp bằng điểm TỔNG của các bài đã chấm (mỗi bài = một phương trình
+   DOCS_P = TB p) — KHÔNG dò nhãn từng câu. Không đổi tập doc, chỉ dùng để quyết định chunk.
+5. **Nộp**: 200 doc/câu; chunk = 2 chunk × 40 doc đầu + 1 chunk × doc hạng 41–120 (chọn chunk điểm cao nhất),
+   bỏ chunk của doc top-120 có p<0,04, thêm 1 chunk cho doc hạng 121–200 có p≥0,05. Ngưỡng dò trên leaderboard:
+   (bỏ, đuôi) = (0,06, 0,15) 0,3420 · (0,09, 0,15) 0,3381 · (0,06, 0,10) 0,3429 · (0,06, 0,07) 0,3436 · (0,04, 0,05) **0,3442**.
+   Lấy hết đuôi (e200) từng THUA → đỉnh nằm giữa.
 
 Các bước NẶNG tạo ra file ở mục 2 (crawl, clean, chunk, BM25, BGE-M3, Qwen3-Reranker-4B, chunk-dense) cần GPU
 và nhiều ngày máy; không cần chạy lại để tái lập bài này.
