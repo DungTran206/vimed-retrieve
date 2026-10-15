@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dựng lại bài tốt nhất từ các file trung gian đã giữ (tái lập được cho private phase).
 #   bash build_best.sh [TÊN_ĐẦU_RA]          mặc định runs/rebuild
-# Bài tốt nhất 15/10: FINAL 0,3262 (w04_zh38w_e120) — vân tay doc 7ea17e35e329, chunk 72a9d14ce27c.
+# Bài tốt nhất 15/10: FINAL 0,3272 (w045_zh38w_e120) — vân tay doc c1e068422e5f, chunk f30180dca611.
 # Chỉ làm các bước NHẸ cuối (~20–30 phút, local, không GPU). Các bước NẶNG phía trước (crawl → clean → chunk → BM25/dense →
 # Qwen3-Reranker → chunk-dense → c_blendQB8*; mã hoá zh BGE-M3 / Qwen3-Emb-8B) xem METHODS.md và PROGRESS.md.
 set -euo pipefail
@@ -39,13 +39,13 @@ with open("data/rp/zh38w_in.jsonl", "w", encoding="utf-8") as o:
         o.write(json.dumps({"id": r["id"], "candidates": [{"doc_id": d, "score": round(1 - i / (len(Z) + 1), 6)}
                                                           for i, d in enumerate(Z)]}) + "\n")
 E
-echo "3) chen zh (W0,4 → ~31 zh/câu) vào danh sách vi; thứ tự 120 doc đầu theo c_blendQB8w05; lọc kho mới"
-python fuse.py data/rp/c_blendQB8.jsonl:1 data/rp/zh38w_in.jsonl:0.4 --topk 1000 --out data/rp/q9_z38w_04.jsonl | tail -1
-python hybrid_cands.py data/rp/q9_z38w_04.jsonl data/rp/c_blendQB8w05.jsonl 120 data/rp/q13_z38w_04.jsonl 200 | tail -1
-python filter_new_corpus.py data/rp/q13_z38w_04.jsonl data/rp/q9_z38w_04.jsonl data/rp/q14_z38w_04.jsonl | tail -1
+echo "3) chen zh (W0,45 → ~39 zh/câu) vào danh sách vi; thứ tự 120 doc đầu theo c_blendQB8w05; lọc kho mới"
+python fuse.py data/rp/c_blendQB8.jsonl:1 data/rp/zh38w_in.jsonl:0.45 --topk 1000 --out data/rp/q9_z38w_045.jsonl | tail -1
+python hybrid_cands.py data/rp/q9_z38w_045.jsonl data/rp/c_blendQB8w05.jsonl 120 data/rp/q13_z38w_045.jsonl 200 | tail -1
+python filter_new_corpus.py data/rp/q13_z38w_045.jsonl data/rp/q9_z38w_045.jsonl data/rp/q14_z38w_045.jsonl | tail -1
 echo "4) dựng bài: top-200 doc, 2 chunk × 40 doc đầu + 1 chunk × hạng 41–120, chunk chọn theo điểm, bzip2"
-python submission.py --cands data/rp/q14_z38w_04.jsonl --topk 200 --store data/corpus_new.sqlite \
+python submission.py --cands data/rp/q14_z38w_045.jsonl --topk 200 --store data/corpus_new.sqlite \
     --chunks-per-doc 2 --chunk-from-top 40 --extra-one 120 --int-ids \
     --chunk-scores data/chunk_scores_mix.jsonl --zip-method bzip2 --out "$OUT"
 rm -f "$OUT.json"
-echo "Xong. Vân tay phải là doc=7ea17e35e329 chunk=72a9d14ce27c (w04_zh38w_e120, FINAL 0,3262)."
+echo "Xong. Vân tay phải là doc=c1e068422e5f chunk=f30180dca611 (w045_zh38w_e120, FINAL 0,3272)."

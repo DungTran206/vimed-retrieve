@@ -2614,6 +2614,7 @@ thứ khác kể cả upload.
 - **KẾT QUẢ w04_zh38w_e120 = FINAL 0,3262 ← TỐT NHẤT** (+0,0009): doc F2 **0,3589** (P 0,1878 / R **0,6008**, so 0,3571) · chunk F2 0,2935 (= w04). ~6 zh đổi/câu → +0,6% recall doc.
 - Dựng tiếp `runs/w045_zh38w_e120.zip` (zh38w, W0,45 → ~39 zh/câu; doc `c1e068422e5f`, chunk `f30180dca611`, 93,3 MB). `blendQB14_w045_e120` (zh BGE) bỏ.
 - **Chunk 1.000 token** (15/10): store phụ `data/store_c1000.sqlite` (89.058 doc top-120 của q14_z38w_04, `chunk.py --target-tokens 1000`): 1,88 chunk/doc (900: 2,06), dài TB 2.482 ký tự (+9%), 33% doc chunk y hệt. Điểm chọn chunk chuyển từ chunk 900 sang chunk 1000 theo chồng lấn ký tự lớn nhất (`data/chunk_scores_c1000.jsonl`). `runs/w04z38w_c1000_e120.zip` (LZMA 58 MB; doc `7ea17e35e329` = bài tốt nhất, chunk `51c0ad029ca7`, 147 chunk/câu). Lần nén đầu hỏng do phiên bị ngắt → đã nén lại, testzip OK. So với 0,3262: chỉ chunk đổi.
+- **KẾT QUẢ w045_zh38w_e120 = FINAL 0,3272 ← TỐT NHẤT** (doc F2 **0,3605**, P 0,1884 / R 0,6047 · chunk 0,2939, P 0,1920 / R 0,4215). **w05_zh38w_e120 = 0,3272** (doc 0,3602 / chunk 0,2942). Đỉnh PHẲNG W0,45–0,5: doc đỉnh ở w045 (w05 −0,0003), chunk nhích +0,0003/bước (nhiễu). Chốt **w045** (lãi đến từ doc, ổn định hơn). Dừng quét W. `build_best.sh` và `HANDOVER.md` chuyển sang w045 (vân tay doc `c1e068422e5f`, chunk `f30180dca611`).
 - Dựng sẵn `runs/w05_zh38w_e120.zip` (W0,5 → ~47 zh/câu; doc `98ae5a55b4a6`, chunk `6d28fee7ad90`) — chỉ nộp nếu w045 > 0,3262.
 
 ### 14/10/2026: chunk NHỎ (~450 token) — store phụ `data/store_c450.sqlite`
