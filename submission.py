@@ -203,7 +203,7 @@ def load_queries(path):
 
 
 def build(cands, topk, min_score, store, per_doc, n_queries=N_QUERIES, id_type=str,
-          chunk_from_top=None, extra_one=None, queries=None, chunk_scores=None):
+          chunk_from_top=None, extra_one=None, queries=None, chunk_scores=None, chunk_plan=None):
     """`chunk_from_top`: chỉ lấy chunk từ M doc ĐẦU, dù `relevant_docs` vẫn trả đủ topk.
 
     Hai tầng được chấm ĐỘC LẬP nên tối ưu riêng được. Đo trên leaderboard: DOCS_PRECISION
@@ -220,6 +220,14 @@ def build(cands, topk, min_score, store, per_doc, n_queries=N_QUERIES, id_type=s
         if store and extra_one and chunk_from_top:
             # tầng 2: doc hạng chunk_from_top..extra_one chỉ lấy 1 chunk (rộng hơn, mỏng hơn)
             chunks += fetch_chunks(store, docs[chunk_from_top:extra_one], 1, qt)
+        plan = (chunk_plan or {}).get(qid)
+        if plan and store:
+            # kế hoạch theo doc: 0 = bỏ chunk của doc; n>0 với doc chưa có chunk = thêm n chunk đầu
+            chunks = [c for c in chunks if plan.get(str(c["doc_id"]), 1) > 0]
+            have = {str(c["doc_id"]) for c in chunks}
+            for d in docs:
+                if plan.get(str(d), 0) > 0 and str(d) not in have:
+                    chunks += fetch_chunks(store, [d], plan[str(d)], qt)
         if id_type is int:
             docs = [int(d) for d in docs]
             chunks = [dict(c, doc_id=int(c["doc_id"])) for c in chunks]
@@ -280,6 +288,16 @@ def demo():
             back = json.loads(z.read(os.path.basename(js)))
         assert back == recs, "nội dung trong ZIP phải khớp"
 
+    # --chunk-plan: 0 bỏ chunk của doc đã được cấp; n>0 thêm chunk cho doc ngoài vùng cấp chunk
+    with tempfile.TemporaryDirectory() as d:
+        st = os.path.join(d, "s.sqlite"); c = sqlite3.connect(st)
+        c.execute("create table doc(doc_id text, body text)"); c.execute("create table chunk(chunk_id integer primary key, doc_id text, start int, end int)")
+        for i in ("10", "11", "12"):
+            c.execute("insert into doc values (?,?)", (i, "abc" + i)); c.execute("insert into chunk(doc_id,start,end) values (?,0,5)", (i,))
+        c.commit(); c.close()
+        rp = build(cc, 3, None, st, 1, n_queries=1, chunk_from_top=2, chunk_plan={1: {"10": 0, "12": 1}})
+        assert [x["doc_id"] for x in rp[0]["relevant_chunks"]] == ["11", "12"], rp
+
     # Công thức F2 rút gọn phải khớp định nghĩa gốc 5PR/(4P+R)
     for g, G, k in ((3, 5, 10), (1, 1, 1), (7, 20, 50), (2, 3, 4)):
         P, R = g / k, g / G
@@ -306,6 +324,8 @@ def main():
                     help="điểm Qwen từng chunk (chunk_rerank.py): doc có >per_doc chunk thì lấy chunk điểm cao nhất")
     ap.add_argument("--chunk-query", default=None, metavar="QUERIES.jsonl",
                     help="chọn chunk KHỚP câu hỏi nhất trong mỗi doc thay vì những chunk đầu")
+    ap.add_argument("--chunk-plan", default=None, metavar="plan.json",
+                    help="{qid: {doc_id: n}}: n=0 bỏ chunk của doc, n>0 thêm n chunk cho doc chưa có (cấp chunk theo p(gold))")
     ap.add_argument("--int-ids", action="store_true",
                     help="xuất doc_id kiểu số nguyên thay vì chuỗi (xem ghi chú đầu file)")
     ap.add_argument("--out", default="runs/submission")
@@ -324,7 +344,8 @@ def main():
     records = build(cands, args.topk, args.min_score, args.store, args.chunks_per_doc,
                     id_type=id_type, chunk_from_top=args.chunk_from_top, extra_one=args.extra_one,
                     queries=load_queries(args.chunk_query) if args.chunk_query else None,
-                    chunk_scores=load_chunk_scores(args.chunk_scores) if args.chunk_scores else None)
+                    chunk_scores=load_chunk_scores(args.chunk_scores) if args.chunk_scores else None,
+                    chunk_plan={int(k): v for k, v in json.load(open(args.chunk_plan)).items()} if args.chunk_plan else None)
 
     errs = validate(records, id_type=id_type)
     if errs:
