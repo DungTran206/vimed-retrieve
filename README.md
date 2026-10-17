@@ -42,18 +42,18 @@ Rồi kiểm tra — cả hai lệnh phải xanh hết trước khi sửa bất 
 
 ```
 python -m unittest discover tests    # 16 test offline
-python audit.py                      # 40 mục trên dữ liệu thật (cần có data/corpus.sqlite)
+python utils/audit.py                # 40 mục trên dữ liệu thật (cần có data/corpus.sqlite)
 ```
 
 **Dữ liệu không nằm trong repo** (`.gitignore` loại `data/`, `runs/`, `*.sqlite`). Sinh lại:
 
 ```
-python profile_dataset.py    # tải ViBioMIR → data/queries.jsonl + thống kê domain
-python slug_bm25.py --topk 200   # → data/slug_rank.jsonl (xếp hạng từ slug, không crawl)
-python crawler.py --prio data/slug_rank.jsonl    # → data/corpus.sqlite
-python clean.py --apply                          # lọc boilerplate lặp theo domain
-python chunk.py                                  # cắt chunk theo offset
-python audit.py                                  # phải PASS hết 40 mục
+python crawl/profile_dataset.py    # tải ViBioMIR → data/queries.jsonl + thống kê domain
+python index/slug_bm25.py --topk 200   # → data/slug_rank.jsonl (xếp hạng từ slug, không crawl)
+python crawl/crawler.py --prio data/slug_rank.jsonl    # → data/corpus.sqlite
+python utils/clean.py --apply                          # lọc boilerplate lặp theo domain
+python index/chunk.py                                  # cắt chunk theo offset
+python utils/audit.py                                  # phải PASS hết 40 mục
 ```
 
 **Thứ tự này quan trọng.** `clean.py` đổi `doc.body` nên mọi offset chunk cũ sai → nó tự xoá
@@ -66,20 +66,20 @@ chunk của doc bị sửa, và `chunk.py` phải chạy SAU để cắt lại. 
 ```
 links_corpus.parquet (4,39M URL)   query.parquet (1.200 câu)
          │                                  │
-         ├── slug_bm25.py ──────────────────┤   xếp hạng từ slug URL, KHÔNG crawl
+         ├── index/slug_bm25.py ──────────────────┤   xếp hạng từ slug URL, KHÔNG crawl
          │        └→ data/slug_rank.jsonl       (dùng để xếp thứ tự hàng đợi crawl)
          │
-         └── crawler.py ─→ data/corpus.sqlite   ← TẤT CẢ dữ liệu crawl nằm ở đây
+         └── crawl/crawler.py ─→ data/corpus.sqlite   ← TẤT CẢ dữ liệu crawl nằm ở đây
                                  │  bảng doc:   body (bất biến) + title/descr/tags
                                  │  bảng queue: trạng thái từng URL, resume được
                                  ↓
-                            chunk.py ─→ bảng chunk: CHỈ (doc_id, start, end)
+                            index/chunk.py ─→ bảng chunk: CHỈ (doc_id, start, end)
                                  ↓
-                         bm25.py, bm25_ent.py, dense.py, fuse.py, qwen_rerank.py, chunk_rerank.py (xem METHODS.md)
+                         index/bm25.py, index/bm25_ent.py, index/dense.py, scripts/fuse.py, rerank/qwen_rerank.py, rerank/chunk_rerank.py (xem METHODS.md)
                                  ↓
-                          submission.py ─→ runs/*.zip ─→ leaderboard
+                          submit/submission.py ─→ runs/*.zip ─→ leaderboard
                                  ↑
-                          score.py (chấm offline), audit.py (kiểm toàn chuỗi)
+                          submit/score.py (chấm offline), utils/audit.py (kiểm toàn chuỗi)
 ```
 
 **Ràng buộc quan trọng nhất của cả đề:** `chunk_text` phải **nguyên văn** từ tài liệu gốc.
@@ -111,10 +111,10 @@ thử đều trích được nội dung (body 3.295 ký tự, title 100%, descr 
 
 ```bash
 tmux new -s fd      # 451k @ 5 req/s ≈ 25 giờ, đừng để đứt khi mất SSH
-python crawler.py --domains "familydoctor.com.cn,baidianfeng.familydoctor.com.cn,familydoctor.cn,qy.familydoctor.com.cn,v.familydoctor.com.cn,ask.familydoctor.com.cn,yanglao.familydoctor.com.cn,ypk.familydoctor.com.cn" --retry-blocked --workers 30
+python crawl/crawler.py --domains "familydoctor.com.cn,baidianfeng.familydoctor.com.cn,familydoctor.cn,qy.familydoctor.com.cn,v.familydoctor.com.cn,ask.familydoctor.com.cn,yanglao.familydoctor.com.cn,ypk.familydoctor.com.cn" --retry-blocked --workers 30
 ```
 
-Xong thì `scp` file `data/corpus.sqlite` về máy chính rồi `python crawler.py --merge <file>`.
+Xong thì `scp` file `data/corpus.sqlite` về máy chính rồi `python crawl/crawler.py --merge <file>`.
 
 **`zysjonline.com` (243k, 5,5%) thì KHÔNG phải vấn đề IP** — vẫn 403 từ cả hai máy. Đó là
 Cloudflare JS challenge: 10 profile `impersonate` của `curl_cffi` đều thất bại trong khi chứng
@@ -131,7 +131,7 @@ rate limit, không đập cùng một server từ 3 hướng.
 
 ```powershell
 # Máy A                                  # Máy B                 # Máy C
-python crawler.py --shard 0/3            --shard 1/3             --shard 2/3
+python crawl/crawler.py --shard 0/3            --shard 1/3             --shard 2/3
 ```
 
 Chia cân: mỗi phần ~1.223.000 URL. Chạy trong `tmux`/`screen` nếu là Linux. Ctrl+C an toàn,
@@ -140,10 +140,10 @@ resume từ đúng chỗ dừng.
 Xong thì gộp về một máy:
 
 ```
-python crawler.py --merge <duong_dan>/corpus_mayB.sqlite
-python crawler.py --merge <duong_dan>/corpus_mayC.sqlite
-python chunk.py                 # cắt chunk cho doc mới
-python audit.py                 # phải PASS hết
+python crawl/crawler.py --merge <duong_dan>/corpus_mayB.sqlite
+python crawl/crawler.py --merge <duong_dan>/corpus_mayC.sqlite
+python index/chunk.py                 # cắt chunk cho doc mới
+python utils/audit.py                 # phải PASS hết
 ```
 
 `--merge` chạy lại nhiều lần an toàn (`INSERT OR IGNORE`), và nó tự tính lại trạng thái
@@ -160,12 +160,12 @@ python -c "import sqlite3; c=sqlite3.connect('data/corpus.sqlite'); print(c.exec
 
 | Nhóm | URL | Hiện tượng | Trạng thái |
 | --- | --- | --- | --- |
-| `laodong.vn` | 31k | thách đố cookie: HTTP 200 với 177 byte JS đặt cookie rồi reload | ✅ **ĐÃ SỬA** — `cookie_challenge()` trong `crawler.py`. Cần `--retry-failed --domains laodong.vn` |
+| `laodong.vn` | 31k | thách đố cookie: HTTP 200 với 177 byte JS đặt cookie rồi reload | ✅ **ĐÃ SỬA** — `cookie_challenge()` trong `crawl/crawler.py`. Cần `--retry-failed --domains laodong.vn` |
 | 14 subdomain `*.39.net` (`tnb`, `fk`, `gan`, `nk`, `heart`…) | ~66k | markup khác `ask.39.net` (cái này chạy 100%) | ⏳ **chưa crawl tới** — nằm sâu trong hàng đợi. Lấy mẫu trước bằng `--domains "tnb.39.net,fk.39.net" --limit 50` |
 | `zhongyibaodian.net`, `baotayninh.vn` | ~148k | `trafilatura` trượt, fallback "khối div dài nhất" chưa bắt được | ⏳ chưa crawl tới |
 
 Cách làm: lấy mẫu ~50 URL của nhóm cần sửa bằng `--domains`, xem `doc.raw_html` (crawler tự
-lưu HTML khi trích thất bại), viết selector trong `crawler.py:extract_fallback()`, rồi
+lưu HTML khi trích thất bại), viết selector trong `crawl/crawler.py:extract_fallback()`, rồi
 `--domains "..." --retry-failed`. Đáng làm vì `tags` của nhóm `*.39.net` mang sẵn nhãn chuyên khoa.
 
 **Mẫu đã gặp, đáng để ý:** `laodong.vn` không phải lỗi trích mà là chống bot kiểu nhẹ — server
@@ -173,11 +173,11 @@ trả JS đặt cookie với **giá trị nằm sẵn trong phản hồi**, nên
 không cần chạy JS. `cookie_challenge()` xử lý mẫu này một cách tổng quát nên có thể cứu cả
 domain khác cùng kiểu.
 
-### Việc #4: BM25 có trọng số trường (`bm25.py` — chưa có)
+### Việc #4: BM25 có trọng số trường (`index/bm25.py` — chưa có)
 
 Bước tiếp theo của pipeline, **độc lập với crawl**, viết được ngay.
 
-Mẹo trong `slug_bm25.py` tổng quát hoá được: chỉ có 1.200 query nên **không cần inverted
+Mẹo trong `index/slug_bm25.py` tổng quát hoá được: chỉ có 1.200 query nên **không cần inverted
 index toàn corpus** — chỉ cần `df` của các term xuất hiện trong query, rồi một lượt
 doc-at-a-time. Khỏi Lucene, khỏi Java.
 
