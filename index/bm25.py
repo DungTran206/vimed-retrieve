@@ -33,13 +33,16 @@ import collections
 import heapq
 import json
 import math
+import os
 import re
 import sqlite3
 import sys
-
 import unicodedata
 
-from slug_bm25 import tokenize as _tok_fold       # bỏ dấu + tách khoảng trắng (đúng cho slug URL)
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from index.slug_bm25 import tokenize as _tok_fold  # bỏ dấu + tách khoảng trắng (đúng cho slug URL)
 
 # GIỮ DẤU cho nội dung trang và câu hỏi. Bỏ dấu là đúng với slug (URL là ASCII) nhưng SAI với văn bản
 # tiếng Việt: đo trên 120.000 doc, 36,7% token của 1.200 câu hỏi và 37,8% lần xuất hiện trong văn bản

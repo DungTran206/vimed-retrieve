@@ -31,6 +31,9 @@ import sqlite3
 import sys
 import zipfile
 
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 N_QUERIES = 1200          # đề cố định 1.200 câu; thiếu một câu là không được chấm
 
 
@@ -83,7 +86,7 @@ def fetch_chunks(store, doc_ids, per_doc, qtext=None, chunk_scores=None):
             pick_idx[d] = sorted(sorted(range(n), key=lambda i: (-sc.get(i, -1.0), i))[:per_doc])
     if qtext:
         import math
-        import bm25
+        from index import bm25
         bm25.KEEP_DIACRITICS = True
         qt = set(bm25.tok_vi(qtext))
         toks = {d: [set(bm25.tok_vi(x)) & qt for x in t] for d, t in by_doc.items()}

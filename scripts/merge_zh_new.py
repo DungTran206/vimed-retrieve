@@ -8,11 +8,14 @@ Khác `crawler.py --merge` (INSERT OR IGNORE: dòng lỗi cũ chặn mất bản
     python merge_zh_new.py --demo
 """
 import json
+import os
 import re
 import sqlite3
 import sys
 
-import crawler
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from crawl import crawler
 
 HAN = re.compile(r"[\u4e00-\u9fff]")
 LETTER = re.compile(r"[\u4e00-\u9fffA-Za-z\u00c0-\u1ef9]")

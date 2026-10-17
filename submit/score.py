@@ -20,8 +20,12 @@ F2 = 5PR/(4P+R), lấy trung bình macro trên các câu.
 import argparse
 import json
 import re
+import os
 import sys
 import unicodedata
+
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 OVERLAP = 0.5          # tỉ lệ token của một phần thông tin phải nằm trong chunk
 
@@ -131,7 +135,7 @@ def main():
     if args.sweep:
         if not args.cands:
             sys.exit("--sweep cần --cands")
-        from submission import build, load_candidates
+        from submit.submission import build, load_candidates
         cands = load_candidates(args.cands)
         print(f"{'topk':>6} {'P_doc':>7} {'R_doc':>7} {'F2_doc':>7}")
         best = (0, None)
