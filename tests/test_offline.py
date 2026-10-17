@@ -1,8 +1,13 @@
 """Test offline cho các hàm parse và gộp kết quả (không cần mạng, không cần GPU).
 Chạy: python -m unittest discover tests"""
+import importlib
 import json
+import os
+import sqlite3
+import tempfile
 import unittest
 
+from submit import submission
 from pubmed_module.fetch import parse_biocjson, parse_efetch_xml, epmc_fetch, strip_tags
 from pubmed_module.pipeline import merge_hits
 from pubmed_module.query_gen import parse_llm_output, fallback_queries
@@ -11,6 +16,29 @@ from pubmed_module.search import is_pubmed_syntax
 DOC = {"id": "26739349", "passages": [
     {"infons": {"type": "title"}, "offset": 0, "text": "Kidney stones and obstruction."},
     {"infons": {"type": "abstract"}, "offset": 31, "text": "Background text. Results text."}]}
+
+
+class TestRestructuredImports(unittest.TestCase):
+    def test_project_packages_import(self):
+        for name in ("crawl.crawler", "index.bm25", "index.bm25_ent", "rerank.chunk_rerank",
+                     "submit.score", "utils.audit"):
+            with self.subTest(module=name):
+                importlib.import_module(name)
+
+    def test_chunk_selection_imports_index_package(self):
+        with tempfile.TemporaryDirectory() as td:
+            store = os.path.join(td, "store.sqlite")
+            conn = sqlite3.connect(store)
+            conn.execute("CREATE TABLE doc (doc_id TEXT, body TEXT)")
+            conn.execute("CREATE TABLE chunk (chunk_id INTEGER PRIMARY KEY, doc_id TEXT, start INTEGER, end INTEGER)")
+            body = "Đau đầu và sốt nhẹ."
+            conn.execute("INSERT INTO doc VALUES ('1', ?)", (body,))
+            conn.execute("INSERT INTO chunk (doc_id, start, end) VALUES ('1', 0, ?)", (len(body),))
+            conn.commit()
+            conn.close()
+
+            chunks = submission.fetch_chunks(store, ["1"], 1, qtext="đau đầu")
+            self.assertEqual(chunks, [{"doc_id": "1", "chunk_text": body}])
 
 
 class TestBioC(unittest.TestCase):

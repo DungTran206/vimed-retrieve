@@ -20,6 +20,9 @@ import sys
 import tempfile
 import os
 
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 DB = "data/corpus_new.sqlite"
 _fails = []
 
@@ -57,7 +60,7 @@ def audit_crawl(conn):
     check(bad == 0, "state=DONE khớp với body đủ dài", f"{bad} lệch")
 
     # Domain đã biết là chặn thì KHÔNG được tốn request
-    from crawler import BLOCKED
+    from crawl.crawler import BLOCKED
     qs = ",".join("?" * len(BLOCKED))
     wasted, = conn.execute(
         f"SELECT count(*) FROM doc WHERE domain IN ({qs})", list(BLOCKED)).fetchone()
@@ -85,7 +88,7 @@ def audit_crawl(conn):
     nolang, = conn.execute("SELECT count(*) FROM doc WHERE length(body)>=200 "
                            "AND (lang IS NULL OR lang='')").fetchone()
     check(nolang == 0, "mọi doc dùng được đều có lang", f"{nolang} thiếu")
-    from crawler import detect_lang
+    from crawl.crawler import detect_lang
     mism = 0
     for lang, body, dom in conn.execute("SELECT lang, body, domain FROM doc "
                                         "WHERE length(body)>=200 ORDER BY random() LIMIT 200"):
@@ -141,7 +144,7 @@ def audit_chunk(conn):
     check(dupord == 0, "ord duy nhất trong mỗi doc", f"{dupord}")
 
     # Độ phủ: hợp các chunk phải chứa gần hết body
-    from chunk import CHARS_PER_TOKEN, TARGET_TOKENS
+    from index.chunk import CHARS_PER_TOKEN, TARGET_TOKENS
     low = []
     for doc_id, body in conn.execute("SELECT doc_id, body FROM doc WHERE length(body)>=200 "
                                      "ORDER BY random() LIMIT 300"):
@@ -197,7 +200,7 @@ def find_cands(explicit=None):
 def audit_submission(conn, db_path, cands_path=None):
     print("\n=== TẦNG 3: SUBMISSION ===")
     import zipfile
-    from submission import build, load_candidates, validate, write_zip
+    from submit.submission import build, load_candidates, validate, write_zip
 
     cands_path = find_cands(cands_path)
     print(f"  (nguồn ứng viên: {cands_path})")
@@ -254,7 +257,7 @@ def audit_submission(conn, db_path, cands_path=None):
 
 def audit_score(recs):
     print("\n=== TẦNG 4: SCORE ===")
-    from score import score, f2, covers
+    from submit.score import score, f2, covers
 
     # Tự chấm: nhãn vàng dựng từ chính bài nộp -> phải ra P=R=F2=1
     gold = [{"id": r["id"], "relevant_docs": r["relevant_docs"],

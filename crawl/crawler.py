@@ -36,6 +36,9 @@ import urllib.parse
 from concurrent.futures import (ProcessPoolExecutor, ThreadPoolExecutor, as_completed,
                                 wait, FIRST_COMPLETED)
 
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pubmed_module.http import RateLimiter      # dùng lại, không viết lại
 
 # Console Windows mặc định là cp1252: `print` tiếng Việt và ký hiệu cảnh báo ném

@@ -10,6 +10,9 @@ import os
 import sqlite3
 import sys
 
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def prep(a):
     qs = {json.loads(l)["id"]: json.loads(l)["query"] for l in open(a.queries, encoding="utf-8") if l.strip()}
@@ -37,7 +40,7 @@ def prep(a):
 
 
 def score(a):
-    import qwen_rerank as qr
+    from rerank import qwen_rerank as qr
     qr.DOC_CHARS = a.doc_chars
     rows = [json.loads(l) for l in open(a.cands_out, encoding="utf-8")]
     done = set()

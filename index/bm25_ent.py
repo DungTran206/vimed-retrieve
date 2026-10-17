@@ -13,10 +13,15 @@ import collections
 import heapq
 import json
 import math
+import os
 import sqlite3
+import sys
 from multiprocessing import Pool
 
-import bm25
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from index import bm25
 
 FIRST = {}
 SEL = "SELECT doc_id, title, descr, tags, body FROM doc WHERE rowid BETWEEN ? AND ? AND length(body)>=200"
