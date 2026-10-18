@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Tải dataset, thống kê URL (`profile_dataset.py`) | Local | CPU, vài phút |
 | Crawl 4,4 triệu URL, làm sạch HTML | Local (hoặc cả hai) | Cần mạng + ổ đĩa, không cần GPU |
-| Gọi PubMed (search, fetch) | Local | Bị giới hạn bởi rate limit API |
+
 | Chia chunk, BM25, gộp điểm, cắt ngưỡng, xuất file nộp | Local | CPU + RAM |
 | Embedding câu hỏi, rerank vài chục cặp khi debug | Local | BGE-M3 / reranker fp16 chỉ cần khoảng 1–2 GB VRAM |
 | **Qwen3.5-9B (expand), Hy-MT2-7B (dịch)** | **GPU 50 GB** | Không vừa thoải mái trong 8 GB |
@@ -20,7 +20,7 @@ Nguyên tắc: **máy GPU chỉ nhận file vào, chạy theo lô, trả file ra
 LOCAL                                   GPU 50 GB
 data/queries.jsonl  ── push ──►   remote_run_llm.sh  (expand + translate)
                     ◄── pull ──   runs/public/queries_enriched.jsonl
-search + fetch PubMed, crawl, BM25
+crawl, BM25, xử lý truy hồi
 chunks / ứng viên   ── push ──►   embedding / rerank / fine-tune
                     ◄── pull ──   *.npy, điểm rerank, models/<checkpoint>
 ```
@@ -40,26 +40,12 @@ python -m venv .venv
 # Cài torch bản CUDA khớp driver (xem lệnh chính xác tại pytorch.org), ví dụ:
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 pip install -r env/requirements-local.txt
-python -m unittest discover tests              # phải OK hết 12 test
+python -m unittest discover tests              # chạy test offline
 
 python profile_dataset.py                      # tạo data/queries.jsonl + thống kê URL
 ```
 
-Khoá PubMed — đặt vĩnh viễn cho user, chỉ làm một lần (terminal mở sau đó mới thấy):
-
-```powershell
-[Environment]::SetEnvironmentVariable("NCBI_API_KEY", "...", "User")
-[Environment]::SetEnvironmentVariable("NCBI_EMAIL",   "...", "User")
-# dùng ngay trong phiên hiện tại:
-$env:NCBI_API_KEY = "..."; $env:NCBI_EMAIL = "..."
-```
-
-Kiểm tra nhanh phần PubMed (không cần GPU). PowerShell nối dòng bằng backtick, không phải `\`:
-
-```powershell
-python -m pipelines.pubmed --queries examples/sample_queries.jsonl `
-    --out examples/manual_run --stages search,fetch
-```
+Corpus tiếng Anh/PubMed đã được tích hợp trong ViBioMIR; không cần API key hoặc bước tải riêng.
 
 ---
 
@@ -112,7 +98,7 @@ tmux new -s vimed                         # mọi việc dài chạy trong tmux
 cd ~/vimed
 
 echo 'export HF_HOME=$HOME/hf_cache' >> ~/.bashrc
-echo 'export NCBI_API_KEY=...'       >> ~/.bashrc   # nếu muốn chạy PubMed trên máy này
+
 source ~/.bashrc
 
 bash scripts/remote_setup.sh
@@ -135,7 +121,7 @@ bash scripts/download_models.sh
 
 | Mô hình | Phát hành | Kích thước | Vai trò |
 | --- | --- | --- | --- |
-| Qwen/Qwen3.5-9B | 2/3/2026 | ~9B | Hiểu câu hỏi, sinh truy vấn PubMed |
+| Qwen/Qwen3.5-9B | 2/3/2026 | ~9B | Trích thực thể, tạo bản dịch nháp vi/en/zh |
 | tencent/Hy-MT2-7B | 21/5/2026 | ~7B | Dịch vi → en/zh |
 | BAAI/bge-m3 | 1/2024 | 568M | Embedding đa ngôn ngữ (dense + sparse) |
 | BAAI/bge-reranker-v2-m3 | 3/2024 | 568M | Reranker cross-encoder |
@@ -159,7 +145,7 @@ Kết quả mong đợi ở cuối log:
   rerank  OK
 ```
 
-Mỗi kiểm tra in ra kết quả cụ thể để đọc bằng mắt: truy vấn PubMed sinh ra, bản dịch en/zh, điểm tương đồng (đoạn tiếng Anh và tiếng Trung đúng chủ đề phải điểm cao hơn đoạn về sỏi thận). Gửi file `runs/remote_check.log` nếu có mục nào lỗi.
+Mỗi kiểm tra in ra kết quả cụ thể để đọc bằng mắt: thực thể và bản dịch en/zh, điểm tương đồng (đoạn tiếng Anh và tiếng Trung đúng chủ đề phải điểm cao hơn đoạn về sỏi thận). Gửi file `runs/remote_check.log` nếu có mục nào lỗi.
 
 ---
 
@@ -183,14 +169,12 @@ bash scripts/remote_run_llm.sh data/queries.jsonl runs/public
 ```
 
 ```powershell
-# --- LOCAL, khi máy GPU xong: kéo kết quả về rồi gọi PubMed
+# --- LOCAL, khi máy GPU xong: kéo queries_enriched để dùng cho các bước truy hồi
 cd D:\dung\ai_guru
 scp -P 22 -r user@IP_MAY_GPU:~/vimed/runs/public .\vimed\runs\
-cd .\vimed
-python -m pipelines.pubmed --queries data/queries.jsonl --out runs/public --stages search,fetch
 ```
 
-Bước search/fetch đọc `expansions.jsonl` đã kéo về, nên chạy ở local được, không cần GPU.
+Corpus tiếng Anh đã nằm trong dataset ViBioMIR; không cần search/fetch hay gọi API PubMed.
 
 **Private test (1/11):** lặp lại y hệt với thư mục `runs/private`.
 

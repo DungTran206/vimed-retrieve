@@ -1,4 +1,4 @@
-# Máy local (GPU 8 GB): điều phối, crawl, gọi PubMed, BM25, xuất bài nộp,
+# Máy local (GPU 8 GB): điều phối, crawl, BM25, xuất bài nộp,
 # và suy luận nhẹ phía câu hỏi (embedding câu hỏi, rerank tập nhỏ khi debug).
 requests>=2.31
 pandas

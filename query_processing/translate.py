@@ -102,7 +102,6 @@ def enrich(expansions: list[dict], translations: list[dict] | None) -> list[dict
             "en_llm": e.get("en", ""),
             "zh_llm": e.get("zh", ""),
             "entities": e.get("entities", []),
-            "pubmed_queries": e.get("pubmed_queries", []),
             "translation_source": "hy-mt2" if t.get("en") else "llm",
         })
     return out

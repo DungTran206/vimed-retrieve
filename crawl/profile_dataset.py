@@ -1,4 +1,4 @@
-"""Tải ViBioMIR, xuất câu hỏi JSONL cho query_processing/pipelines, và thống kê danh sách URL
+"""Tải ViBioMIR, xuất câu hỏi JSONL cho query_processing, và thống kê danh sách URL
 để lên kế hoạch crawl. Không cần GPU.
 
   pip install pandas pyarrow huggingface_hub
@@ -71,8 +71,6 @@ tld = c["domain"].str.rsplit(".", n=1).str[-1].value_counts()
 print("\nTLD:", {k: int(v) for k, v in tld.head(12).items()})
 print("Scheme:", {k: int(v) for k, v in c["scheme"].value_counts().items()})
 print("Đuôi file:", {k: int(v) for k, v in c["ext"].value_counts().head(12).items()})
-eng = c["domain"].str.contains("pubmed|ncbi|europepmc|nih.gov", regex=True)
-print(f"URL dạng PubMed/NCBI trong corpus: {eng.sum():,}")
 
 # Lưu thống kê + mẫu URL mỗi domain lớn để viết parser riêng
 dom.rename("count").to_frame().assign(cum_pct=(cum * 100).round(2)).to_csv(f"{OUT}/domain_stats.csv")

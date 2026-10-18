@@ -32,14 +32,14 @@ def gpu_info():
 
 def check_llm(model, gpu_mem):
     from query_processing.llm import make_backend
-    from query_processing.query_gen import LLM_CHAT_KWARGS, LLM_SAMPLING, build_messages, parse_llm_output
+    from query_processing.expand import LLM_CHAT_KWARGS, LLM_SAMPLING, build_messages, parse_llm_output
     be = make_backend("vllm", model, LLM_SAMPLING, text_only=True,
                       chat_template_kwargs=LLM_CHAT_KWARGS, gpu_memory_utilization=gpu_mem)
     t = time.time()
     out = be.generate([build_messages(Q)] * 8)  # 8 câu một lô để đo thông lượng
     p = parse_llm_output(out[0])
     print(f"8 câu trong {time.time()-t:.1f}s | parse_ok={p['parse_ok']}")
-    print("pubmed_queries:", p["pubmed_queries"])
+
     print("entities:", p["entities"])
     return p["parse_ok"]
 

@@ -81,9 +81,8 @@ nộp tại mục My Submissions trên http://leaderboard.aiguru.com.vn/ (số l
 
 - Phải có **đủ mọi id** câu hỏi; thiếu câu hoặc sai định dạng thì không được chấm.
 - Không dự đoán được thì vẫn phải có trường đó với danh sách rỗng `[]`.
-- `doc_id`: tài liệu vi/zh dùng trường `id` trong `links_corpus.parquet`; tài liệu tiếng Anh dùng **PMID**
-  (PubMed không nằm trong corpus link - BTC đã xác nhận các đội tự tìm). Đo được PMID hiện đại đều > 28M
-  còn `links_corpus.id` ≤ 4,39M nên hai dải không chồng nhau trên thực tế.
+- Tài liệu tiếng Anh/PubMed hiện được BTC cung cấp trong ViBioMIR; dùng ID do dataset cung cấp,
+  không tự tải PMID hay gọi API để bổ sung corpus.
 - ✅ **ĐÃ GIẢI (01/10, thí nghiệm trên leaderboard): `doc_id` PHẢI là SỐ NGUYÊN trong JSON.**
   Cùng nội dung, kiểu chuỗi → FINAL 0; kiểu số nguyên → DOCS_F2 0,0497. Schema và ví dụ trong đặc tả
   BTC gây nhầm, phần chữ mới đúng. **Luôn dùng `submission.py --int-ids`.**
@@ -102,11 +101,8 @@ Dataset: https://huggingface.co/datasets/AIGuruTinix/ViBioMIR (giấy phép CC B
   1–4.420.561; **đã giải (01/10)**: `id` chạy 583→4.420.561 nhưng **khuyết 25.843 id** trong dải,
   không phải thiếu dữ liệu. Gắn nhãn cả ba ngôn ngữ vi/en/zh. Các đội **tự crawl**.
   Phân bố: **tiếng Trung 83,0%** (46 domain) / tiếng Việt 17,0% (51 domain), tổng 97 domain.
-- **Tiếng Anh:** chỉ giới hạn trong PubMed. BTC không đưa danh sách; các đội tự tìm. `doc_id` = PMID.
-  ⚠️ **NCBI chặn IP máy local** (đo 01/10/2026: ESearch/EFetch/PubTator đều trả HTTP 200 nhưng redirect
-  sang `misuse.ncbi.nlm.nih.gov/error/abuse.shtml`, UA browser cũng không thoát) → **Europe PMC
-  (`resultType=core`, trả cả title lẫn abstract) là nguồn chính**, NCBI chỉ là dự phòng khi có API key
-  hoặc IP khác. Đã test thật: 284/284 bài, abstract trung vị 1.654 ký tự.
+- BTC đã tích hợp tài liệu tiếng Anh/PubMed vào bộ dữ liệu ViBioMIR. Không cần crawl PubMed
+  riêng hoặc gọi NCBI, Europe PMC, PubTator để tải corpus.
 - `profile_dataset.py` tải dataset, xuất `data/queries.jsonl` và thống kê domain vào
   `data/domain_stats.csv`, `data/domain_samples.json`.
 
@@ -124,10 +120,10 @@ Dataset: https://huggingface.co/datasets/AIGuruTinix/ViBioMIR (giấy phép CC B
   `(doc_id, start, end)`; `chunk_text = body[start:end]` nên không thể lệch khỏi tài liệu gốc.
 
 **Pipeline dự kiến:**
-1. **Hiểu câu hỏi:** Qwen3.5-9B trích thực thể y khoa (vi/en/zh), sinh 3–5 truy vấn PubMed. *(đã làm)*
+1. **Hiểu câu hỏi:** Qwen3.5-9B trích thực thể y khoa (vi/en/zh) và tạo bản dịch nháp. *(đã làm)*
 2. **Dịch câu hỏi** (không dịch corpus): Hy-MT2-7B dịch vi→en và vi→zh, dùng thực thể làm bảng thuật ngữ. *(đã làm)*
-3. **Kho tiếng Anh:** gửi truy vấn lên ESearch/Europe PMC → PMID → PubTator (dự phòng EFetch). *(đã làm)*
-4. **Kho Việt/Trung:** crawl 4,4 triệu URL, trích nội dung chính, phát hiện ngôn ngữ. *(chưa làm)*
+3. **Corpus đa ngôn ngữ:** dùng nội dung do BTC cung cấp trong ViBioMIR; không gọi API PubMed để tải bổ sung.
+4. **Kho Việt/Trung:** crawl URL, trích nội dung chính, phát hiện ngôn ngữ. *(đã làm theo phạm vi cần thiết)*
 5. **Chunk + index:** BM25 **có trọng số theo trường** (title 3× / tags 2× / descr 1.5× / body 1×),
    theo từng ngôn ngữ (pyvi/underthesea cho vi, jieba cho zh) trên TOÀN BỘ corpus.
    Dense (BGE-M3) **cũng chạy trên toàn corpus** - ngoại suy từ số đo thật: **~6,0M chunk,
@@ -151,7 +147,7 @@ nếu cần sparse đa ngôn ngữ thì dùng đầu ra sparse của BGE-M3.
 
 | Mô hình | Phát hành | Kích thước | Giấy phép | Vai trò |
 | --- | --- | --- | --- | --- |
-| `Qwen/Qwen3.5-9B` | 02/03/2026 | ~9B (dense, đa phương thức) | Apache-2.0 | Expand: thực thể + truy vấn PubMed |
+| `Qwen/Qwen3.5-9B` | 02/03/2026 | ~9B (dense, đa phương thức) | Apache-2.0 | Expand: thực thể + bản dịch nháp vi/en/zh |
 | `tencent/Hy-MT2-7B` | 21/05/2026 | ~7B | Apache-2.0 | Dịch vi→en/zh có bảng thuật ngữ |
 | `BAAI/bge-m3` | 01/2024 | 568M | MIT | Embedding đa ngôn ngữ |
 | `BAAI/bge-reranker-v2-m3` | 03/2024 | 568M | Apache-2.0 | Reranker vòng cũ (top-1000); nay chỉ còn làm tín hiệu phụ |
@@ -175,7 +171,7 @@ Ghi chú kỹ thuật:
 
 | Máy | Mô tả | Dùng cho |
 | --- | --- | --- |
-| **Local** | Windows, **PowerShell 5** (không hỗ trợ `&&`), miniconda, GPU 8 GB. WSL chưa có bản Linux → **không có bash/rsync**. | Điều phối, crawl, gọi PubMed, BM25, xuất bài nộp, suy luận nhẹ (embedding câu hỏi) |
+| **Local** | Windows, **PowerShell 5** (không hỗ trợ `&&`), miniconda, GPU 8 GB. WSL chưa có bản Linux → **không có bash/rsync**. | Điều phối, crawl, BM25, xuất bài nộp, suy luận nhẹ (embedding câu hỏi) |
 | **Máy GPU** | Linux (`lablee-MS-7E06`), **2× RTX 4090 24 GB** (không phải một card 50 GB), RAM 125 GB, ổ 3,6 TB còn 1,6 TB. Máy của thầy, dùng chung. | **CHỈ** việc local không làm được: Qwen3.5-9B (~19 GB), Hy-MT2-7B (~15 GB), embed ~6M chunk, rerank hàng loạt, fine-tune |
 
 **Chia việc đã chốt:** crawl **giữ ở local** - không cần GPU, mà ngốn mạng liên tục 20–73 giờ nên
@@ -221,9 +217,7 @@ Các package được chia theo trách nhiệm, không theo một workflow cụ 
 vimed/
 ├── crawl/             # crawler, profiling dataset, lọc corpus
 ├── index/             # BM25, dense, chunking và hợp nhất ứng viên
-├── query_processing/  # query_gen.py, translate.py, llm.py: xử lý truy vấn đa ngôn ngữ
-├── pubmed_module/     # HTTP/API PubMed, search/fetch và tải corpus tiếng Anh
-├── pipelines/         # pubmed.py: điều phối query_processing và pubmed_module
+├── query_processing/  # expand.py, translate.py, llm.py, pipeline.py: xử lý truy vấn đa ngôn ngữ
 ├── rerank/            # reranker tài liệu và chunk
 ├── submit/            # xuất bài nộp và chấm offline
 ├── utils/             # clean.py, audit.py, tiện ích dùng chung (rate_limit.py)
@@ -234,14 +228,10 @@ vimed/
 └── runs/<tên>/        # đầu ra từng lần chạy
 ```
 
-Nhánh PubMed hiện không dùng để tạo bài thi vì BTC đã bỏ tiếng Anh khỏi đề; giữ lại để tái lập
-thí nghiệm và kiểm thử. CLI của workflow là `python -m pipelines.pubmed`; phần xử lý câu hỏi thuộc
-`query_processing/`, còn `pubmed_module/` chỉ chứa tích hợp và tác vụ dữ liệu PubMed.
-
-**Đầu ra của `pipelines.pubmed`** (trong `runs/<tên>/`):
-`expansions.jsonl` (thực thể, truy vấn PubMed, đầu ra gốc của LLM) → `translations.jsonl` (bản dịch Hy-MT2 + bảng thuật ngữ)
-→ `queries_enriched.jsonl` (bản ghi câu hỏi đầy đủ) → `candidates.jsonl` (PMID xếp theo RRF + `search_log`)
-→ `pubmed_corpus.jsonl` (`pmid`, `title`, `abstract`, `source`) và `cache.sqlite`.
+Corpus tiếng Anh đã có trong ViBioMIR nên repo không cần package PubMed/API hay pipeline tải PMID.
+CLI xử lý câu hỏi là `python -m query_processing.pipeline`; đầu ra nằm trong `runs/<tên>/`:
+`expansions.jsonl` (thực thể và bản dịch nháp) → `translations.jsonl` (bản dịch Hy-MT2 + bảng thuật ngữ)
+→ `queries_enriched.jsonl` (bản ghi câu hỏi đầy đủ cho các bước truy hồi).
 
 ---
 
@@ -275,7 +265,7 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 - **zh chỉ ~2,6% nhãn** ở độ phủ ~35% (bài zh-only: P 0,0089, g_zh 1,78/200 doc). Ngoại suy phủ 100% cũng chỉ +~7% recall → **đừng đầu tư thêm cho zh**.
 - **Điểm doc chỉ phụ thuộc TẬP doc nộp, không phụ thuộc thứ tự** (06/10: cùng tập → P/R y hệt; tập khác → khác). Ghi chú 04/10 "doc có tính thứ tự" là sai.
 - **Điểm chunk phụ thuộc thứ tự đầu danh sách** (chunk lấy từ top-40/70): Qwen xếp đầu tốt hơn bge, chunk +10,5%.
-- **PubMed/tiếng Anh: BTC đã bỏ khỏi trang chính thức** (người dùng xác nhận 06/10) → không dùng trong bài nộp; giữ các package `query_processing/`, `pubmed_module/` và `pipelines/pubmed.py` để tái lập thí nghiệm.
+- **Corpus tiếng Anh/PubMed:** hiện được BTC tích hợp trong ViBioMIR; không cần API fetch hoặc package PubMed riêng.
 - **Chunk:** 2 chunk × 40 doc đầu + 1 chunk × doc 41–70 hơn 2×64 (chunk thứ hai của doc hạng 41–64 đóng góp ~0 recall). Chọn chunk theo trùng từ khoá câu hỏi **không hơn** lấy chunk đầu (−0,3%).
 - **k=200 vẫn ở vùng phẳng** (tính từ β≈0,46: k=290 ngang k=200). Không đáng quét lại.
 - Trần ZIP **100 MB**; bài tốt nhất 94 MB. Bản `submission.py` hiện tại cho ZIP lớn hơn ~1,2% so với trước 06/10 (xem "Nợ kỹ thuật").
@@ -319,13 +309,12 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 | Câu hỏi | Trạng thái |
 | --- | --- |
 | BTC có cung cấp sẵn nội dung đã crawl không? | ✅ **KHÔNG** - các đội tự crawl cả 4,39M URL. Đã xác nhận. |
-| Tài liệu tiếng Anh nằm trong corpus link hay chỉ PubMed? | ✅ **chỉ PubMed**, BTC không đưa danh sách, các đội tự tìm. Gợi ý E-utilities / Europe PMC / PubTator. |
+| Tài liệu tiếng Anh lấy từ đâu? | ✅ BTC đã tích hợp trong dataset ViBioMIR; dùng dữ liệu được cung cấp. |
 | 25.843 URL chênh giữa README và file thật? | ✅ `id` khuyết trong dải, không thiếu dữ liệu. |
 | Kiểu `doc_id` trong JSON? | ✅ **SỐ NGUYÊN** - thí nghiệm trên leaderboard: chuỗi → 0, số nguyên → 0,0497. |
 | Nhãn gán theo nội dung trang ở thời điểm nào (trang có thể đã sửa/chết → `chunk_text` không khớp)? | ✅ **Đã chốt (đội, xem `BTC_QUESTIONS.md`): coi như bản mới nhất, không hỏi BTC** |
-| PubMed/tiếng Anh còn trong đề không? | ✅ **Đã bị bỏ khỏi trang chính thức** (người dùng xác nhận 06/10); nhánh PubMed dừng. |
 | MoE tính tổng hay tham số kích hoạt? Teacher distill có phải tuân mốc ngày? | ✅ **Đã chốt (quyết định của đội, CHƯA có xác nhận chính thức của BTC):** MoE tính theo tham số KÍCH HOẠT ≤ 15B là hợp lệ; teacher distill được phép khi huấn luyện. Rủi ro tuân thủ: nên ghi rõ trong paper; hiện bài tốt nhất không dùng mô hình MoE nào |
-| `doc_id` của bài PubMed là PMID - hệ thống chấm phân biệt với `links_corpus.id` thế nào? | ✅ **Hết hiệu lực:** PubMed/tiếng Anh đã bị BTC bỏ khỏi đề |
+| Có cần tải corpus PubMed riêng không? | ✅ **Không**; dữ liệu đã tích hợp trong ViBioMIR. |
 
 ## 9. Quy ước khi làm việc
 
@@ -339,7 +328,7 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 - Thiết kế từng bước xử lý dữ liệu đã chốt ở **`PIPELINE.md`**; đổi thì sửa file đó và ghi lý do vào
   `PROGRESS.md` §3.
 - Ghi lại tên, phiên bản, ngày phát hành của mọi mô hình và nguồn dữ liệu ngoài để khai báo với BTC.
-- Khi sửa code: thêm hoặc cập nhật test offline, chạy `python -m unittest discover tests` (hiện 16 test).
+- Khi sửa code: thêm hoặc cập nhật test offline, chạy `python -m unittest discover tests` (test offline).
   Mọi script độc lập có `--demo` làm self-check trên dữ liệu giả: `slug_bm25`, `probe_crawl`,
   `crawler`, `chunk`, `submission`, `score`.
 - **Thứ tự chuỗi dữ liệu BẮT BUỘC:** `crawler.py` → `clean.py --apply` → `chunk.py` → `audit.py`.

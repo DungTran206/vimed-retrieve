@@ -13,7 +13,7 @@ Lượt nộp public 10 bài/ngày        Leaderboard    leaderboard.aiguru.com.
 > **Cập nhật 06/10/2026 — ĐỌC TRƯỚC:** tình hình đã đổi nhiều so với các mục bên dưới (viết lúc điểm 0,0457).
 > Trạng thái thật, pipeline đang cho điểm tốt nhất, việc đang chạy và việc tiếp theo: **`CLAUDE.md` §6–7**.
 > Nhật ký đo và các bài học: **`PROGRESS.md` mục 06/10 và §2b**. Các "Việc #1–#6" ở §4 dưới đây là **lịch sử**:
-> crawl vi gần đủ, zh chỉ ~2,6% nhãn (không đáng thêm), PubMed bị BTC bỏ, `bm25.py` đã có, đã có dense + Qwen3-Reranker.
+> crawl vi gần đủ, zh chỉ ~2,6% nhãn (không đáng thêm), corpus PubMed đã tích hợp trong ViBioMIR, `bm25.py` đã có, đã có dense + Qwen3-Reranker.
 > Còn thật sự mở: working notes paper (#6), chuẩn bị private phase, các thí nghiệm mở rộng pool (**HyDE đang chạy 07/10**: `hyde.py`, `scripts/run_hyde.sh`; Qwen3-Embedding title).
 > Đề xuất nghiên cứu `PROPOSAL_ADAPTIVE_FUSION.md` (gate BM25↔dense) đã thử trên nhãn bạc (07/10): oracle theo từng câu chỉ hơn trọng số chung +1,56% → **bỏ** (xem §6–7 của file đó).
 
@@ -41,7 +41,7 @@ pip install -r env/requirements-local.txt
 Rồi kiểm tra — cả hai lệnh phải xanh hết trước khi sửa bất cứ gì:
 
 ```
-python -m unittest discover tests    # 16 test offline
+python -m unittest discover tests    # test offline
 python utils/audit.py                # 40 mục trên dữ liệu thật (cần có data/corpus.sqlite)
 ```
 
@@ -195,13 +195,10 @@ Trọng số đề xuất (lý do ở `PIPELINE.md` §4a):
    **sẽ chết** với 6M chunk trên máy 11,7 GB RAM. Phải **streaming hai lượt** từ SQLite.
 2. Tách từ: tiếng Việt cần `pyvi`/`underthesea`, tiếng Trung cần `jieba` — **chưa cài**.
 
-### Việc #5: nhánh PubMed (độc lập hoàn toàn)
+### Ghi chú về corpus tiếng Anh
 
-Nhánh này được tách theo trách nhiệm: `query_processing/` chạy expand (Qwen3.5-9B) + translate (Hy-MT2-7B), `pubmed_module/` cung cấp API tìm/tải bài, còn `pipelines/pubmed.py` điều phối. Cần GPU cho hai bước đầu; search + fetch chạy local được. PubMed hiện không còn thuộc bài nộp.
-
-⚠️ **NCBI chặn IP máy này** → Europe PMC (`resultType=core`) là nguồn chính. Nếu bạn có
-**NCBI API key** (miễn phí, cần tài khoản NCBI) thì có thể mở lại PubTator — mà PubTator là
-nguồn BTC gợi ý nên văn bản của nó có thể khớp nhãn chunk tốt hơn.
+BTC đã tích hợp tài liệu tiếng Anh/PubMed vào dataset ViBioMIR. Không cần gọi NCBI,
+Europe PMC hay PubTator để tải corpus riêng; dùng dữ liệu đã có trong dataset.
 
 ### Việc #6: working notes paper
 
