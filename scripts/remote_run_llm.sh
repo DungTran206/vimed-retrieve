@@ -8,12 +8,12 @@ cd "$(dirname "$0")/.."
 Q=${1:?Thiếu file câu hỏi}; OUT=${2:?Thiếu thư mục đầu ra}; shift 2
 
 echo "== expand (Qwen3.5-9B, vLLM)"
-.venv-vllm/bin/python -m pubmed_module.pipeline --queries "$Q" --out "$OUT" --stages expand "$@"
+.venv-vllm/bin/python -m pipelines.pubmed --queries "$Q" --out "$OUT" --stages expand "$@"
 
 echo "== translate (Hy-MT2-7B, ${MT_BACKEND:-vllm})"
 if [ "${MT_BACKEND:-vllm}" = "hf" ]; then
-  .venv-train/bin/python -m pubmed_module.pipeline --queries "$Q" --out "$OUT" --stages translate --backend hf "$@"
+  .venv-train/bin/python -m pipelines.pubmed --queries "$Q" --out "$OUT" --stages translate --backend hf "$@"
 else
-  .venv-vllm/bin/python -m pubmed_module.pipeline --queries "$Q" --out "$OUT" --stages translate "$@"
+  .venv-vllm/bin/python -m pipelines.pubmed --queries "$Q" --out "$OUT" --stages translate "$@"
 fi
 echo "Xong: $OUT/expansions.jsonl, $OUT/translations.jsonl, $OUT/queries_enriched.jsonl"

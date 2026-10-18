@@ -31,8 +31,8 @@ def gpu_info():
 
 
 def check_llm(model, gpu_mem):
-    from pubmed_module.llm import make_backend
-    from pubmed_module.query_gen import LLM_CHAT_KWARGS, LLM_SAMPLING, build_messages, parse_llm_output
+    from query_processing.llm import make_backend
+    from query_processing.query_gen import LLM_CHAT_KWARGS, LLM_SAMPLING, build_messages, parse_llm_output
     be = make_backend("vllm", model, LLM_SAMPLING, text_only=True,
                       chat_template_kwargs=LLM_CHAT_KWARGS, gpu_memory_utilization=gpu_mem)
     t = time.time()
@@ -45,8 +45,8 @@ def check_llm(model, gpu_mem):
 
 
 def check_mt(model, use_hf, gpu_mem):
-    from pubmed_module.llm import make_backend
-    from pubmed_module.translate import MT_SAMPLING, build_glossary, build_prompt
+    from query_processing.llm import make_backend
+    from query_processing.translate import MT_SAMPLING, build_glossary, build_prompt
     ents = [{"vi": "thiếu vitamin B12", "en": "vitamin B12 deficiency", "zh": "维生素B12缺乏"},
             {"vi": "đái tháo đường type 2", "en": "type 2 diabetes mellitus", "zh": "2型糖尿病"}]
     be = make_backend("hf" if use_hf else "vllm", model, MT_SAMPLING, trust_remote_code=True,

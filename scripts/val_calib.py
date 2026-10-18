@@ -3,9 +3,9 @@
 Mỗi bài đã chấm là một phương trình:  DOCS_P = (1/1200) · Σ_q  mean_{d ∈ bài_q} p(gold | đặc trưng(q, d))
 → khớp p theo ngăn đặc trưng (Qwen P(yes), ngôn ngữ, có/không điểm Qwen) bằng bình phương tối thiểu có ràng buộc [0, 1],
 kiểm chứng bỏ-một-bài (leave-one-out) và trên các CẶP SÁT NHAU (BGE vs 8B zh, w04 vs w045...).
-    python val_calib.py --extract   # rút danh sách doc từ runs/*.zip → data/val/docs_<bài>.jsonl (một lần)
-    python val_calib.py             # gắn đặc trưng, khớp, in sai số
-    python val_calib.py --demo      # tự kiểm trên dữ liệu giả
+    python scripts/val_calib.py --extract   # rút danh sách doc từ runs/*.zip → data/val/docs_<bài>.jsonl (một lần)
+    python scripts/val_calib.py             # gắn đặc trưng, khớp, in sai số
+    python scripts/val_calib.py --demo      # tự kiểm trên dữ liệu giả
 """
 import json, os, re, sys, zipfile, sqlite3, collections
 

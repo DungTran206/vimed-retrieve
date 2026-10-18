@@ -15,13 +15,13 @@ LẤY TỪ TRƯỜNG NÀO (cột `id`, vốn là số nguyên), không nói ki�
 Bài nộp sai định dạng KHÔNG bị tính vào quota, nên thử cả hai là miễn phí.
 
   # Bài nộp chỉ cấp document (chunk rỗng) - không cần crawl gì
-  python submission.py --cands data/slug_rank.jsonl --topk 20 --out runs/sub_top20
+  python submit/submission.py --cands data/slug_rank.jsonl --topk 20 --out runs/sub_top20
 
   # Khi đã có store crawl về: kèm cả chunk
-  python submission.py --cands data/slug_rank.jsonl --topk 20 --store data/corpus_new.sqlite \\
+  python submit/submission.py --cands data/slug_rank.jsonl --topk 20 --store data/corpus_new.sqlite \
       --chunks-per-doc 1 --out runs/sub_top20_chunk
 
-  python submission.py --demo        # self-check, không cần dữ liệu
+  python submit/submission.py --demo        # self-check, không cần dữ liệu
 """
 import argparse
 import hashlib

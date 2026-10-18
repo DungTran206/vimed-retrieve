@@ -30,7 +30,7 @@ for m, tag in (("zhC3", "z3"), ("zhQ8", "z8")):
             for i in sorted(R): o.write(json.dumps(R[i], ensure_ascii=False) + "\n")
 E
 echo "2) RRF BGE-M3 1 : Qwen3-Emb-8B 0,3 (8B một mình THUA BGE), lọc kho mới"
-python fuse.py data/rp/z3v.jsonl:1 data/rp/z3q.jsonl:1 data/rp/z8v.jsonl:0.3 data/rp/z8q.jsonl:0.3 --topk 1000 --out data/rp/z38w_both.jsonl | tail -1
+python index/fuse.py data/rp/z3v.jsonl:1 data/rp/z3q.jsonl:1 data/rp/z8v.jsonl:0.3 data/rp/z8q.jsonl:0.3 --topk 1000 --out data/rp/z38w_both.jsonl | tail -1
 python - <<'E'
 import json
 import pandas as pd
@@ -42,11 +42,11 @@ with open("data/rp/zh38w_in.jsonl", "w", encoding="utf-8") as o:
                                                           for i, d in enumerate(Z)]}) + "\n")
 E
 echo "3) chen zh (W0,45 → ~39 zh/câu) vào danh sách vi; thứ tự 120 doc đầu theo c_blendQB8w05; lọc kho mới"
-python fuse.py data/rp/c_blendQB8.jsonl:1 data/rp/zh38w_in.jsonl:0.45 --topk 1000 --out data/rp/q9_z38w_045.jsonl | tail -1
-python hybrid_cands.py data/rp/q9_z38w_045.jsonl data/rp/c_blendQB8w05.jsonl 120 data/rp/q13_z38w_045.jsonl 200 | tail -1
-python filter_new_corpus.py data/rp/q13_z38w_045.jsonl data/rp/q9_z38w_045.jsonl data/rp/q14_z38w_045.jsonl | tail -1
+python index/fuse.py data/rp/c_blendQB8.jsonl:1 data/rp/zh38w_in.jsonl:0.45 --topk 1000 --out data/rp/q9_z38w_045.jsonl | tail -1
+python index/hybrid_cands.py data/rp/q9_z38w_045.jsonl data/rp/c_blendQB8w05.jsonl 120 data/rp/q13_z38w_045.jsonl 200 | tail -1
+python crawl/filter_new_corpus.py data/rp/q13_z38w_045.jsonl data/rp/q9_z38w_045.jsonl data/rp/q14_z38w_045.jsonl | tail -1
 echo "4) chấm p(gold) cho 200 doc/câu bằng β đã khớp (val_calib.py, data/val/beta.json)"
-python val_calib.py --score data/rp/q14_z38w_045.jsonl data/val/p_w045.jsonl
+python scripts/val_calib.py --score data/rp/q14_z38w_045.jsonl data/val/p_w045.jsonl
 echo "5) kế hoạch chunk: top-120 p<0,04 → bỏ chunk; hạng 121–200 p≥0,05 → thêm 1 chunk"
 python - <<'E'
 import json
@@ -58,6 +58,6 @@ for l in open("data/val/p_w045.jsonl", encoding="utf-8"):
 json.dump(P, open("data/val/plan_TF.json", "w"))
 E
 echo "6) dựng bài: top-200 doc, 2 chunk × 40 doc đầu + 1 chunk × hạng 41–120 (trừ doc bị bỏ) + chunk đuôi theo kế hoạch, LZMA"
-python submission.py --cands data/rp/q14_z38w_045.jsonl --topk 200 --store data/corpus_new.sqlite     --chunks-per-doc 2 --chunk-from-top 40 --extra-one 120 --int-ids     --chunk-scores data/chunk_scores_mix.jsonl --chunk-plan data/val/plan_TF.json --zip-method lzma --out "$OUT"
+python submit/submission.py --cands data/rp/q14_z38w_045.jsonl --topk 200 --store data/corpus_new.sqlite     --chunks-per-doc 2 --chunk-from-top 40 --extra-one 120 --int-ids     --chunk-scores data/chunk_scores_mix.jsonl --chunk-plan data/val/plan_TF.json --zip-method lzma --out "$OUT"
 rm -f "$OUT.json"
 echo "Xong. Vân tay phải là doc=c1e068422e5f chunk=fd07f9fc029a (w045_TF, FINAL 0,3442)."

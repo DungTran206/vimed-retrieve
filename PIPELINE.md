@@ -165,7 +165,7 @@ Trọng số theo trường (title là tín hiệu mạnh nhất, đo được 1
 | `body` | 1,0 | |
 
 Tách từ: `pyvi`/`underthesea` cho vi, `jieba` cho zh. Query tiếng Việt được dịch sang zh
-bằng Hy-MT2 (đã có trong `pubmed_module/translate.py`) để khớp vào index zh.
+bằng Hy-MT2 (xử lý trong `query_processing/translate.py`) để khớp vào index zh.
 
 ### 4b. Dense — ĐÃ CHẠY ở cấp title, là đòn mạnh nhất của cả giải
 
@@ -237,7 +237,7 @@ query (vi), 1.200 câu
   ├─ bm25.py --w-body 0   chỉ title/tags/descr  → 1000 ứng viên  w=1,0   (53,7% slot)
   └─ dense.py       BGE-M3 trên 643.583 TITLE   → 1000 ứng viên  w=2,5   (74,9% slot)
                                                                   ↑ đỉnh, đã quét
-        ↓  fuse.py — RRF: Σ w/(60 + rank)       → 1000 ứng viên/câu
+        ↓  index/fuse.py — RRF: Σ w/(60 + rank)       → 1000 ứng viên/câu
    rerank.py — bge-reranker-v2-m3 (cross-encoder) trên top-200
         ↓   văn bản chấm = title + 700 ký tự đầu body
    submission.py --topk 200 --chunks-per-doc 2 --chunk-from-top 64 --int-ids

@@ -1,5 +1,5 @@
 """Ghép: TẬP doc top-K của danh sách base + THỨ TỰ N doc đầu của danh sách alt (hai tầng chấm độc lập: doc theo tập, chunk theo đầu danh sách).
-    python hybrid_cands.py base.jsonl alt.jsonl N out.jsonl [K=200]
+    python index/hybrid_cands.py base.jsonl alt.jsonl N out.jsonl [K=200]
 Điểm ra giảm đều theo vị trí (submission.load_candidates sắp lại theo điểm)."""
 import json
 import sys

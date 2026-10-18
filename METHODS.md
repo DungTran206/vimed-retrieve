@@ -33,7 +33,7 @@ Thứ tự chuỗi dữ liệu bắt buộc: `crawler.py → clean.py --apply �
 
 ## 2. Truy hồi vòng 1: năm nguồn + RRF → "pool F"
 
-Mỗi nguồn trả top-1000 doc cho mỗi câu; gộp bằng **RRF** (`fuse.py`): `score(d) = Σ_nguồn w / (60 + rank)`.
+Mỗi nguồn trả top-1000 doc cho mỗi câu; gộp bằng **RRF** (`index/fuse.py`): `score(d) = Σ_nguồn w / (60 + rank)`.
 
 | # | Nguồn | File | w | Ý tưởng |
 |---|---|---|---|---|

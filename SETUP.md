@@ -57,7 +57,7 @@ $env:NCBI_API_KEY = "..."; $env:NCBI_EMAIL = "..."
 Kiểm tra nhanh phần PubMed (không cần GPU). PowerShell nối dòng bằng backtick, không phải `\`:
 
 ```powershell
-python -m pubmed_module.pipeline --queries examples/sample_queries.jsonl `
+python -m pipelines.pubmed --queries examples/sample_queries.jsonl `
     --out examples/manual_run --stages search,fetch
 ```
 
@@ -187,7 +187,7 @@ bash scripts/remote_run_llm.sh data/queries.jsonl runs/public
 cd D:\dung\ai_guru
 scp -P 22 -r user@IP_MAY_GPU:~/vimed/runs/public .\vimed\runs\
 cd .\vimed
-python -m pubmed_module.pipeline --queries data/queries.jsonl --out runs/public --stages search,fetch
+python -m pipelines.pubmed --queries data/queries.jsonl --out runs/public --stages search,fetch
 ```
 
 Bước search/fetch đọc `expansions.jsonl` đã kéo về, nên chạy ở local được, không cần GPU.

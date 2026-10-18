@@ -12,9 +12,9 @@ hạng 1 áp đảo. k=60 là giá trị kinh điển trong bài gốc của Cor
 Đo được ngày 02/10: slug và BM25 lệch nhau **87,4% doc** ở top-200 (Jaccard 0,070) mà cả hai
 đều ăn điểm (slug DOCS_F2 0,0821 · BM25 0,0872) → đúng tình huống RRF có lãi nhất.
 
-  python fuse.py data/slug_rank.jsonl data/bm25_rank.jsonl --out data/fused.jsonl
-  python fuse.py data/slug_rank.jsonl:1 data/bm25_rank.jsonl:2 --out data/fused.jsonl
-  python fuse.py --demo
+  python index/fuse.py data/slug_rank.jsonl data/bm25_rank.jsonl --out data/fused.jsonl
+  python index/fuse.py data/slug_rank.jsonl:1 data/bm25_rank.jsonl:2 --out data/fused.jsonl
+  python index/fuse.py --demo
 """
 import argparse
 import collections
@@ -111,7 +111,7 @@ def main():
         return demo()
     demo()
     if len(a.sources) < 2:
-        sys.exit("Cần ít nhất 2 nguồn. Vd: fuse.py data/slug_rank.jsonl data/bm25_rank.jsonl")
+        sys.exit("Cần ít nhất 2 nguồn. Vd: python index/fuse.py data/slug_rank.jsonl data/bm25_rank.jsonl")
 
     srcs = []
     for spec in a.sources:

@@ -14,11 +14,11 @@ import logging
 import os
 from pathlib import Path
 
-from .fetch import fetch_articles
-from .http import HttpClient
-from .search import esearch, europepmc_search, is_pubmed_syntax
+from pubmed_module.fetch import fetch_articles
+from pubmed_module.http import HttpClient
+from pubmed_module.search import esearch, europepmc_search, is_pubmed_syntax
 
-log = logging.getLogger("pubmed_module")
+log = logging.getLogger(__name__)
 
 
 def read_jsonl(path):
@@ -48,8 +48,8 @@ def merge_hits(result_lists: list[dict], k: int = 60, max_candidates: int = 300)
 
 
 def stage_expand(args, queries, out_dir: Path) -> list[dict]:
-    from .query_gen import (LLM_CHAT_KWARGS, LLM_SAMPLING, expand_queries,
-                             parse_llm_output)
+    from query_processing.query_gen import (LLM_CHAT_KWARGS, LLM_SAMPLING, expand_queries,
+                                             parse_llm_output)
     path = out_dir / "expansions.jsonl"
     if path.exists() and not args.regen:
         log.info("Dùng lại %s (thêm --regen để sinh lại)", path)
@@ -67,7 +67,7 @@ def stage_expand(args, queries, out_dir: Path) -> list[dict]:
             write_jsonl(path, rows)
             log.info("Vá lại %d câu từ `raw` bằng parser mới (không gọi LLM)", fixed)
         return rows
-    from .llm import make_backend
+    from query_processing.llm import make_backend
     backend = make_backend(args.backend, args.llm_model, LLM_SAMPLING,
                            quantization=args.quantization, load_in_4bit=args.load_in_4bit,
                            text_only=True, chat_template_kwargs=LLM_CHAT_KWARGS,
@@ -87,8 +87,8 @@ def stage_translate(args, expansions, out_dir: Path) -> list[dict]:
     if path.exists() and not args.regen:
         log.info("Dùng lại %s (thêm --regen để dịch lại)", path)
         return read_jsonl(path)
-    from .llm import make_backend
-    from .translate import MT_SAMPLING, MT_SAMPLING_GREEDY, translate_queries
+    from query_processing.llm import make_backend
+    from query_processing.translate import MT_SAMPLING, MT_SAMPLING_GREEDY, translate_queries
     sampling = MT_SAMPLING_GREEDY if args.mt_greedy else MT_SAMPLING
     backend = make_backend(args.backend, args.mt_model, sampling,
                            quantization=args.quantization, load_in_4bit=args.load_in_4bit,
@@ -100,7 +100,7 @@ def stage_translate(args, expansions, out_dir: Path) -> list[dict]:
 
 
 def write_enriched(expansions, out_dir: Path):
-    from .translate import enrich
+    from query_processing.translate import enrich
     tpath = out_dir / "translations.jsonl"
     translations = read_jsonl(tpath) if tpath.exists() else None
     rows = enrich(expansions, translations)

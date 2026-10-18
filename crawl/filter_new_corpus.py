@@ -1,5 +1,5 @@
 """Lưới an toàn cuối: bỏ khỏi danh sách mọi doc ngoài kho mới (parquet 1,19M), TRỪ vinmec.com (nhãn vi cũ còn hiệu lực), rồi bù đủ 200 doc từ danh sách sâu hơn.
-    python filter_new_corpus.py in.jsonl deeper.jsonl out.jsonl      (in = 200 doc đã có thứ tự đầu; deeper = danh sách sâu để bù)"""
+    python crawl/filter_new_corpus.py in.jsonl deeper.jsonl out.jsonl      (in = 200 doc đã có thứ tự đầu; deeper = danh sách sâu để bù)"""
 import json, sqlite3, sys
 import pandas as pd
 inp, deep, out = sys.argv[1:4]
