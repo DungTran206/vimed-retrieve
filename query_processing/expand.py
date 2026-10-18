@@ -1,12 +1,6 @@
-"""Dùng LLM mở (chạy local) để dịch câu hỏi tiếng Việt và sinh truy vấn PubMed.
+"""Dùng LLM mở để trích thực thể y khoa và tạo bản dịch nháp cho câu hỏi.
 
-Đầu ra mỗi câu hỏi:
-{
-  "en": "...",                 # bản dịch nháp tiếng Anh (dự phòng nếu không chạy bước dịch Hy-MT2)
-  "zh": "...",                 # bản dịch nháp tiếng Trung giản thể
-  "entities": [{"vi","en","zh"}],
-  "pubmed_queries": ["...", ...]
-}
+Đầu ra mỗi câu hỏi gồm bản dịch `en`/`zh` và danh sách `entities` đa ngôn ngữ.
 """
 import json
 import logging
@@ -22,15 +16,9 @@ Return ONLY one JSON object, no explanation, no markdown, with these keys:
 "zh": faithful Simplified Chinese translation of the question.
 "entities": list of the key medical concepts in the question, each as {"vi": ..., "en": ..., "zh": ...}.
   "vi" must be copied exactly as it is written in the question.
-  Use standard medical terminology (English: MeSH-style names where possible; Chinese: standard Simplified Chinese medical terms).
+  Use standard biomedical terminology in English and Simplified Chinese.
   Keep drug, gene, protein, mutation names and abbreviations exactly as written; add the full form if an abbreviation is used.
-"pubmed_queries": 3 to 5 English search queries for PubMed:
-  1. A short keyword query with the core concepts (2-6 words).
-  2. A query using synonyms or alternative terminology for the same concepts.
-  3. One query using PubMed syntax with field tags such as [MeSH Terms] or [tiab] and AND/OR.
-     Only use a MeSH heading if you are confident it exists; otherwise use [tiab].
-  4-5. If the question has several distinct aspects (e.g. cause and treatment), one keyword query per aspect.
-  Do not include question words or filler such as "what", "should", "how to". Do not invent facts."""
+Use concise, standard biomedical terminology. Preserve the meaning of the question and do not invent facts."""
 
 FEW_SHOT_USER = "Cần làm gì đối với tình trạng tắc nghẽn đường tiết niệu do sỏi thận?"
 FEW_SHOT_ASSISTANT = json.dumps({
@@ -39,12 +27,6 @@ FEW_SHOT_ASSISTANT = json.dumps({
     "entities": [
         {"vi": "sỏi thận", "en": "kidney calculi", "zh": "肾结石"},
         {"vi": "tắc nghẽn đường tiết niệu", "en": "urinary tract obstruction", "zh": "尿路梗阻"},
-    ],
-    "pubmed_queries": [
-        "kidney stone urinary obstruction management",
-        "obstructive urolithiasis decompression treatment",
-        "(\"Kidney Calculi\"[MeSH Terms] OR \"Ureteral Calculi\"[MeSH Terms]) AND \"Ureteral Obstruction\"[MeSH Terms]",
-        "obstructing ureteral stone ureteral stent percutaneous nephrostomy",
     ],
 }, ensure_ascii=False)
 
@@ -76,8 +58,6 @@ def salvage_json(blob: str):
         except json.JSONDecodeError:
             return m.group(1)
 
-    arr = re.search(r'"pubmed_queries"\s*:\s*\[(.*?)\]', blob, re.S)
-    qs = re.findall(r'"((?:[^"\\]|\\.)+)"', arr.group(1)) if arr else []
     ents = []
     ea = re.search(r'"entities"\s*:\s*\[(.*?)\]', blob, re.S)
     if ea:
@@ -88,15 +68,15 @@ def salvage_json(blob: str):
                 continue
             if isinstance(o, dict):
                 ents.append(o)
-    en = one("en")
-    if not (en or qs):
+    en, zh = one("en"), one("zh")
+    if not (en or zh or ents):
         return None
-    return {"en": en, "zh": one("zh"), "entities": ents, "pubmed_queries": qs}
+    return {"en": en, "zh": zh, "entities": ents}
 
 
-def parse_llm_output(text: str, max_queries: int = 6) -> dict:
+def parse_llm_output(text: str) -> dict:
     """Parse JSON một cách chịu lỗi. Luôn trả về đủ key; 'parse_ok' báo có parse được không."""
-    empty = {"en": "", "zh": "", "entities": [], "pubmed_queries": [], "parse_ok": False}
+    empty = {"en": "", "zh": "", "entities": [], "parse_ok": False}
     if not text:
         return empty
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)  # Qwen3 thinking block, nếu có
@@ -113,37 +93,21 @@ def parse_llm_output(text: str, max_queries: int = 6) -> dict:
     if not isinstance(obj, dict):
         return empty
 
-    queries = []
-    for q in obj.get("pubmed_queries") or []:
-        if isinstance(q, str):
-            q = " ".join(q.split())
-            if q and q.lower() not in {x.lower() for x in queries}:
-                queries.append(q)
     entities = [e for e in (obj.get("entities") or []) if isinstance(e, dict)]
+    en = str(obj.get("en") or "").strip()
+    zh = str(obj.get("zh") or "").strip()
     return {
-        "en": str(obj.get("en") or "").strip(),
-        "zh": str(obj.get("zh") or "").strip(),
+        "en": en,
+        "zh": zh,
         "entities": entities,
-        "pubmed_queries": queries[:max_queries],
-        "parse_ok": bool(queries),
+        "parse_ok": bool(en or zh or entities),
     }
 
 
-def fallback_queries(parsed: dict) -> list[str]:
-    """Nếu LLM không sinh được truy vấn hợp lệ: dùng bản dịch tiếng Anh và tên thực thể."""
-    qs = []
-    if parsed.get("en"):
-        qs.append(parsed["en"])
-    ents = [e.get("en") for e in parsed.get("entities", []) if e.get("en")]
-    if ents:
-        qs.append(" ".join(ents))
-    return qs
-
-
 # Greedy decoding: JSON ổn định và tái lập được giữa các lần chạy (quan trọng cho private test)
-# max_tokens 768 CẮT MẤT JSON của câu dài: đo 03/10 trên 64 câu đầu, 11 câu (17,2%) phải
-# dùng fallback và chúng có độ dài trung vị 57 từ so với 20 từ của cả batch. Một câu 283 từ
-# cần ~1.000 token cho en + zh + 20 thực thể × 3 ngôn ngữ + 4 truy vấn PubMed. Greedy decode
+# max_tokens 768 cắt mất JSON của câu dài: đo 03/10 trên 64 câu đầu, 11 câu (17,2%) bị lỗi
+# phân tích cú pháp; các câu đó có độ dài trung vị 57 từ so với 20 từ của cả batch. Một câu 283 từ
+# cần ~1.000 token cho en + zh + 20 thực thể × 3 ngôn ngữ. Greedy decode
 # dừng ở EOS nên nới trần không làm câu ngắn chậm hơn.
 LLM_SAMPLING = {"temperature": 0.0, "max_tokens": 2048}
 # Qwen3/Qwen3.5: tắt thinking để trả JSON trực tiếp (Qwen3.5 Small đã tắt sẵn, truyền thêm cho chắc)
@@ -152,7 +116,7 @@ LLM_CHAT_KWARGS = {"enable_thinking": False}
 
 def expand_queries(backend, items: list[dict], batch_size: int = 64,
                    partial_path=None) -> list[dict]:
-    """items: [{"id", "query"}] -> [{"id", "query", "en", "zh", "entities", "pubmed_queries", "parse_ok"}]
+    """items: [{"id", "query"}] -> [{"id", "query", "en", "zh", "entities", "parse_ok"}]
 
     `partial_path`: ghi dần sau mỗi batch và log tốc độ. Backend `hf` sinh TUẦN TỰ từng câu
     (vLLM thì batch), nên 1.200 câu có thể mất nhiều giờ: ghi một lần ở cuối thì job chết là
@@ -165,9 +129,8 @@ def expand_queries(backend, items: list[dict], batch_size: int = 64,
         texts = backend.generate([build_messages(x["query"]) for x in batch])
         for item, text in zip(batch, texts):
             parsed = parse_llm_output(text)
-            if not parsed["pubmed_queries"]:
-                parsed["pubmed_queries"] = fallback_queries(parsed)
-                log.warning("Câu %s: LLM không sinh được truy vấn hợp lệ, dùng fallback.", item["id"])
+            if not parsed["parse_ok"]:
+                log.warning("Câu %s: LLM không trả về bản dịch hoặc thực thể hợp lệ.", item["id"])
             results.append({"id": item["id"], "query": item["query"], **parsed, "raw": text})
         if partial_path:
             with open(partial_path, "a", encoding="utf-8") as f:

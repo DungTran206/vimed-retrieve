@@ -273,8 +273,7 @@ query (vi), 1.200 câu
 - **Ngưỡng thích ứng** `p(liên quan) > F*/5` thay cho top-k cố định. Vẫn đang dùng k=200.
   Ngưỡng dừng hiện tại: doc 0,039 · chunk 0,035.
 - **dense chunk-level** (2,37M chunk sau khi cắt 400 token). Đắt: chunk dài gấp 27 lần title.
-- **PubMed** - `pubmed_module` đã chạy xong `expand` cho 1.200 câu, có `pubmed_queries`,
-  nhưng chưa `search`/`fetch`. Kho thứ ba, chưa có một doc tiếng Anh nào.
+- **Kho tiếng Anh** - tài liệu PubMed đã được tích hợp trong dataset ViBioMIR; không cần pipeline tải riêng qua API.
 - **Tách ý con** cho câu dài (P95 84 từ, max 283 từ).
 - **Hy-MT2-7B**: KHÔNG dùng. Qwen3.5 tự dịch vi→zh ngay trong bước `expand`
   (1.091/1.200 câu có bản dịch), nên không cần mô hình dịch riêng.
@@ -315,7 +314,7 @@ Nộp thử lần đầu bằng chính `data/slug_rank.jsonl` — chưa crawl g�
 | Embed 5,17M chunk + 3,37M title | **GPU** | 3,6h, 9,9 GB VRAM |
 | Dense search, rerank | **GPU** | vector 16,8 GB không nằm được ở local |
 | Gộp RRF, cắt ngưỡng, xuất ZIP | **Local** | nhẹ |
-| PubMed search/fetch | **Local** | nghẽn ở rate limit API |
+
 
 ---
 

@@ -33,8 +33,8 @@ Cập nhật dòng khi có kết quả mới hơn; giữ cột "lần trước" 
 | **CPU trích nội dung / trang** | **59 ms** (max 2.025) | — | 01/10/2026 | `crawler.py` |
 | Throughput crawl | **19,4 trang/s** zh (rate đã hạ về 4) | 43,1 (nhưng chỉ 73% dùng được) | 04/10/2026 | `crawler.py` |
 | URL đánh dấu BLOCKED từ đầu | **273.978 (6,2%)** trên IP máy GPU | 725.329 (16,5%) ở IP local | 03/10/2026 | `familydoctor` qua được IP khác |
-| PubMed: bài lấy được / PMID | **284/284** | 0/284 | 01/10/2026 | `pubmed_module` API thật |
-| Test offline | **17 qua** | 16 qua | 03/10/2026 | `unittest discover tests` |
+| PubMed API fetch | **Đã gỡ; không cần gọi API** | 284/284 trong thử nghiệm cũ | 18/10/2026 | BTC tích hợp corpus tiếng Anh vào ViBioMIR |
+| Test offline | **10 qua** | 17 qua | 18/10/2026 | `unittest discover tests` sau khi gỡ nhánh API PubMed |
 | Chunk/tài liệu | **3,65** (target 400 token) | 1,68 (target 900) | 04/10/2026 | `chunk.py` |
 | Tổng chunk (thật, 647k doc) | **2.366.199** (target 400) | 1.085.111 (target 900) | 04/10/2026 | `chunk.py` |
 | Vector fp16 chunk-level | **~11,6 GB** | 9,9 GB | 01/10/2026 | ngoại suy |
@@ -63,6 +63,12 @@ Mốc thời gian: public test mở 01/10/2026, hạn nộp **31/10/2026**; priv
 ---
 
 ## 2. Lịch sử các lần chạy
+
+### 18/10/2026 · Gỡ nhánh tải PubMed qua API
+
+- BTC đã tích hợp corpus tiếng Anh/PubMed vào ViBioMIR; xóa `pubmed_module/`, pipeline search/fetch, bulk-fetcher và script dense riêng cho PubMed.
+- Giữ xử lý truy vấn đa ngôn ngữ, bỏ sinh `pubmed_queries`; CLI hiện tại: `python -m query_processing.pipeline`.
+- Kiểm tra: 10 test offline qua; `compileall` và `git diff --check` qua. Không chạy API hay GPU.
 
 ### 01/10/2026 · `profile_dataset.py` · thống kê dataset
 
@@ -2502,8 +2508,8 @@ thứ khác kể cả upload.
 | **Lấy chunk CHỈ từ M doc đầu (`--chunk-from-top`), không phải cả topk** | Hai tầng chấm độc lập. Chunk từ top-20 trúng cao gấp 2,75× chunk từ hạng 100-200 (DOCS_PRECISION 0,1154 vs 0,0419). Nộp cả 200 doc thì 96% chunk vô ích. Và giảm ZIP từ 253 MB (upload fail) xuống 26-64 MB. |
 | **Cấp chunk bị chặn bởi độ phủ crawl, KHÔNG phải bởi k** | CHUNKS_F2 phẳng ở 0,0093 qua k=100/200/500 dù số chunk/câu tăng 2,7×. Chỉ 2.499 doc đã cắt chunk trên 240.000 slot nộp ra. Hết đòn miễn phí ở tầng này. |
 | **Nộp HẾT chunk của mỗi doc, không giới hạn 2** | Ngưỡng dừng cấp chunk là 0,00172 còn precision chunk thực tế 0,0525 - cao hơn 31 lần. Kể cả precision tụt 4× vẫn lãi 1,36×. |
-| **Europe PMC là nguồn nội dung PubMed chính**, NCBI chỉ là dự phòng | NCBI chặn IP máy này (đo: mọi endpoint → misuse.ncbi.nlm.nih.gov, UA browser cũng không thoát). Europe PMC `resultType=core` trả cả title lẫn abstract: 284/284 bài so với 0/284 qua NCBI. |
-| **`doc_id` của bài PubMed = PMID**, không cần tiền tố phân biệt | PubMed không nằm trong `links_corpus.parquet` nên phải dùng PMID. Đo được PMID hiện đại đều > 28M còn `links_corpus.id` ≤ 4,39M → không chồng nhau trên thực tế. |
+| **Không tải riêng corpus PubMed qua API** | BTC đã tích hợp tài liệu tiếng Anh vào ViBioMIR; dùng dữ liệu được cung cấp, không gọi NCBI/Europe PMC/PubTator. |
+| **Tài liệu tiếng Anh dùng ID do ViBioMIR cung cấp** | Không tạo ID PMID riêng hay tải bổ sung ngoài corpus. |
 | **Store = một file SQLite**, không thêm dep | 3,37M doc × 2 KB ≈ 7 GB. Cho cả resume theo URL, truy cập theo doc_id, và quét tuần tự cho BM25. |
 | **Chunk chỉ lưu `(doc_id, start, end)`**, không lưu text | `chunk_text = body[start:end]` → không thể lệch khỏi tài liệu gốc. Ràng buộc nguyên văn được bảo đảm bằng cấu trúc, không bằng kỷ luật. |
 | **BM25 tự viết, không Lucene/pyserini** | Query set cố định 1.200 câu → chỉ cần df của term trong query + một lượt streaming. Mẹo của `slug_bm25.py` tổng quát hoá được. |

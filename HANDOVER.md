@@ -16,10 +16,10 @@ Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `fd07f9fc029a`**.
   chunk.py                        chunk ~900 token theo OFFSET (doc_id, start, end) → bảng chunk
   audit.py                        kiểm toàn chuỗi trên dữ liệu thật (PASS/FAIL)
   export_vi_full.py / export_delta.py   xuất doc vi (toàn bộ / phần mới) ra sqlite nhỏ cho máy GPU
-  pubmed_module/fetch_en_pubmed.py  240k bài Europe PMC → data/en_pubmed.sqlite   [en: chưa dùng]
 
-[B] HIỂU CÂU HỎI (máy GPU)
-  query_processing/ + pipelines/pubmed.py + scripts/remote_run_llm.sh   Qwen3.5-9B: thực thể y khoa + bản dịch en/zh
+
+[B] XỬ LÝ CÂU HỎI (máy GPU)
+  query_processing/ + scripts/remote_run_llm.sh   Qwen3.5-9B: thực thể y khoa + bản dịch en/zh
                                   → data/queries_enriched.jsonl (109 câu lỗi parse đã vá, xem PROGRESS 11/10)
 
 [C] TRUY HỒI vi: 6 nguồn → RRF (pool H, top-1000)
@@ -89,8 +89,7 @@ Cần Python 3.10+ với `pandas`, `pyarrow`, `numpy` (`pip install pandas pyarr
 Gói chia sẻ: `vimed_data_nho.zip` (13 file cũ) + `vimed_data_val.zip` (3 file p(gold) mới) — giải nén tại thư mục gốc repo,
 giữ nguyên đường dẫn `data/...`; cộng `data/corpus_new.sqlite` tải riêng.
 
-Tuỳ chọn (tiếng Anh, CHƯA dùng vì bảng điểm chưa có nhãn en): `data/en_pubmed.sqlite` (0,5 GB, 240k bài PubMed),
-`data/dense_en_{vi,en}_rank.jsonl`.
+
 
 ## 3. Chạy
 

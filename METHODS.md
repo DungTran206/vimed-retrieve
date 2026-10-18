@@ -25,7 +25,7 @@ Quy ước trạng thái: ✅ đang dùng trong bài tốt nhất · ❌ đã đ
 |---|---|---|
 | Tiếng Việt (747k URL) | ✅ ~689k doc dùng được, `data/corpus_vifull.sqlite` (đã `clean.py` + `chunk.py`), `data/vi_slim.sqlite` cho truy vấn | ~51k URL Long Châu `prio=0` chưa cào: **đo 07/10 có nhãn (P 0,0174) → đang crawl nốt** |
 | Tiếng Trung (3,38M URL) | store GPU `~/vimed/data/corpus.sqlite` = bản local `data/corpus_gpu_shard0.sqlite` (1,43M doc, 42,2%); shard 2/5 của I2 (`data/queue_zh1.sqlite`) +297k doc → ~51% | zh chỉ ~2,6–4% nhãn: **không đáng đầu tư thêm** |
-| PubMed (tiếng Anh) | ❌ BTC bỏ khỏi đề | nhánh `pubmed_module/` dừng |
+| Tiếng Anh/PubMed | ✅ Đã tích hợp trong ViBioMIR | Không cần tải riêng hoặc gọi API PubMed |
 
 Thứ tự chuỗi dữ liệu bắt buộc: `crawler.py → clean.py --apply → chunk.py → audit.py`.
 
