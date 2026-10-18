@@ -9,8 +9,8 @@ import unittest
 
 from submit import submission
 from pubmed_module.fetch import parse_biocjson, parse_efetch_xml, epmc_fetch, strip_tags
-from pubmed_module.pipeline import merge_hits
-from pubmed_module.query_gen import parse_llm_output, fallback_queries
+from pipelines.pubmed import merge_hits
+from query_processing.query_gen import parse_llm_output, fallback_queries
 from pubmed_module.search import is_pubmed_syntax
 
 DOC = {"id": "26739349", "passages": [
@@ -20,8 +20,13 @@ DOC = {"id": "26739349", "passages": [
 
 class TestRestructuredImports(unittest.TestCase):
     def test_project_packages_import(self):
-        for name in ("crawl.crawler", "index.bm25", "index.bm25_ent", "rerank.chunk_rerank",
-                     "submit.score", "utils.audit"):
+        modules = (
+            "crawl.crawler", "index.bm25", "index.bm25_ent", "index.fuse", "rerank.chunk_rerank",
+            "submit.score", "utils.audit", "utils.rate_limit",
+            "query_processing.llm", "query_processing.query_gen", "query_processing.translate",
+            "pipelines.pubmed",
+        )
+        for name in modules:
             with self.subTest(module=name):
                 importlib.import_module(name)
 
@@ -168,8 +173,8 @@ if __name__ == "__main__":
 
 
 # ---------- Bước dịch Hy-MT2 và luồng expand/translate với backend giả ----------
-from pubmed_module.query_gen import expand_queries, build_messages
-from pubmed_module.translate import build_glossary, build_prompt, enrich, translate_queries
+from query_processing.query_gen import expand_queries, build_messages
+from query_processing.translate import build_glossary, build_prompt, enrich, translate_queries
 
 Q = "Metformin có gây thiếu vitamin B12 ở bệnh nhân đái tháo đường type 2 không?"
 ENTS = [{"vi": "thiếu vitamin B12", "en": "vitamin B12 deficiency", "zh": "维生素B12缺乏"},

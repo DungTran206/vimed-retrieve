@@ -39,7 +39,7 @@ from concurrent.futures import (ProcessPoolExecutor, ThreadPoolExecutor, as_comp
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pubmed_module.http import RateLimiter      # dùng lại, không viết lại
+from utils.rate_limit import RateLimiter
 
 # Console Windows mặc định là cp1252: `print` tiếng Việt và ký hiệu cảnh báo ném
 # `UnicodeEncodeError` và GIẾT crawler - ngay lúc khởi động, hoặc tệ hơn là giữa chừng ở lần

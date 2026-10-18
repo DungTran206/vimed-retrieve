@@ -1,5 +1,5 @@
 """Lấy 240.000 bài PubMed của kho mới (cột id của parquet = doc_id; PMID trong URL) từ Europe PMC (resultType=core), có resume.
-    python fetch_en_pubmed.py [--limit N]    ->  data/en_pubmed.sqlite (doc_id, pmid, title, abstract, journal, year, mesh)"""
+    python -m pubmed_module.fetch_en_pubmed [--limit N]    ->  data/en_pubmed.sqlite (doc_id, pmid, title, abstract, journal, year, mesh)"""
 import argparse, json, re, sqlite3, threading, time, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd

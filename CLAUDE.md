@@ -215,54 +215,33 @@ bash scripts/remote_run_llm.sh data/queries.jsonl runs/public   # expand + trans
 
 ## 5. Cấu trúc dự án
 
+Các package được chia theo trách nhiệm, không theo một workflow cụ thể:
+
 ```
 vimed/
-├── README.md                 # CỬA VÀO cho cả nhóm: bắt đầu từ đâu, việc cho 3 người, ĐỪNG làm lại gì
-├── CLAUDE.md                 # file này
-├── SETUP.md                  # hướng dẫn setup hai máy (lệnh local = PowerShell + scp)
-├── PROGRESS.md               # SỔ SỐ ĐO từng lần chạy, để đối chiếu. Ghi vào đây sau mỗi lần chạy
-├── PIPELINE.md               # PHƯƠNG ÁN xử lý dữ liệu (schema store, chunk, index, thứ tự làm)
-├── profile_dataset.py        # tải ViBioMIR, xuất data/queries.jsonl, thống kê URL
-├── slug_bm25.py              # BM25 trên slug URL (không crawl) → data/slug_rank.jsonl
-├── build_best.sh                 # dựng lại bài tốt nhất từ file trung gian (~35 phút, không GPU; dựng w045_TF 0,3442: tập doc w045 + cấp chunk theo p(gold) của val_calib.py)
-├── BTC_QUESTIONS.md / PAPER_DRAFT.md / LITERATURE.md  # câu hỏi gửi BTC (đơn giản, song ngữ) / bản nháp working notes / bài báo đã tra
-├── CLEANUP_PLAN.md           # dọn dự án 08/10: cái gì đã xoá/giữ và vì sao; STORE SỐNG = data/corpus_vifull.sqlite
-├── METHODS.md                # ĐỌC ĐỂ HIỂU TỪNG PHƯƠNG PHÁP: làm gì, vì sao, số đo, trạng thái ✅❌⏳
-├── PROPOSAL_ADAPTIVE_FUSION.md  # đề xuất gate BM25↔dense + đánh giá + kết quả nhãn bạc (đã bỏ)
-├── bm25.py / bm25_ent.py     # BM25F có trọng số trường (có dấu) / BM25 entity+bigram đa tiến trình
-├── dense.py                  # BGE-M3: --encode doc, --rank câu hỏi (cũng chạy Qwen3-Embedding)
-├── fuse.py                   # RRF nhiều nguồn xếp hạng
-├── qwen_rerank.py            # Qwen3-Reranker-4B (P(yes)); rerank.py = bge-reranker vòng cũ
-├── chunk_rerank.py           # chấm chunk bằng Qwen, chọn chunk cho submission.py --chunk-scores
-├── hyde.py / decompose.py / prf.py   # HyDE (đã đo: yếu) / tách ý con (đang chạy) / PRF dense (chờ điểm)
-├── probe_crawl.py            # crawl thử mẫu phân tầng, đo tỉ lệ/byte/rate limit thật
-├── crawler.py                # crawl 4,39M URL → data/corpus.sqlite (resume, rate limit/domain)
-├── clean.py                  # lọc dòng boilerplate lặp theo domain (document frequency)
-├── chunk.py                  # cắt chunk theo OFFSET vào doc.body (không lưu text)
-├── predict.py                # áng điểm trước khi nộp, lọc lượt nộp vô ích
-├── submission.py             # xuất JSON+ZIP, kiểm những lỗi làm bài không được chấm
-├── score.py                  # P/R/F2 macro hai cấp, --sweep quét topk
-├── audit.py                  # KIỂM TOÀN CHUỖI trên dữ liệu thật, PASS/FAIL từng mục
-├── pubmed_module/            # hiểu câu hỏi + dịch + xây kho PubMed (README riêng bên trong)
-│   ├── http.py               # HttpClient: rate limit theo dịch vụ, retry, cache SQLite (KVStore)
-│   ├── search.py             # esearch(), europepmc_search(); truy vấn có [field tag] chỉ gửi NCBI
-│   ├── fetch.py              # PubTator (pubtator3 → URL cũ) + EFetch dự phòng; lưu từng bài trong store
-│   ├── llm.py                # VLLMChat, HFChat, make_backend()
-│   ├── query_gen.py          # prompt Qwen (few-shot), parse JSON chịu lỗi, fallback
-│   ├── translate.py          # Hy-MT2: build_glossary, build_prompt, translate_queries, enrich
-│   └── pipeline.py           # CLI: --stages expand,translate,search,fetch
-├── scripts/                  # remote_setup / download_models / remote_check(.py) / remote_run_llm / sync / run_pubmed_all / run_hyde / run_qemb / run_subq
-├── env/                      # requirements-local.txt, requirements-train.txt, requirements-pubmed.txt
-├── tests/test_offline.py     # 16 test offline: python -m unittest discover tests
-├── examples/                 # 2 câu mẫu + expansions viết tay (để test PubMed không cần GPU)
-├── data/                     # dữ liệu (không đưa vào git)
-└── runs/<tên>/               # kết quả mỗi lần chạy
+├── crawl/             # crawler, profiling dataset, lọc corpus
+├── index/             # BM25, dense, chunking và hợp nhất ứng viên
+├── query_processing/  # query_gen.py, translate.py, llm.py: xử lý truy vấn đa ngôn ngữ
+├── pubmed_module/     # HTTP/API PubMed, search/fetch và tải corpus tiếng Anh
+├── pipelines/         # pubmed.py: điều phối query_processing và pubmed_module
+├── rerank/            # reranker tài liệu và chunk
+├── submit/            # xuất bài nộp và chấm offline
+├── utils/             # clean.py, audit.py, tiện ích dùng chung (rate_limit.py)
+├── scripts/           # lệnh setup, chạy từ xa và tác vụ dữ liệu
+├── tests/             # test offline: python -m unittest discover tests
+├── examples/          # dữ liệu mẫu
+├── data/              # dữ liệu sinh/tải về, không đưa vào git
+└── runs/<tên>/        # đầu ra từng lần chạy
 ```
 
-**Đầu ra của pubmed_module** (trong `runs/<tên>/`):
+Nhánh PubMed hiện không dùng để tạo bài thi vì BTC đã bỏ tiếng Anh khỏi đề; giữ lại để tái lập
+thí nghiệm và kiểm thử. CLI của workflow là `python -m pipelines.pubmed`; phần xử lý câu hỏi thuộc
+`query_processing/`, còn `pubmed_module/` chỉ chứa tích hợp và tác vụ dữ liệu PubMed.
+
+**Đầu ra của `pipelines.pubmed`** (trong `runs/<tên>/`):
 `expansions.jsonl` (thực thể, truy vấn PubMed, đầu ra gốc của LLM) → `translations.jsonl` (bản dịch Hy-MT2 + bảng thuật ngữ)
-→ `queries_enriched.jsonl` (**bản ghi đầy đủ mỗi câu; các bước sau đọc từ file này**) → `candidates.jsonl`
-(PMID xếp theo RRF + `search_log`) → `pubmed_corpus.jsonl` (`pmid`, `title`, `abstract`, `source`) → `cache.sqlite`.
+→ `queries_enriched.jsonl` (bản ghi câu hỏi đầy đủ) → `candidates.jsonl` (PMID xếp theo RRF + `search_log`)
+→ `pubmed_corpus.jsonl` (`pmid`, `title`, `abstract`, `source`) và `cache.sqlite`.
 
 ---
 
@@ -279,10 +258,10 @@ queries_enriched.jsonl (Qwen3.5: entity, bản dịch en/zh)
   ├─ dense.py (BGE-M3) title        → dense_vi2_rank.jsonl              (w=2,5)
   ├─ dense.py --body-chars 600      → dense_viB2_rank.jsonl             (title + 600 ký tự đầu body, w=2,5)
   └─ bm25_ent.py (entity + bigram)  → bm25ent_rank.jsonl                (đa tiến trình)
-        |  fuse.py (RRF)  ->  data/f_F.jsonl  (pool F, top-1000, recall 0,6108 ở k=1000)
+        |  index/fuse.py (RRF)  ->  data/f_F.jsonl  (pool F, top-1000, recall 0,6108 ở k=1000)
         v
 qwen_rerank.py (Qwen3-Reranker-4B, máy GPU) chấm blendF hạng 1-250 -> qwen_all.jsonl
-        |  fuse.py  qwen_all:2  f_F:1   -> blendQB2.jsonl
+        |  index/fuse.py  qwen_all:2  f_F:1   -> blendQB2.jsonl
         v
 submission.py --topk 200 --store data/corpus_vifull.sqlite --chunks-per-doc 2 --chunk-from-top 40 --extra-one 70 --int-ids
         -> runs/blendQB2_t40_70.zip (94,0 MB, 114.760 chunk)
@@ -296,7 +275,7 @@ Crawl: vi **gần đủ** (Long Châu 40.735 doc có nội dung; còn ~51k URL `
 - **zh chỉ ~2,6% nhãn** ở độ phủ ~35% (bài zh-only: P 0,0089, g_zh 1,78/200 doc). Ngoại suy phủ 100% cũng chỉ +~7% recall → **đừng đầu tư thêm cho zh**.
 - **Điểm doc chỉ phụ thuộc TẬP doc nộp, không phụ thuộc thứ tự** (06/10: cùng tập → P/R y hệt; tập khác → khác). Ghi chú 04/10 "doc có tính thứ tự" là sai.
 - **Điểm chunk phụ thuộc thứ tự đầu danh sách** (chunk lấy từ top-40/70): Qwen xếp đầu tốt hơn bge, chunk +10,5%.
-- **PubMed/tiếng Anh: BTC đã bỏ khỏi trang chính thức** (người dùng xác nhận 06/10) → dừng nhánh `pubmed_module`.
+- **PubMed/tiếng Anh: BTC đã bỏ khỏi trang chính thức** (người dùng xác nhận 06/10) → không dùng trong bài nộp; giữ các package `query_processing/`, `pubmed_module/` và `pipelines/pubmed.py` để tái lập thí nghiệm.
 - **Chunk:** 2 chunk × 40 doc đầu + 1 chunk × doc 41–70 hơn 2×64 (chunk thứ hai của doc hạng 41–64 đóng góp ~0 recall). Chọn chunk theo trùng từ khoá câu hỏi **không hơn** lấy chunk đầu (−0,3%).
 - **k=200 vẫn ở vùng phẳng** (tính từ β≈0,46: k=290 ngang k=200). Không đáng quét lại.
 - Trần ZIP **100 MB**; bài tốt nhất 94 MB. Bản `submission.py` hiện tại cho ZIP lớn hơn ~1,2% so với trước 06/10 (xem "Nợ kỹ thuật").

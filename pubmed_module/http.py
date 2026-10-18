@@ -1,30 +1,14 @@
-"""HTTP client dùng chung: giới hạn tốc độ theo từng dịch vụ, retry, và cache SQLite."""
+"""HTTP client cho API PubMed: retry và cache SQLite."""
 import hashlib
 import json
 import sqlite3
 import threading
-import time
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-
-class RateLimiter:
-    """Đảm bảo khoảng cách tối thiểu giữa hai request tới cùng một dịch vụ."""
-
-    def __init__(self, rate_per_sec: float):
-        self.interval = 1.0 / rate_per_sec
-        self.lock = threading.Lock()
-        self.next_t = 0.0
-
-    def wait(self):
-        with self.lock:
-            now = time.monotonic()
-            if now < self.next_t:
-                time.sleep(self.next_t - now)
-                now = self.next_t
-            self.next_t = now + self.interval
+from utils.rate_limit import RateLimiter
 
 
 class KVStore:

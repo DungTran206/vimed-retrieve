@@ -13,7 +13,7 @@ Và BGE-M3 **đa ngôn ngữ**: query tiếng Việt khớp trực tiếp title 
 Đó là thứ BM25 không làm được - nó phải chờ bản dịch của Qwen/Hy-MT2 rồi mới chạm được 83%
 corpus phía tiếng Trung.
 
-Đầu ra cùng định dạng với `slug_bm25`/`bm25` nên `fuse.py` nhận được ngay:
+Đầu ra cùng định dạng với `slug_bm25`/`bm25` nên `index/fuse.py` nhận được ngay:
     {"id": 1, "candidates": [{"doc_id": "254453", "score": 0.8123}, ...]}
 
     python dense.py --encode --db data/corpus_new.sqlite --out data/dense_emb   # cần GPU

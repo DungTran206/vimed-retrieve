@@ -75,7 +75,7 @@ links_corpus.parquet (4,39M URL)   query.parquet (1.200 câu)
                                  ↓
                             index/chunk.py ─→ bảng chunk: CHỈ (doc_id, start, end)
                                  ↓
-                         index/bm25.py, index/bm25_ent.py, index/dense.py, scripts/fuse.py, rerank/qwen_rerank.py, rerank/chunk_rerank.py (xem METHODS.md)
+                         index/bm25.py, index/bm25_ent.py, index/dense.py, index/fuse.py, rerank/qwen_rerank.py, rerank/chunk_rerank.py (xem METHODS.md)
                                  ↓
                           submit/submission.py ─→ runs/*.zip ─→ leaderboard
                                  ↑
@@ -197,8 +197,7 @@ Trọng số đề xuất (lý do ở `PIPELINE.md` §4a):
 
 ### Việc #5: nhánh PubMed (độc lập hoàn toàn)
 
-`pubmed_module/` đã xong, 16 test, **đã test với API thật**. Cần máy GPU cho bước
-expand (Qwen3.5-9B) + translate (Hy-MT2-7B); bước search + fetch chạy ở local được.
+Nhánh này được tách theo trách nhiệm: `query_processing/` chạy expand (Qwen3.5-9B) + translate (Hy-MT2-7B), `pubmed_module/` cung cấp API tìm/tải bài, còn `pipelines/pubmed.py` điều phối. Cần GPU cho hai bước đầu; search + fetch chạy local được. PubMed hiện không còn thuộc bài nộp.
 
 ⚠️ **NCBI chặn IP máy này** → Europe PMC (`resultType=core`) là nguồn chính. Nếu bạn có
 **NCBI API key** (miễn phí, cần tài khoản NCBI) thì có thể mở lại PubTator — mà PubTator là

@@ -454,7 +454,7 @@ gợi ý đúng ba API mà `pubmed_module` đang dùng (E-utilities, Europe PMC,
 → **`pubmed_module` cần thiết, không vô dụng.** Xoá câu hỏi mở về chuyện này.
 
 ```powershell
-python -m pubmed_module.pipeline --queries examples/sample_queries.jsonl `
+python -m pipelines.pubmed --queries examples/sample_queries.jsonl `
     --out examples/manual_run --stages search,fetch --email "..."
 ```
 

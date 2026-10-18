@@ -16,10 +16,10 @@ Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `fd07f9fc029a`**.
   chunk.py                        chunk ~900 token theo OFFSET (doc_id, start, end) → bảng chunk
   audit.py                        kiểm toàn chuỗi trên dữ liệu thật (PASS/FAIL)
   export_vi_full.py / export_delta.py   xuất doc vi (toàn bộ / phần mới) ra sqlite nhỏ cho máy GPU
-  fetch_en_pubmed.py              240k bài PubMed (Europe PMC) → data/en_pubmed.sqlite   [en: chưa dùng]
+  pubmed_module/fetch_en_pubmed.py  240k bài Europe PMC → data/en_pubmed.sqlite   [en: chưa dùng]
 
 [B] HIỂU CÂU HỎI (máy GPU)
-  pubmed_module/ + scripts/remote_run_llm.sh   Qwen3.5-9B: thực thể y khoa + bản dịch en/zh
+  query_processing/ + pipelines/pubmed.py + scripts/remote_run_llm.sh   Qwen3.5-9B: thực thể y khoa + bản dịch en/zh
                                   → data/queries_enriched.jsonl (109 câu lỗi parse đã vá, xem PROGRESS 11/10)
 
 [C] TRUY HỒI vi: 6 nguồn → RRF (pool H, top-1000)
@@ -28,16 +28,16 @@ Vân tay khi dựng đúng: **doc `c1e068422e5f`, chunk `fd07f9fc029a`**.
   bm25_ent.py                     BM25 thực thể + bigram                 → bm25ent3_rank
   dense.py (BGE-M3)               title / title+600 ký tự body          → dense_vi3_rank, dense_viB3_rank
      (scripts/run_bm25_full.sh, scripts/run_delta2.sh)
-  fuse.py  slug:1 bm25d3:1 meta:1 dense_vi3:2.5 dense_viB3:2.5 ent:1  → f_H
+  index/fuse.py  slug:1 bm25d3:1 meta:1 dense_vi3:2.5 dense_viB3:2.5 ent:1  → f_H
 
 [D] RERANK + CHUNK-DENSE (máy GPU)
   qwen_rerank.py (Qwen3-Reranker-4B, P(yes)) chấm top-400 của pool (scripts/wait_and_run_qwen_h.sh)
   merge_scores.py                 hợp các đợt chấm Qwen → qwen_all_h
-  fuse.py  qwen_all_h:2 f_H:1 → QB6 ;  qwen_all_h:0.5 f_H:1 → QB6w05 ;  hybrid_cands.py → QB6_h05
+  index/fuse.py  qwen_all_h:2 f_H:1 → QB6 ;  qwen_all_h:0.5 f_H:1 → QB6w05 ;  index/hybrid_cands.py → QB6_h05
   dense_chunks.py (BGE-M3 trên TỪNG chunk, toàn kho vi; scripts/run_dense_chunks_full.sh)
                                   điểm doc = chunk khớp nhất, kèm best_idx → dense_chunk_full_rank
-  fuse.py  QB6_h05:1 dense_chunk_pilot:1 → QB7   (pilot: chunk-dense trên top-400 pool H)
-  fuse.py  QB7:1 chunk_full:1 → blendQB8 ;  :0.5 → blendQB8w05
+  index/fuse.py  QB6_h05:1 dense_chunk_pilot:1 → QB7   (pilot: chunk-dense trên top-400 pool H)
+  index/fuse.py  QB7:1 chunk_full:1 → blendQB8 ;  :0.5 → blendQB8w05
      → (vá 109 câu) data/rp/c_blendQB8.jsonl, c_blendQB8w05.jsonl         ← ĐẦU VÀO của build_best.sh
   chunk_rerank.py (Qwen chấm chunk) + best_idx → data/chunk_scores_mix.jsonl (chọn chunk nộp)
 
@@ -63,11 +63,11 @@ Số đo từng bước và lý do từng quyết định: `PROGRESS.md` (sổ �
 | File | Vai trò |
 | --- | --- |
 | `build_best.sh` | chạy cả chuỗi dưới đây, in vân tay để đối chiếu |
-| `fuse.py` | RRF nhiều danh sách xếp hạng |
-| `hybrid_cands.py` | lấy TẬP doc từ một danh sách, THỨ TỰ 120 doc đầu từ danh sách khác |
-| `filter_new_corpus.py` | chỉ giữ doc thuộc kho mới của BTC (+ vinmec), bù đủ 200 |
-| `val_calib.py` | chấm p(gold) cho doc (`--score`); khớp lại β khi có điểm mới (`--extract`, `--logit`) |
-| `submission.py` | xuất JSON + ZIP đúng định dạng (doc_id số nguyên, chunk nguyên văn theo offset); `--chunk-plan` |
+| `index/fuse.py` | RRF nhiều danh sách xếp hạng |
+| `index/hybrid_cands.py` | lấy TẬP doc từ một danh sách, THỨ TỰ 120 doc đầu từ danh sách khác |
+| `crawl/filter_new_corpus.py` | chỉ giữ doc thuộc kho mới của BTC (+ vinmec), bù đủ 200 |
+| `scripts/val_calib.py` | chấm p(gold) cho doc (`--score`); khớp lại β khi có điểm mới (`--extract`, `--logit`) |
+| `submit/submission.py` | xuất JSON + ZIP đúng định dạng (doc_id số nguyên, chunk nguyên văn theo offset); `--chunk-plan` |
 
 Cần Python 3.10+ với `pandas`, `pyarrow`, `numpy` (`pip install pandas pyarrow numpy`), và bash (Linux/macOS, hoặc Git Bash trên Windows).
 

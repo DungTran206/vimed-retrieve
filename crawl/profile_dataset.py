@@ -1,4 +1,4 @@
-"""Tải ViBioMIR, xuất câu hỏi sang JSONL cho pubmed_module, và thống kê danh sách URL
+"""Tải ViBioMIR, xuất câu hỏi JSONL cho query_processing/pipelines, và thống kê danh sách URL
 để lên kế hoạch crawl. Không cần GPU.
 
   pip install pandas pyarrow huggingface_hub
