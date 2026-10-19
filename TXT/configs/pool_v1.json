@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "baseline": "TXT/runtime/runs/R0/candidates.jsonl",
+  "deeper": "TXT/runtime/runs/R0/deep.jsonl",
+  "corpus": "TXT/inputs/handover/data/corpus_new.sqlite",
+  "membership": "TXT/inputs/handover/data/vibiomir_new/links_corpus_vi_en_zh.parquet",
+  "scope": "plarge",
+  "cap": 400,
+  "sources": [],
+  "b_family": null,
+  "output_dir": "TXT/runtime/pools/plarge_v1"
+}

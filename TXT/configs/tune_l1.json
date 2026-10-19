@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "study_id": "PLARGE_uniform_v1",
+  "family": "L1",
+  "run_config": "TXT/configs/run_l1.json",
+  "evaluation_config": null,
+  "baseline_dir": "TXT/runtime/runs/R0",
+  "output_dir": "TXT/runtime/studies/L1_dev"
+}

@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "snapshot": "handover_2026_10_15",
+  "inputs": {
+    "corpus": {
+      "path": "data/corpus_new.sqlite",
+      "expected_sha256": null
+    },
+    "vi_base": {
+      "path": "data/rp/c_blendQB8.jsonl",
+      "expected_sha256": null
+    },
+    "vi_alt": {
+      "path": "data/rp/c_blendQB8w05.jsonl",
+      "expected_sha256": null
+    },
+    "zh_bge_vi": {
+      "path": "data/dense_zhC3_vi_rank.jsonl",
+      "expected_sha256": null
+    },
+    "zh_bge_zh": {
+      "path": "data/dense_zhC3_zhq_rank.jsonl",
+      "expected_sha256": null
+    },
+    "zh_bge_patch": {
+      "path": "data/dense_zhC3_zhq109_rank.jsonl",
+      "expected_sha256": null
+    },
+    "zh_q8_vi": {
+      "path": "data/dense_zhQ8_vi_rank.jsonl",
+      "expected_sha256": null
+    },
+    "zh_q8_zh": {
+      "path": "data/dense_zhQ8_zhq_rank.jsonl",
+      "expected_sha256": null
+    },
+    "zh_q8_patch": {
+      "path": "data/dense_zhQ8_zhq109_rank.jsonl",
+      "expected_sha256": null
+    },
+    "membership": {
+      "path": "data/vibiomir_new/links_corpus_vi_en_zh.parquet",
+      "expected_sha256": null
+    },
+    "chunk_scores": {
+      "path": "data/chunk_scores_mix.jsonl",
+      "expected_sha256": null
+    },
+    "qwen_doc_scores": {
+      "path": "data/qwen_all_h.jsonl",
+      "expected_sha256": null
+    },
+    "chunk_dense": {
+      "path": "data/dense_chunk_full_rank.jsonl",
+      "expected_sha256": null
+    },
+    "beta": {
+      "path": "data/val/beta.json",
+      "expected_sha256": null
+    },
+    "queries": {
+      "path": "data/queries.jsonl",
+      "expected_sha256": null
+    },
+    "enriched_queries": {
+      "path": "data/queries_enriched.jsonl",
+      "expected_sha256": null
+    },
+    "lexical_sources": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "dense_sources": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "qrels": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "passages": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "tokenizer": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "scorer_spec": {
+      "path": null,
+      "expected_sha256": null
+    }
+  },
+  "archives": [
+    "scoring_result.zip",
+    "prediction_result.zip",
+    "x12m_ext10.zip"
+  ],
+  "outputs": {
+    "input_manifest": "TXT/manifests/inputs.json",
+    "baseline_manifest": "TXT/manifests/baseline.json",
+    "readiness_report": "TXT/reports/DATA_READINESS.md"
+  },
+  "runtime": {
+    "seed": 42,
+    "dry_run": true
+  }
+}
+

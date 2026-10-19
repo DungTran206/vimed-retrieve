@@ -1,0 +1,66 @@
+{
+  "expected_fingerprints": {
+    "chunk": "fd07f9fc029a",
+    "doc": "c1e068422e5f"
+  },
+  "inputs": {
+    "beta": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/val/beta.json"
+    },
+    "chunk_dense": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_chunk_full_rank.jsonl"
+    },
+    "chunk_scores": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/chunk_scores_mix.jsonl"
+    },
+    "corpus": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/corpus_new.sqlite"
+    },
+    "membership": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/vibiomir_new/links_corpus_vi_en_zh.parquet"
+    },
+    "qwen_doc_scores": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/qwen_all_h.jsonl"
+    },
+    "vi_alt": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/rp/c_blendQB8w05.jsonl"
+    },
+    "vi_base": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/rp/c_blendQB8.jsonl"
+    },
+    "zh_bge_patch": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhC3_zhq109_rank.jsonl"
+    },
+    "zh_bge_vi": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhC3_vi_rank.jsonl"
+    },
+    "zh_bge_zh": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhC3_zhq_rank.jsonl"
+    },
+    "zh_q8_patch": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhQ8_zhq109_rank.jsonl"
+    },
+    "zh_q8_vi": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhQ8_vi_rank.jsonl"
+    },
+    "zh_q8_zh": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhQ8_zhq_rank.jsonl"
+    }
+  },
+  "output_dir": "TXT/runtime/runs/R0",
+  "schema_version": 1
+}

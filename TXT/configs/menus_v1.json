@@ -1,0 +1,230 @@
+{
+  "A1_proposed": {
+    "lambda": [
+      0.1,
+      0.25
+    ],
+    "lexical_endpoint": {
+      "B": 0.8,
+      "D": 0.2
+    },
+    "semantic_endpoint": {
+      "B": 0.2,
+      "D": 0.8
+    },
+    "status": "requires_T11_headroom_controls",
+    "tau_dev_quantiles": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "temperature": [
+      0.05,
+      0.1,
+      0.2
+    ]
+  },
+  "F0": [
+    {
+      "id": "F0_00",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0,
+        "D": 1
+      }
+    },
+    {
+      "id": "F0_01",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.1,
+        "D": 0.9
+      }
+    },
+    {
+      "id": "F0_02",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.2,
+        "D": 0.8
+      }
+    },
+    {
+      "id": "F0_03",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.35,
+        "D": 0.65
+      }
+    },
+    {
+      "id": "F0_04",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.5,
+        "D": 0.5
+      }
+    },
+    {
+      "id": "F0_05",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.65,
+        "D": 0.35
+      }
+    },
+    {
+      "id": "F0_06",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.8,
+        "D": 0.2
+      }
+    },
+    {
+      "id": "F0_07",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.9,
+        "D": 0.1
+      }
+    },
+    {
+      "id": "F0_08",
+      "lambda": 0.1,
+      "mode": "fixed",
+      "weights": {
+        "B": 1,
+        "D": 0
+      }
+    },
+    {
+      "id": "F0_09",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0,
+        "D": 1
+      }
+    },
+    {
+      "id": "F0_10",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.1,
+        "D": 0.9
+      }
+    },
+    {
+      "id": "F0_11",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.2,
+        "D": 0.8
+      }
+    },
+    {
+      "id": "F0_12",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.35,
+        "D": 0.65
+      }
+    },
+    {
+      "id": "F0_13",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.5,
+        "D": 0.5
+      }
+    },
+    {
+      "id": "F0_14",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.65,
+        "D": 0.35
+      }
+    },
+    {
+      "id": "F0_15",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.8,
+        "D": 0.2
+      }
+    },
+    {
+      "id": "F0_16",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 0.9,
+        "D": 0.1
+      }
+    },
+    {
+      "id": "F0_17",
+      "lambda": 0.25,
+      "mode": "fixed",
+      "weights": {
+        "B": 1,
+        "D": 0
+      }
+    }
+  ],
+  "L1": [
+    {
+      "feature_name": "body_coverage",
+      "id": "L1_0",
+      "lambda": 0,
+      "mode": "fixed_evidence"
+    },
+    {
+      "feature_name": "body_coverage",
+      "id": "L1_1",
+      "lambda": 0.02,
+      "mode": "fixed_evidence"
+    },
+    {
+      "feature_name": "body_coverage",
+      "id": "L1_2",
+      "lambda": 0.05,
+      "mode": "fixed_evidence"
+    },
+    {
+      "feature_name": "body_coverage",
+      "id": "L1_3",
+      "lambda": 0.1,
+      "mode": "fixed_evidence"
+    },
+    {
+      "feature_name": "body_coverage",
+      "id": "L1_4",
+      "lambda": 0.2,
+      "mode": "fixed_evidence"
+    },
+    {
+      "feature_name": "body_coverage",
+      "id": "L1_5",
+      "lambda": 0.35,
+      "mode": "fixed_evidence"
+    }
+  ],
+  "schema_version": 1
+}

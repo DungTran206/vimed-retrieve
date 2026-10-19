@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "qrels_path": "TXT/inputs/evaluation/dev_qrels.jsonl",
+  "qrels_hash": "",
+  "split_manifest": "TXT/runtime/studies/sample_v1/split.json",
+  "split_hash": "",
+  "split": "dev",
+  "primary_metric": "replacement_delta_p",
+  "k": 200,
+  "label_policy_version": "local_answer_v1",
+  "coverage": "complete_differences",
+  "empty_gold_policy": "excluded",
+  "bootstrap_samples": 10000,
+  "bootstrap_seed": 42,
+  "frozen_candidate": null,
+  "output_dir": "TXT/runtime/evaluation/dev_v1"
+}

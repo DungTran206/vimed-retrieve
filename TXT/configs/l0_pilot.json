@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "pool_manifest": "TXT/runtime/pools/plarge_v1/manifest.json",
+  "queries": "TXT/inputs/handover/data/queries.jsonl",
+  "enriched_queries": "TXT/inputs/handover/data/queries_enriched.jsonl",
+  "expansion_queries": null,
+  "corpus": "TXT/inputs/handover/data/corpus_new.sqlite",
+  "query_batch_size": 20,
+  "query_ids_path": "TXT/runtime/studies/sample_v1/split.json",
+  "output_dir": "TXT/runtime/features/uniform_v1"
+}

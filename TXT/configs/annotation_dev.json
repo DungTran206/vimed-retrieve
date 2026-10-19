@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "queries": "TXT/inputs/handover/data/queries.jsonl",
+  "corpus": "TXT/inputs/handover/data/corpus_new.sqlite",
+  "baseline": "TXT/runtime/runs/R0/candidates.jsonl",
+  "predictions": ["TXT/runtime/runs/L1_example/candidates.jsonl"],
+  "split_manifest": "TXT/runtime/studies/sample_v1/split.json",
+  "split": "dev",
+  "k": 200,
+  "mode": "differences",
+  "seed": 42,
+  "frozen_candidate": null,
+  "output_dir": "TXT/runtime/annotation/dev_v1"
+}
