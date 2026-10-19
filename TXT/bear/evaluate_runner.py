@@ -2,7 +2,8 @@
 from .artifacts import file_identity, required_path, verify_identity
 from .contracts import HashMismatchError, SchemaInvalidError
 from .evaluation import compute_doc_f2, compute_replacement_delta
-from .io import atomic_write_json, read_json, read_jsonl, resolve_repo_path, sha256_file
+from .io import (atomic_write_json, read_json, read_jsonl, resolve_repo_path, sha256_file,
+                 assert_valid_output_path, canonical_json_dumps)
 from .reproduce import load_ranks
 
 
@@ -22,7 +23,7 @@ def reviewed_qrels(path, policy):
     return qrels
 
 
-def evaluate(cfg, run_dir, baseline_dir=None):
+def evaluate(cfg, run_dir, baseline_dir=None, preflight_only=False):
     candidate_path = required_path(resolve_repo_path(run_dir) / "candidates.jsonl")
     candidate = load_ranks(candidate_path)
     if sha256_file(required_path(cfg["qrels_path"])) != cfg["qrels_hash"]:
@@ -33,22 +34,37 @@ def evaluate(cfg, run_dir, baseline_dir=None):
         raise SchemaInvalidError("Split phải dev/holdout")
     split = read_json(cfg["split_manifest"])
     qids = split[cfg["split"]]
+    if not qids or len(qids) != len(set(qids)):
+        raise SchemaInvalidError("Evaluation query universe empty/duplicated")
+    from .contracts import validate_query_id
+    for qid in qids:
+        validate_query_id(qid)
+    if not set(qids) <= {int(q) for q in split.get("query_groups", {})}:
+        raise SchemaInvalidError("Evaluation group mapping missing planned queries")
+    output = assert_valid_output_path(resolve_repo_path(cfg["output_dir"]) / "evaluation.json",
+                                     [candidate_path, cfg["qrels_path"], cfg["split_manifest"]])
     baseline_path = required_path(resolve_repo_path(baseline_dir) / "candidates.jsonl") if baseline_dir else None
     baseline = load_ranks(baseline_path) if baseline_path else None
+    exposure, frozen = None, None
     if cfg["split"] == "holdout":
         frozen_path = required_path(cfg.get("frozen_candidate"))
         frozen = read_json(frozen_path)
         if frozen["candidate_sha256"] != sha256_file(candidate_path) or frozen["split_hash"] != cfg["split_hash"]:
             raise HashMismatchError("Holdout candidate/split chưa freeze")
+        for key, value in frozen.get("evaluation_contract", {}).items():
+            if cfg.get(key, "excluded" if key == "empty_gold_policy" else None) != value:
+                raise SchemaInvalidError(f"Holdout evaluation differs from frozen contract: {key}")
         for item in frozen["controls"] + frozen["code"] + [frozen["protocol"], frozen["selection"]]:
+            verify_identity(item)
+        if frozen.get("candidate_manifest"):
+            verify_identity(frozen["candidate_manifest"])
+        for item in frozen.get("candidate_artifacts", []):
             verify_identity(item)
         if baseline_path and str(baseline_path) not in frozen["control_paths"]:
             raise SchemaInvalidError("Control chưa preregister")
         exposure = frozen_path.parent / "holdout_exposure.json"
         if exposure.exists():
             raise SchemaInvalidError("Holdout đã mở; không evaluate/chọn lại")
-        atomic_write_json(exposure, {"candidate_sha256": frozen["candidate_sha256"],
-                                    "evaluation_config": cfg, "status": "exposed"})
     metric, k = cfg["primary_metric"], cfg["k"]
     if metric not in ("precision_at_k", "replacement_delta_p", "macro_doc_f2") or type(k) is not int or k < 1:
         raise SchemaInvalidError("Metric/k không hợp lệ")
@@ -102,12 +118,52 @@ def evaluate(cfg, run_dir, baseline_dir=None):
               "planned_queries": len(qids), "effective_queries": len(values), "missing_query_ids": missing,
               "metric": sum(values) / len(values) if values and not missing else None,
               "candidate_sha256": sha256_file(candidate_path), "per_query": rows,
+              "baseline_sha256": sha256_file(baseline_path) if baseline_path else None,
+              "qrels_hash": cfg["qrels_hash"], "split_hash": cfg["split_hash"],
+              "k": k, "coverage": cfg["coverage"], "label_policy_version": cfg["label_policy_version"],
+              "empty_gold_policy": cfg.get("empty_gold_policy", "excluded"),
               "confirmatory_eligible": split.get("confirmatory_eligible", False)}
-    if baseline is not None and metric == "replacement_delta_p" and report["status"] == "available":
+    if baseline is not None and report["status"] == "available":
         from .paired import paired_group_bootstrap
-        report["paired"] = paired_group_bootstrap({r["query_id"]: r["value"] for r in rows},
+        deltas = {r["query_id"]: r["value"] for r in rows if r["value"] is not None}
+        if metric != "replacement_delta_p":
+            for qid in deltas:
+                control_docs = baseline.get(qid, [])[:k]
+                labels = qrels.get(qid, {})
+                if len(control_docs) != k or any(d not in labels for d in control_docs):
+                    raise SchemaInvalidError("Paired evaluation needs complete control judgments")
+                hits = sum(labels[d] >= 2 for d in control_docs)
+                control_value = (hits / k if metric == "precision_at_k" else
+                                 compute_doc_f2(hits, k, sum(g >= 2 for g in labels.values())))
+                deltas[qid] -= control_value
+        if not preflight_only:
+            report["paired"] = paired_group_bootstrap(deltas,
                     {int(q): g for q, g in split["query_groups"].items()},
                     cfg.get("bootstrap_samples", 10000), cfg.get("bootstrap_seed", 42))
-    atomic_write_json(resolve_repo_path(cfg["output_dir"]) / "evaluation.json", report,
+    if preflight_only:
+        # Readiness only: never return holdout utilities or claim exposure.
+        return {"status": "ready" if report["status"] == "available" else "inconclusive",
+                "planned_queries": len(qids), "missing_query_ids": missing,
+                "primary_metric": metric, "exposure_consumed": False}
+    if exposure is not None:
+        if report["status"] != "available":
+            raise SchemaInvalidError("Holdout preflight failed label/ranking coverage; exposure not consumed")
+        claim_exposure(exposure, {"candidate_sha256": frozen["candidate_sha256"],
+                                  "evaluation_config": cfg, "status": "exposed"})
+    atomic_write_json(output, report,
                       input_paths=[candidate_path, cfg["qrels_path"], cfg["split_manifest"]])
     return report
+
+
+def claim_exposure(path, payload):
+    """Exclusive create avoids two evaluators racing past a single exposure guard."""
+    import os
+    path = assert_valid_output_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("x", encoding="utf-8") as stream:
+            stream.write(canonical_json_dumps(payload))
+            stream.flush()
+            os.fsync(stream.fileno())
+    except FileExistsError as error:
+        raise SchemaInvalidError("Holdout already exposed; concurrent/repeated evaluation refused") from error

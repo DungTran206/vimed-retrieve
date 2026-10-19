@@ -1,5 +1,7 @@
 # Kết quả quan sát
 
+**Code2.0:**63/63BEAR +10/10legacy tests qua trên fixtures; N0 inventory18roles thiếu và chưa có relevance benchmark mới. Xem [báo cáo v2](next_round/V2_IMPLEMENTATION.md). Bảng dưới giữ nguyên snapshot kiểm chứng trước v2; điểm R01 người dùng báo trong [improvement_log](../improvement_log.md) không phải score được đo lại ở lượt này.
+
 | Loại bằng chứng | Kết quả | Phạm vi |
 |---|---|---|
 | CODE_VERIFIED | 48/48 BEAR unit/integration tests qua; 10/10 legacy offline tests qua | Synthetic fixtures, không phải quality benchmark |

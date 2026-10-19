@@ -1,0 +1,88 @@
+{
+  "inputs": {
+    "baseline_manifest": {
+      "path": "TXT/runtime/runs/R0/manifest.json"
+    },
+    "beta": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/val/beta.json"
+    },
+    "candidate_manifest": {
+      "path": null
+    },
+    "chunk_dense": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_chunk_full_rank.jsonl"
+    },
+    "chunk_scores": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/chunk_scores_mix.jsonl"
+    },
+    "corpus": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/corpus_new.sqlite"
+    },
+    "membership": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/vibiomir_new/links_corpus_vi_en_zh.parquet"
+    },
+    "qwen_doc_scores": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/qwen_all_h.jsonl"
+    },
+    "scoring_output": {
+      "path": null
+    },
+    "submission": {
+      "path": null
+    },
+    "vi_alt": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/rp/c_blendQB8w05.jsonl"
+    },
+    "vi_base": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/rp/c_blendQB8.jsonl"
+    },
+    "zh_bge_patch": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhC3_zhq109_rank.jsonl"
+    },
+    "zh_bge_vi": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhC3_vi_rank.jsonl"
+    },
+    "zh_bge_zh": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhC3_zhq_rank.jsonl"
+    },
+    "zh_q8_patch": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhQ8_zhq109_rank.jsonl"
+    },
+    "zh_q8_vi": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhQ8_vi_rank.jsonl"
+    },
+    "zh_q8_zh": {
+      "expected_sha256": null,
+      "path": "TXT/inputs/handover/data/dense_zhQ8_zhq_rank.jsonl"
+    }
+  },
+  "linkage_record": null,
+  "output_dir": "TXT/runtime/next_round/N0_v1",
+  "reported": {
+    "CHUNKS_F2MACRO": 0.3279,
+    "CHUNKS_PRECISION": 0.1926,
+    "CHUNKS_RECALL": 0.4585,
+    "DOCS_F2MACRO": 0.3612,
+    "DOCS_PRECISION": 0.1886,
+    "DOCS_RECALL": 0.6065,
+    "FINAL_SCORE": 0.3445,
+    "execution_date": null,
+    "method": "TXT/BEAR",
+    "reported_date": "2026-10-19",
+    "scored_date": null
+  },
+  "schema_version": 1
+}

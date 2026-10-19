@@ -49,9 +49,18 @@ def build_with_refs(ranking, corpus, scores, plans, corpus_hash):
     return records, sidecar
 
 
-def validate_records(records, sidecar, corpus, n_queries=1200, output_docs=200):
+def validate_records(records, sidecar, corpus, n_queries=1200, output_docs=200, query_ids=None):
     from submit.submission import validate
-    errors = validate(records, n_queries=n_queries, id_type=int)
+    if query_ids is not None:
+        from .contracts import validate_query_id
+        actual = [validate_query_id(r["id"]) for r in records]
+        expected = [validate_query_id(q) for q in query_ids]
+        if len(actual) != len(set(actual)) or len(expected) != len(set(expected)) or set(actual) != set(expected):
+            raise SchemaInvalidError("Pilot query universe mismatch")
+        schema_records = [r | {"id": i + 1} for i, r in enumerate(records)]
+        errors = validate(schema_records, n_queries=len(expected), id_type=int)
+    else:
+        errors = validate(records, n_queries=n_queries, id_type=int)
     if errors:
         raise SchemaInvalidError("; ".join(errors))
     refs = {(r["query_id"], r["output_position"]): r for r in sidecar}

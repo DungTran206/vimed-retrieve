@@ -1,0 +1,10 @@
+{
+  "feature_manifest": "TXT/runtime/features/uniform_v1/manifest.json",
+  "fixed_report": "TXT/runtime/next_round/N4_v1/fixed/evaluation/evaluation.json",
+  "lexical_report": "TXT/runtime/next_round/N4_v1/lexical/evaluation/evaluation.json",
+  "minimum_headroom": 0.005,
+  "output_dir": "TXT/runtime/next_round/N4_v1/diagnostics",
+  "query_metadata": "TXT/inputs/evaluation/routing_query_metadata.jsonl",
+  "schema_version": 1,
+  "semantic_report": "TXT/runtime/next_round/N4_v1/semantic/evaluation/evaluation.json"
+}

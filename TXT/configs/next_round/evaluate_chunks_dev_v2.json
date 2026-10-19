@@ -1,0 +1,16 @@
+{
+  "bootstrap_samples": 10000,
+  "bootstrap_seed": 42,
+  "corpus": "TXT/inputs/handover/data/corpus_new.sqlite",
+  "coverage": "complete_local_passages",
+  "frozen_candidate": null,
+  "label_policy_version": "local_passage_v1",
+  "output_dir": "TXT/runtime/next_round/N3_v1/C1/evaluation",
+  "passages": "TXT/inputs/evaluation/passages_dev_v2.jsonl",
+  "passages_hash": "",
+  "primary_metric": "local_passage_recall",
+  "schema_version": 1,
+  "split": "dev",
+  "split_hash": "",
+  "split_manifest": "TXT/runtime/studies/sample_v1/split.json"
+}

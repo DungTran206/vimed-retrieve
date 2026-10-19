@@ -1,0 +1,316 @@
+[
+  {
+    "command": [
+      "provenance",
+      "--config",
+      "TXT/configs/next_round/provenance_v2.json",
+      "--execute"
+    ],
+    "exit_code": 1,
+    "result": {
+      "artifacts": [
+        {
+          "bytes": 1394,
+          "path": "D:\\hackathon\\vimed-retrieve\\TXT\\runtime\\next_round\\N0_v1\\provenance.json",
+          "sha256": "6b865f7ef0c0dd9921b80cc5f4b3b6e9cafaa7181d170d3a39383bf61ee2b2bc"
+        },
+        {
+          "bytes": 371,
+          "path": "D:\\hackathon\\vimed-retrieve\\TXT\\runtime\\next_round\\N0_v1\\report.md",
+          "sha256": "d40ef0f3dbac44b6515b2287bee697b5f14086215be89a635c5b66ec90e6db3c"
+        }
+      ],
+      "config": {
+        "code_hashes": {
+          "TXT\\bear\\__init__.py": "6a8f7f22b0e9fdf2ef4f7fbeb016e4283f320a2de064bfeb6d38f3196715f4be",
+          "TXT\\bear\\adapters.py": "a0009704defdf8236651edc7a2d1f116d321261617be7e7e5331ca8f46709bad",
+          "TXT\\bear\\application_audit.py": "60bacb06a258396e23a4b93bcbdf2de84d880ea0cac58d7888bad9410a7f767d",
+          "TXT\\bear\\artifacts.py": "03568434667cc9ad024984733ac87b72cef13ee33b82f8084b9e35a9d5a1b872",
+          "TXT\\bear\\audit.py": "86544474dc74b45370d18734b05e34c0a1c9f28f07ef39775ed059d73f477e34",
+          "TXT\\bear\\baseline.py": "a9bf6fcf6309918d970b37139bbc3c26c699d2551b67d4a38837e20591d09dee",
+          "TXT\\bear\\chunk_evaluation.py": "9bf1998d3af92baddf3853e51023869e6a1ef9f9b3c4a8bdf3dbe1f4104a9da4",
+          "TXT\\bear\\chunk_experiments.py": "525089013e66837f3734682a5128c388df9f7b2de5034804a87f8e765240b27f",
+          "TXT\\bear\\chunk_study.py": "90d2ce5ce25dd628e0938387d85d57cfa22edcf7dd16ea3fbb4c0f3caed45d9c",
+          "TXT\\bear\\cli.py": "58e3ab2576f1b2fd6b9514f3810c810aeef2404b76b962cd2eec21ce15d5ed22",
+          "TXT\\bear\\config.py": "992bceb600a3afd9d163c9ad2176183712bf33ee3139692e0d720884d9726eaf",
+          "TXT\\bear\\contracts.py": "243fb1c747214b7d04afc7757668ebce8019af88449d51b77a5d1419e84e023d",
+          "TXT\\bear\\evaluate_runner.py": "77a95290b9354251c2ed09a73c1be87174a8c1a8db5b9de6788a2a1d0dc9e07b",
+          "TXT\\bear\\evaluation.py": "54b1e760d0f5cf4fc35beaf22df61bf0621f9d5a57a5c5a4b6ca0e3e1fd2ace2",
+          "TXT\\bear\\evidence.py": "46a8188debcfbf9b0476fd8727a2339c78b9bab4ffe9eb56805546d5701321cd",
+          "TXT\\bear\\experiments.py": "ed79e4502e1cb2a931a87a2d6b15c4110f9d725df42e53ec0d341f53cfe0a1f4",
+          "TXT\\bear\\features.py": "f30539e1056d9be06f97189e1a3681defd033c10573aecaeff4ec802f7dcf705",
+          "TXT\\bear\\fusion.py": "3a8636220c3e83685ee8a5c1d6f380b5cd34591f17c2a55bcdeec76f230b6605",
+          "TXT\\bear\\integrity.py": "790213de68ca1e773fad6a22a8f67731e8ebaab547891bcadfd95ebb2895d004",
+          "TXT\\bear\\io.py": "5dcb31cdbd630c9da227f5a02876a2437df8ee12e58a2b32e484ae0115e82b04",
+          "TXT\\bear\\matching.py": "df166e810c2753b35091e81d45c868456d785078af60ed7a33388b771fe3f693",
+          "TXT\\bear\\paired.py": "1bb1ac59b8abc01695dfcde788c0aef68dffbc9d3dd75759da1bb16269840d5c",
+          "TXT\\bear\\pools.py": "b4f3e8a153751d203fab367d48747878d89d15b4de13438d248b990666e9bcf9",
+          "TXT\\bear\\provenance.py": "4f5c63a9439af0fc527c8b7eb04fb93591a87ef5d216f4383633006432864126",
+          "TXT\\bear\\release.py": "83edb4be395e823dc8b363a156b991b899cd883ddb4e496536b315eaa36e88f6",
+          "TXT\\bear\\reproduce.py": "f9e0be3867ca1604e4b8a35badcb5f663eb44efb336449c005420db9b216ce31",
+          "TXT\\bear\\routing_diagnostics.py": "0133993be499468a41e80c2585e94de07a19567abc55e4452911022c51ff1a47",
+          "TXT\\bear\\tuning.py": "77cb5ede664a698ea1b68eda49e90302d575ef86986c27ad079a4d4d7391f20e",
+          "crawl\\filter_new_corpus.py": "63fc5dbaeb56b7552358aeb0d6066bd5439fe0ac3d90a5efc742b56bd1580276",
+          "index\\fuse.py": "1e226e6324878d8144adeec05df0de0d91f7ba3bcf45a83f2a77c2c0726b47f6",
+          "index\\hybrid_cands.py": "fcb13c4ff13d06301309cf188eeb7c88352f3ddb1bae1d53a4d4df546c67b401",
+          "scripts\\val_calib.py": "482bbe2926ef4f8e2731632b54195c8c320039a6894ed12e93b5dec8fa7d40d7",
+          "submit\\submission.py": "99d0b67a437f4f20678fad36ca8f2cf4be904511965aa8127e28a2591f99b83e"
+        },
+        "inputs": {
+          "baseline_manifest": {
+            "path": "TXT/runtime/runs/R0/manifest.json"
+          },
+          "beta": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/val/beta.json"
+          },
+          "candidate_manifest": {
+            "path": null
+          },
+          "chunk_dense": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_chunk_full_rank.jsonl"
+          },
+          "chunk_scores": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/chunk_scores_mix.jsonl"
+          },
+          "corpus": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/corpus_new.sqlite"
+          },
+          "membership": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/vibiomir_new/links_corpus_vi_en_zh.parquet"
+          },
+          "qwen_doc_scores": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/qwen_all_h.jsonl"
+          },
+          "scoring_output": {
+            "path": null
+          },
+          "submission": {
+            "path": null
+          },
+          "vi_alt": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/rp/c_blendQB8w05.jsonl"
+          },
+          "vi_base": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/rp/c_blendQB8.jsonl"
+          },
+          "zh_bge_patch": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_zhC3_zhq109_rank.jsonl"
+          },
+          "zh_bge_vi": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_zhC3_vi_rank.jsonl"
+          },
+          "zh_bge_zh": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_zhC3_zhq_rank.jsonl"
+          },
+          "zh_q8_patch": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_zhQ8_zhq109_rank.jsonl"
+          },
+          "zh_q8_vi": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_zhQ8_vi_rank.jsonl"
+          },
+          "zh_q8_zh": {
+            "expected_sha256": null,
+            "path": "TXT/inputs/handover/data/dense_zhQ8_zhq_rank.jsonl"
+          }
+        },
+        "linkage_record": null,
+        "output_dir": "TXT/runtime/next_round/N0_v1",
+        "reported": {
+          "CHUNKS_F2MACRO": 0.3279,
+          "CHUNKS_PRECISION": 0.1926,
+          "CHUNKS_RECALL": 0.4585,
+          "DOCS_F2MACRO": 0.3612,
+          "DOCS_PRECISION": 0.1886,
+          "DOCS_RECALL": 0.6065,
+          "FINAL_SCORE": 0.3445,
+          "execution_date": null,
+          "method": "TXT/BEAR",
+          "reported_date": "2026-10-19",
+          "scored_date": null
+        },
+        "schema_version": 1
+      },
+      "config_hash": "473db9ac31045fee82e94a82b189cee5b701f025b7f12b6c929cd0c983ad738b",
+      "created_at": "2026-10-19T15:31:11.958966+00:00",
+      "inputs": [],
+      "missing_roles": [
+        "baseline_manifest",
+        "beta",
+        "candidate_manifest",
+        "chunk_dense",
+        "chunk_scores",
+        "corpus",
+        "membership",
+        "qwen_doc_scores",
+        "scoring_output",
+        "submission",
+        "vi_alt",
+        "vi_base",
+        "zh_bge_patch",
+        "zh_bge_vi",
+        "zh_bge_zh",
+        "zh_q8_patch",
+        "zh_q8_vi",
+        "zh_q8_zh"
+      ],
+      "readiness_status": "blocked_input",
+      "schema_version": 1,
+      "status": "completed",
+      "submission_linkage": "unresolved"
+    }
+  },
+  {
+    "command": [
+      "application-audit",
+      "--config",
+      "TXT/configs/next_round/application_audit_v2.json",
+      "--dry-run"
+    ],
+    "exit_code": 1,
+    "result": {
+      "command": "application-audit",
+      "dry_run": true,
+      "missing_roles": [
+        "run_dir/manifest.json"
+      ],
+      "output_dir": "TXT/runtime/next_round/N1_v1",
+      "status": "blocked_input"
+    }
+  },
+  {
+    "command": [
+      "tune",
+      "--protocol",
+      "TXT/configs/next_round/tune_body_local_v2.json",
+      "--menu",
+      "TXT/configs/next_round/menus_v2.json",
+      "--dry-run"
+    ],
+    "exit_code": 0,
+    "result": {
+      "family": "L1_L4",
+      "split": "dev",
+      "status": "dry_run",
+      "trials": 12
+    }
+  },
+  {
+    "command": [
+      "chunk-study",
+      "--config",
+      "TXT/configs/next_round/chunk_c1_v2.json",
+      "--dry-run"
+    ],
+    "exit_code": 1,
+    "result": {
+      "command": "chunk-study",
+      "dry_run": true,
+      "missing_roles": [
+        "corpus",
+        "allocation",
+        "chunk_scores",
+        "ranking_dir/manifest.json"
+      ],
+      "output_dir": "TXT/runtime/next_round/N3_v1/C1",
+      "status": "blocked_input"
+    }
+  },
+  {
+    "command": [
+      "chunk-study",
+      "--config",
+      "TXT/configs/next_round/chunk_c2_v2.json",
+      "--dry-run"
+    ],
+    "exit_code": 1,
+    "result": {
+      "command": "chunk-study",
+      "dry_run": true,
+      "missing_roles": [
+        "corpus",
+        "allocation",
+        "chunk_scores",
+        "ranking_dir/manifest.json",
+        "feature_manifest"
+      ],
+      "output_dir": "TXT/runtime/next_round/N3_v1/C2",
+      "status": "blocked_input"
+    }
+  },
+  {
+    "command": [
+      "routing-diagnostics",
+      "--config",
+      "TXT/configs/next_round/routing_diagnostics_v2.json",
+      "--dry-run"
+    ],
+    "exit_code": 1,
+    "result": {
+      "command": "routing-diagnostics",
+      "dry_run": true,
+      "missing_roles": [
+        "lexical_report",
+        "semantic_report",
+        "fixed_report",
+        "feature_manifest",
+        "query_metadata"
+      ],
+      "output_dir": "TXT/runtime/next_round/N4_v1/diagnostics",
+      "status": "blocked_input"
+    }
+  },
+  {
+    "command": [
+      "reproduce",
+      "--config",
+      "TXT/configs/reproduce.json",
+      "--dry-run"
+    ],
+    "exit_code": 1,
+    "result": {
+      "missing_roles": [
+        "corpus",
+        "vi_base",
+        "vi_alt",
+        "zh_bge_vi",
+        "zh_bge_zh",
+        "zh_bge_patch",
+        "zh_q8_vi",
+        "zh_q8_zh",
+        "zh_q8_patch",
+        "membership",
+        "chunk_scores",
+        "qwen_doc_scores",
+        "chunk_dense",
+        "beta"
+      ],
+      "output_dir": "TXT/runtime/runs/R0",
+      "stages": [
+        "patch400",
+        "zh_rrf",
+        "membership",
+        "vi_zh_rrf",
+        "head120",
+        "filter_refill",
+        "calibration8",
+        "plan",
+        "build",
+        "parity"
+      ],
+      "status": "blocked_input"
+    }
+  }
+]

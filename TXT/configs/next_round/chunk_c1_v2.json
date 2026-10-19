@@ -1,0 +1,11 @@
+{
+  "allocation": "TXT/runtime/runs/R0/allocation.jsonl",
+  "chunk_scores": "TXT/inputs/handover/data/chunk_scores_mix.jsonl",
+  "corpus": "TXT/inputs/handover/data/corpus_new.sqlite",
+  "experiment": "C1",
+  "feature_manifest": null,
+  "output_dir": "TXT/runtime/next_round/N3_v1/C1",
+  "query_ids_path": "TXT/runtime/studies/sample_v1/split.json",
+  "ranking_dir": "TXT/runtime/runs/R0",
+  "schema_version": 1
+}

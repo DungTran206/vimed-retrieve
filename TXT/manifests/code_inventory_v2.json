@@ -1,0 +1,200 @@
+{
+  "bear_tests_passed": 63,
+  "evidence_scope": "source identities and synthetic fixture verification; not relevance benchmark",
+  "files": [
+    {
+      "bytes": 87,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\__init__.py",
+      "sha256": "6a8f7f22b0e9fdf2ef4f7fbeb016e4283f320a2de064bfeb6d38f3196715f4be"
+    },
+    {
+      "bytes": 14867,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\adapters.py",
+      "sha256": "a0009704defdf8236651edc7a2d1f116d321261617be7e7e5331ca8f46709bad"
+    },
+    {
+      "bytes": 7561,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\application_audit.py",
+      "sha256": "60bacb06a258396e23a4b93bcbdf2de84d880ea0cac58d7888bad9410a7f767d"
+    },
+    {
+      "bytes": 4509,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\artifacts.py",
+      "sha256": "03568434667cc9ad024984733ac87b72cef13ee33b82f8084b9e35a9d5a1b872"
+    },
+    {
+      "bytes": 6152,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\audit.py",
+      "sha256": "86544474dc74b45370d18734b05e34c0a1c9f28f07ef39775ed059d73f477e34"
+    },
+    {
+      "bytes": 6951,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\baseline.py",
+      "sha256": "a9bf6fcf6309918d970b37139bbc3c26c699d2551b67d4a38837e20591d09dee"
+    },
+    {
+      "bytes": 8028,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\chunk_evaluation.py",
+      "sha256": "9bf1998d3af92baddf3853e51023869e6a1ef9f9b3c4a8bdf3dbe1f4104a9da4"
+    },
+    {
+      "bytes": 970,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\chunk_experiments.py",
+      "sha256": "525089013e66837f3734682a5128c388df9f7b2de5034804a87f8e765240b27f"
+    },
+    {
+      "bytes": 8290,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\chunk_study.py",
+      "sha256": "90d2ce5ce25dd628e0938387d85d57cfa22edcf7dd16ea3fbb4c0f3caed45d9c"
+    },
+    {
+      "bytes": 9090,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\cli.py",
+      "sha256": "58e3ab2576f1b2fd6b9514f3810c810aeef2404b76b962cd2eec21ce15d5ed22"
+    },
+    {
+      "bytes": 7555,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\config.py",
+      "sha256": "992bceb600a3afd9d163c9ad2176183712bf33ee3139692e0d720884d9726eaf"
+    },
+    {
+      "bytes": 6703,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\contracts.py",
+      "sha256": "243fb1c747214b7d04afc7757668ebce8019af88449d51b77a5d1419e84e023d"
+    },
+    {
+      "bytes": 10218,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\evaluate_runner.py",
+      "sha256": "77a95290b9354251c2ed09a73c1be87174a8c1a8db5b9de6788a2a1d0dc9e07b"
+    },
+    {
+      "bytes": 4759,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\evaluation.py",
+      "sha256": "54b1e760d0f5cf4fc35beaf22df61bf0621f9d5a57a5c5a4b6ca0e3e1fd2ace2"
+    },
+    {
+      "bytes": 4187,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\evidence.py",
+      "sha256": "46a8188debcfbf9b0476fd8727a2339c78b9bab4ffe9eb56805546d5701321cd"
+    },
+    {
+      "bytes": 10909,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\experiments.py",
+      "sha256": "ed79e4502e1cb2a931a87a2d6b15c4110f9d725df42e53ec0d341f53cfe0a1f4"
+    },
+    {
+      "bytes": 13887,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\features.py",
+      "sha256": "f30539e1056d9be06f97189e1a3681defd033c10573aecaeff4ec802f7dcf705"
+    },
+    {
+      "bytes": 4632,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\fusion.py",
+      "sha256": "3a8636220c3e83685ee8a5c1d6f380b5cd34591f17c2a55bcdeec76f230b6605"
+    },
+    {
+      "bytes": 7170,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\integrity.py",
+      "sha256": "790213de68ca1e773fad6a22a8f67731e8ebaab547891bcadfd95ebb2895d004"
+    },
+    {
+      "bytes": 8561,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\io.py",
+      "sha256": "5dcb31cdbd630c9da227f5a02876a2437df8ee12e58a2b32e484ae0115e82b04"
+    },
+    {
+      "bytes": 8705,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\matching.py",
+      "sha256": "df166e810c2753b35091e81d45c868456d785078af60ed7a33388b771fe3f693"
+    },
+    {
+      "bytes": 3254,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\paired.py",
+      "sha256": "1bb1ac59b8abc01695dfcde788c0aef68dffbc9d3dd75759da1bb16269840d5c"
+    },
+    {
+      "bytes": 3171,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\pools.py",
+      "sha256": "b4f3e8a153751d203fab367d48747878d89d15b4de13438d248b990666e9bcf9"
+    },
+    {
+      "bytes": 3192,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\provenance.py",
+      "sha256": "4f5c63a9439af0fc527c8b7eb04fb93591a87ef5d216f4383633006432864126"
+    },
+    {
+      "bytes": 4834,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\release.py",
+      "sha256": "83edb4be395e823dc8b363a156b991b899cd883ddb4e496536b315eaa36e88f6"
+    },
+    {
+      "bytes": 6777,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\reproduce.py",
+      "sha256": "f9e0be3867ca1604e4b8a35badcb5f663eb44efb336449c005420db9b216ce31"
+    },
+    {
+      "bytes": 5618,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\routing_diagnostics.py",
+      "sha256": "0133993be499468a41e80c2585e94de07a19567abc55e4452911022c51ff1a47"
+    },
+    {
+      "bytes": 5100,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\bear\\tuning.py",
+      "sha256": "77cb5ede664a698ea1b68eda49e90302d575ef86986c27ad079a4d4d7391f20e"
+    },
+    {
+      "bytes": 259,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\application_audit_v2.json",
+      "sha256": "a246a28cccdec26c7fe1a0b90325398444234d9ec35bf27b1bc7d55a089dec07"
+    },
+    {
+      "bytes": 413,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\chunk_c1_v2.json",
+      "sha256": "bad4495bdcb9effc0049c57cc7c83c1237409a8d9e241b310994e06dfdc32810"
+    },
+    {
+      "bytes": 456,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\chunk_c2_v2.json",
+      "sha256": "45a875e46c939e8d5df03a1d7382a2cbe9736e959aa4dce7b4ffb0e372966043"
+    },
+    {
+      "bytes": 544,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\evaluate_chunks_dev_v2.json",
+      "sha256": "e89f52e43b82078a26c106f5d38024344bcaa19325c91cda7085856877046d46"
+    },
+    {
+      "bytes": 4078,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\menus_v2.json",
+      "sha256": "42dcf33197aa3ed36c39328639f5f087d3a2821672890c65189dc9a756f8bff3"
+    },
+    {
+      "bytes": 2408,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\provenance_v2.json",
+      "sha256": "f6e6401316691a026efd41b45f8f598d0da2e207acebd903757c4214024fee48"
+    },
+    {
+      "bytes": 518,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\routing_diagnostics_v2.json",
+      "sha256": "6d8901e7ec97984283853b945cfc59fe21aef2ba286e483e315835d7db55012b"
+    },
+    {
+      "bytes": 320,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\run_fixed_v2.json",
+      "sha256": "159cd932a0971eb4bf316706236f72a9204850387ffa8299e235bc1a3b0742a9"
+    },
+    {
+      "bytes": 262,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\configs\\next_round\\tune_body_local_v2.json",
+      "sha256": "052fe979b3f30e67e4405be1a4a48468f29cb2334f31969373ea3268bbff89b6"
+    },
+    {
+      "bytes": 18649,
+      "path": "D:\\hackathon\\vimed-retrieve\\TXT\\tests\\test_v2.py",
+      "sha256": "186962c927f32181a2561e7c5367350667041fa59900753a87ba59012e50a3ae"
+    }
+  ],
+  "legacy_tests_passed": 10,
+  "package_version": "2.0.0",
+  "recorded_date": "2026-10-19",
+  "schema_version": 2
+}

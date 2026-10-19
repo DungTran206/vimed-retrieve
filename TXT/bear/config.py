@@ -5,6 +5,17 @@ from .io import load_config
 PATH = (str, type(None))
 COMMON = {"schema_version": int, "output_dir": str}
 SCHEMAS = {
+    "provenance": {"inputs": dict, "reported": dict, "linkage_record": PATH},
+    "application-audit": {"run_dir": str, "baseline": PATH, "candidate_chunk_refs": PATH,
+                          "baseline_chunk_refs": PATH, "calibration_sources": dict},
+    "chunk-study": {"ranking_dir": str, "corpus": str, "allocation": str, "chunk_scores": str,
+                    "experiment": str, "feature_manifest": PATH, "query_ids_path": PATH},
+    "routing-diagnostics": {"lexical_report": str, "semantic_report": str, "fixed_report": str,
+                            "feature_manifest": str, "query_metadata": str, "minimum_headroom": (int, float)},
+    "evaluate-chunks": {"corpus": str, "passages": str, "passages_hash": str,
+                        "split_manifest": str, "split_hash": str, "split": str, "primary_metric": str,
+                        "coverage": str, "label_policy_version": str, "frozen_candidate": PATH,
+                        "bootstrap_samples": int, "bootstrap_seed": int},
     "audit": {"snapshot": str, "inputs": dict, "archives": list, "outputs": dict,
               "runtime": dict},
     "reproduce": {"inputs": dict, "expected_fingerprints": dict},
@@ -29,6 +40,13 @@ SCHEMAS = {
     "export": {"corpus": str, "inputs": dict, "expected_fingerprints": dict},
 }
 REQUIRED = {
+    "provenance": ("inputs", "reported", "output_dir"),
+    "application-audit": ("run_dir", "output_dir"),
+    "chunk-study": ("ranking_dir", "corpus", "allocation", "chunk_scores", "experiment", "output_dir"),
+    "routing-diagnostics": ("lexical_report", "semantic_report", "fixed_report", "feature_manifest",
+                            "query_metadata", "minimum_headroom", "output_dir"),
+    "evaluate-chunks": ("corpus", "passages", "passages_hash", "split_manifest", "split_hash",
+                        "split", "primary_metric", "coverage", "label_policy_version", "output_dir"),
     "audit": ("inputs",), "reproduce": ("inputs",),
     "pool": ("baseline", "deeper", "corpus", "membership", "output_dir"),
     "features": ("pool_manifest", "queries", "corpus", "output_dir"),
@@ -85,6 +103,13 @@ def validate_config(cfg, command):
             fields(cfg["endpoints"], {"lexical": dict, "semantic": dict}, "endpoints", ("lexical", "semantic"))
             for weights in cfg["endpoints"].values():
                 validate_weights(weights)
+    if command == "routing-diagnostics":
+        from .contracts import validate_finite_number
+        validate_finite_number(cfg["minimum_headroom"], "minimum_headroom", min_val=0)
+    if command == "application-audit" and any(type(v) is not str for v in cfg.get("calibration_sources", {}).values()):
+        raise SchemaInvalidError("calibration_sources requires explicit artifact paths")
+    if command == "chunk-study" and cfg["experiment"] == "C2" and not cfg.get("feature_manifest"):
+        raise SchemaInvalidError("C2 requires chunk feature manifest")
     return cfg
 
 

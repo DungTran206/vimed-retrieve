@@ -1,10 +1,14 @@
 # TXT handover — Tiếp quản và chạy Biomedical Evidence-Aware Retrieval (BEAR)
 
+> **BEAR2.0.0 đã triển khai:** dùng [v2 runbook](configs/next_round/README.md) và [báo cáo nghiệm thu kỹ thuật](reports/next_round/V2_IMPLEMENTATION.md). N0 inventory đã chạy và blocked_input; N1–N5 backend có fixtures, chưa benchmark thật; adaptive giữ guard.
+
 > Cập nhật: **19/10/2026**. Đây là điểm bắt đầu cho AI tiếp quản nhánh `TXT/`.
 >
 > Mục tiêu: hiểu baseline cũ, phần BEAR đã làm, điều kiện chạy từng bước, cách đọc kết quả và việc cần làm tiếp. Tài liệu này mô tả **code đang có**, phân biệt với phần mới chỉ được đề xuất.
 >
-> **Trạng thái hiện tại: đã có code CPU và kiểm thử bằng fixtures; chưa tái lập baseline hoặc benchmark BEAR trên dữ liệu thật. Việc tiếp theo là nhận đúng snapshot, bind config/hash, rồi chạy R0.**
+> **Kết quả mới do người dùng báo cho bài TXT/BEAR: FINAL `0.3445`, Doc F2 `0.3612`, Chunk F2 `0.3279`.** So với `w045_TF` ngày 15/10, FINAL tăng `0.0003`, Doc F2 tăng `0.0007`, Chunk F2 giữ nguyên ở độ chính xác hiển thị. Đây là kết quả server **REPORTED**; chưa có run/config/hash tương ứng trong checkout để phân tích cơ chế tạo gain.
+>
+> **Trạng thái kỹ thuật local:** code CPU đã được kiểm bằng fixtures; các báo cáo readiness/ledger có sẵn là snapshot trước kết quả mới. Vòng tiếp theo bắt đầu bằng nối provenance và audit mức áp dụng thực tế; reuse baseline đã verified nếu có, chỉ tái lập R0 khi cần. [PLAN v2.0](PLAN.md) là nguồn giao việc, dependency và nghiệm thu N0–N5 hiện hành; [proposal](TXT_Proposal.md) giải thích giả thuyết, handover này hướng dẫn vận hành, [improvement_log.md](improvement_log.md) giữ lịch sử.
 
 ## 1. AI nhận việc cần đọc gì?
 
@@ -13,17 +17,19 @@
 | Thứ tự | Tài liệu | Cần nắm |
 |---|---|---|
 | 1 | File handover này | Trạng thái thực tế, chuỗi chạy, điều kiện chuyển bước và xử lý kết quả. |
-| 2 | [IMPLEMENTATION_STATUS.md](reports/IMPLEMENTATION_STATUS.md), [KNOWN_LIMITATIONS.md](reports/KNOWN_LIMITATIONS.md), [RESULTS.md](reports/RESULTS.md) | Task nào đã có code, task nào chỉ qua fixture, phần thiếu dữ liệu hoặc chưa triển khai. |
-| 3 | [TXT_Proposal.md](TXT_Proposal.md) | Ý tưởng hiện tại: H1–H6, evidence, fixed controls, routing, chunk và thiết kế đánh giá. Ưu tiên các mục 2, 5, 7–13, 17–18. |
-| 4 | [PLAN.md](PLAN.md) | Hợp đồng triển khai. Đọc mục 1–10; dùng mục 11 để chọn task và dependency. |
-| 5 | [HANDOVER cũ](../doc/HANDOVER.md), [CLAUDE.md](../doc/CLAUDE.md) | Baseline w045, pipeline cũ, dữ liệu cần nhận, scoring, định dạng nộp và các quy định dự án đã ghi nhận. |
-| 6 | [EVALUATOR_CONTRACT.md](reports/EVALUATOR_CONTRACT.md), [DECISIONS.md](reports/DECISIONS.md), [RUNBOOK.md](reports/RUNBOOK.md), [DATA_READINESS.md](reports/DATA_READINESS.md) | Phân biệt evaluator/proxy, quyết định kỹ thuật, lệnh hiện có và input còn thiếu. |
+| 2 | [improvement_log.md](improvement_log.md) | Lịch sử kết quả TXT/BEAR, so sánh mốc 15/10, giới hạn bằng chứng và các lần cập nhật kế hoạch. |
+| 3 | [TXT_Proposal.md](TXT_Proposal.md) | Vì sao thử từng hướng: H1–H6, evidence, fixed controls, routing, chunk và thiết kế đánh giá. Ưu tiên các mục 2, 5, 7–13, 17–18. |
+| 4 | [PLAN v2.0](PLAN.md) | Làm gì tiếp: nguồn hiện hành cho task N0–N5, dependency và acceptance. Đọc mục 1–10; dùng mục 11 để chọn task đủ điều kiện. |
+| 5 | [IMPLEMENTATION_STATUS.md](reports/IMPLEMENTATION_STATUS.md), [KNOWN_LIMITATIONS.md](reports/KNOWN_LIMITATIONS.md), [RESULTS.md](reports/RESULTS.md) | Snapshot kỹ thuật T01–T16: phần code đã kiểm bằng fixture, dữ liệu còn thiếu và chức năng chưa triển khai; không phải trạng thái hoàn tất N0–N5. |
+| 6 | [HANDOVER cũ](../doc/HANDOVER.md), [CLAUDE.md](../doc/CLAUDE.md) | Baseline w045, pipeline cũ, dữ liệu cần nhận, scoring, định dạng nộp và các quy định dự án đã ghi nhận. |
+| 7 | [EVALUATOR_CONTRACT.md](reports/EVALUATOR_CONTRACT.md), [DECISIONS.md](reports/DECISIONS.md), [RUNBOOK.md](reports/RUNBOOK.md), [DATA_READINESS.md](reports/DATA_READINESS.md) | Phân biệt evaluator/proxy, quyết định kỹ thuật, lệnh hiện có và input còn thiếu. |
 | Khi cần | [PROGRESS.md](../doc/PROGRESS.md), [METHODS.md](../doc/METHODS.md), [PIPELINE.md](../doc/PIPELINE.md), [SETUP.md](../doc/SETUP.md) | Lịch sử số đo, các hướng đã thua, kiến trúc và môi trường cũ. Đọc mục có ngày/đính chính liên quan, đặc biệt quanh 12–15/10. |
 | Tham khảo lịch sử | [BIOMEDICAL_ADAPTIVE_RETRIEVAL_AGENT_PLAN.md](BIOMEDICAL_ADAPTIVE_RETRIEVAL_AGENT_PLAN.md) | Plan ý tưởng đời trước; không lấy CLI/layout hoặc câu micro F2 trong đó thay hợp đồng mới. |
+| Tham khảo hợp đồng cũ | [PLAN trước N0–N5](archive/PLAN_before_N0_N5_20261019.md) | Bản lưu nguyên trạng kế hoạch T01–T16 và các hợp đồng chi tiết; dùng tra lịch sử triển khai, không chọn task vòng mới từ checklist bootstrap cũ. |
 
-**Cách giải quyết mâu thuẫn:** yêu cầu người dùng → hành vi code thực tế và artifact có nguồn gốc → trạng thái triển khai mới → quyết định trong `TXT/PLAN.md` và `TXT/TXT_Proposal.md` → tài liệu lịch sử. Khác biệt về kết quả phải kiểm tra provenance, không chỉ chọn con số cao hơn.
+**Cách giải quyết mâu thuẫn:** yêu cầu người dùng → hành vi code thực tế và artifact có nguồn gốc → trạng thái triển khai mới → PLAN v2.0 cho task/dependency/nghiệm thu, proposal cho giả thuyết/phương pháp → tài liệu lịch sử. Khác biệt về kết quả phải kiểm tra provenance, không chỉ chọn con số cao hơn.
 
-Một số câu trong proposal/PLAN như “chưa có package BEAR”, “phiên này chỉ lập kế hoạch” mô tả thời điểm soạn tài liệu. Package hiện đã có; xem task ledger và code để biết trạng thái tiếp quản. Các tài liệu cũ nhắc `HANDOVER.md`, `CLAUDE.md` ở root thì tìm trong `doc/`.
+Những câu như “chưa có package BEAR”, “phiên này chỉ lập kế hoạch” trong [PLAN đã lưu](archive/PLAN_before_N0_N5_20261019.md) và tài liệu cũ mô tả thời điểm soạn chúng. Package hiện đã có; PLAN v2.0 đặt công việc N0–N5 trên nền code đó. `reports/RESULTS.md`, `IMPLEMENTATION_STATUS.md` và ledger cũ chưa phản ánh kết quả server mới: đọc chúng để biết phần code được kiểm tại thời điểm ghi, không dùng câu “fixture-only/chưa có kết quả thật” trong đó để phủ nhận kết quả TXT/BEAR người dùng đã báo. Các tài liệu cũ nhắc `HANDOVER.md`, `CLAUDE.md` ở root thì tìm trong `doc/`.
 
 ## 2. Bài toán và hướng BEAR hiện tại
 
@@ -32,12 +38,12 @@ Với mỗi query tiếng Việt, hệ thống chọn document và các đoạn 
 Chuỗi nghiên cứu cần giữ:
 
 ```text
-Đúng snapshot + baseline/evaluator readiness
-  → Frozen pool + query concepts + exact/local evidence (L0)
-  → Nhãn reviewed + fixed evidence (L1) / fixed B–D fusion (F0)
-  → Kiểm tra routing headroom và controls
-  → Adaptive (A1), chỉ khi đủ điều kiện
-  → Full inference + integrity + package
+N0 Provenance của kết quả mới + baseline parity sẵn có hoặc tái lập khi cần
+  → N1 Audit feature coverage, mức áp dụng, fallback và thay đổi doc set
+  → N2 Fixed body/local evidence; N3 C1 rồi C2 trên nhánh chunk độc lập
+  → N4 F0 đã verified B/D, rồi O0/H3 và controls; adaptive chỉ khi qua gate
+  → N5 Chọn candidate hoặc tổ hợp trên dev, freeze, một lần holdout
+  → Full features + inference + integrity; package/nộp theo yêu cầu
 
 Nhánh riêng có điều kiện: chunk C1/C2/C3, sparse S1/S2, alias/discovery.
 ```
@@ -59,19 +65,35 @@ V1 chỉ sort/select **VI lane**, giữ nguyên vị trí và doc của non-VI b
 
 ## 3. Baseline cũ và cách chấm cần kế thừa
 
-### 3.1. Snapshot phải tái lập
+### 3.1. Baseline lịch sử và kết quả TXT/BEAR mới
 
 | Thuộc tính | Giá trị bàn giao — REPORTED |
 |---|---|
 | Run/ngày | `w045_TF`, 15/10/2026 |
 | Doc F2 / Chunk F2 / FINAL | `0.3605 / 0.3279 / 0.3442` |
+| Doc precision / recall | `0.1884 / 0.6047` |
+| Chunk precision / recall | `0.1931 / 0.4573` |
 | Legacy doc fingerprint | `c1e068422e5f` |
 | Legacy chunk fingerprint | `fd07f9fc029a` |
 | Kích thước submission | Đủ query ID 1–1200; 200 doc/query |
 | Corpus/chunk | Đúng `corpus_new.sqlite` đã clean, chunk bằng offset, khoảng 900 token |
 | Calibration | **`scripts/val_calib.py` và beta 8 hệ số của snapshot** |
 
-`TXT/manifests/baseline.json` hiện là `not_reproduced`, `observed_metrics=null`, `observed_fingerprints=null`. Tái tạo đúng fingerprint xác nhận artifact parity; không có nghĩa đã chạy lại server và đo lại điểm leaderboard.
+Nguồn baseline: [doc/HANDOVER.md](../doc/HANDOVER.md) và các mục w045/T2/TF trong [doc/PROGRESS.md](../doc/PROGRESS.md), quanh dòng 2623–2631. w045_TF giữ nguyên tập doc w045, nên kế thừa doc precision/recall trên.
+
+| Chỉ số | w045_TF 15/10 — REPORTED | TXT/BEAR mới — REPORTED | Δ tuyệt đối |
+|---|---:|---:|---:|
+| FINAL | 0.3442 | 0.3445 | +0.0003 |
+| Doc F2 macro | 0.3605 | 0.3612 | +0.0007 |
+| Chunk F2 macro | 0.3279 | 0.3279 | 0.0000 |
+| Doc precision | 0.1884 | 0.1886 | +0.0002 |
+| Doc recall | 0.6047 | 0.6065 | +0.0018 |
+| Chunk precision | 0.1931 | 0.1926 | −0.0005 |
+| Chunk recall | 0.4573 | 0.4585 | +0.0012 |
+
+Người dùng xác nhận đây là điểm bài TXT/BEAR. Chấp nhận attribution này; phần cần nối ở N0 là ID bài/run, config/code/input hashes, phạm vi query và scoring output. Gain hiển thị đến từ document; chunk đang đổi precision lấy recall và chưa tăng F2. Chưa có per-query comparison để khẳng định gain ổn định, hoặc quy gain cho H1/H2/H3 hay một cơ chế cụ thể. Nếu cùng scorer/query set và 200 doc/query, chỉ đổi thứ tự cùng tập doc không tạo doc F2 gain.
+
+`TXT/manifests/baseline.json` trong snapshot local cũ là `not_reproduced`, `observed_metrics=null`, `observed_fingerprints=null`; nó chưa được cập nhật từ run mới. Nếu đã có baseline artifact verified đúng snapshot/hashes thì reuse và ghi nguồn; chỉ chạy lại R0 khi artifact thiếu, parity chưa xác minh hoặc có mismatch. Tái tạo đúng fingerprint xác nhận artifact parity; không có nghĩa đã chạy lại server và đo lại điểm leaderboard. Không gán fingerprints w045 cho run TXT/BEAR mới.
 
 Legacy chunk fingerprint chỉ hash text theo thứ tự, không gồm doc_id/offset; vì vậy luôn kiểm integrity/provenance cùng fingerprint, không dùng hash đó thay toàn bộ validation.
 
@@ -126,12 +148,12 @@ Chưa xác minh archive này thuộc bài nộp nào hoặc liên kết với w0
 | R0 | `baseline.py`, `reproduce.py` | Có recipe CPU; calibration/chunk parity qua fixture, chưa qua snapshot thật. |
 | Pool/evidence | `pools.py`, `matching.py`, `evidence.py`, `features.py` | Có PLARGE/P200, protected exact matcher, features/shards/L0 và inference. Chưa đo RAM/I/O thật, chưa có global IDF. |
 | Experiment/evaluation | `fusion.py`, `experiments.py`, `tuning.py`, `evaluation.py`, `evaluate_runner.py`, `paired.py` | Có L1/F0 orchestration, annotation export, reviewed labels, paired bootstrap, freeze/holdout guards. |
-| Chunk | `chunk_experiments.py` | C1/C2 mới có pure selectors; chưa có study runner hoàn chỉnh. C3 chưa mở. |
+| Chunk | chunk_experiments.py, chunk_study.py, chunk_evaluation.py | Code2.0 có C1/C2 study/local diagnostic, freeze refs và export selected chunks; C3 chưa mở |
 | Release | `integrity.py`, `release.py` | Có technical validation/package; chưa xuất release thật hoặc promote. |
 
-Ledger T01–T16 trong `reports/IMPLEMENTATION_STATUS.md` là nơi cập nhật tiến độ chi tiết. Adaptive nonzero hiện bị CLI runner chặn dù pure gate logic đã có. Sparse encoder/CLI, discovery, document gate và SPLADE chưa được triển khai để chạy production. Không tự tạo CLI giả hoặc đánh dấu toàn PLAN đã xong.
+Ledger T01–T16 trong `reports/IMPLEMENTATION_STATUS.md` là snapshot tiến độ triển khai trước kết quả mới; đối chiếu với run thực trước khi cập nhật status. Hợp đồng/task T01–T16 gốc được giữ trong [PLAN đã lưu](archive/PLAN_before_N0_N5_20261019.md); công việc vòng tiếp theo dùng N0–N5 trong [PLAN v2.0](PLAN.md), không chuyển trạng thái fixture cũ thành nghiệm thu vòng mới. Adaptive nonzero hiện bị CLI runner chặn dù pure gate logic đã có. Sparse encoder/CLI, discovery, document gate và SPLADE chưa được triển khai để chạy production. Không tự tạo CLI giả hoặc đánh dấu toàn PLAN đã xong.
 
-Đã chạy lại khi soạn handover: **48/48 test BEAR** trong `TXT/tests/` và **10/10 test legacy** trong `tests/test_offline.py` đều qua. Chúng kiểm fixtures/logic, không phải relevance benchmark. `TXT/manifests/code_inventory.json` là inventory lần triển khai trước; đối chiếu hash thực khi tiếp quản, không dùng như chứng cứ run mới.
+Lần triển khai nền ghi nhận48/48BEAR và10/10legacy tests. Code2.0 đã chạy **63/63BEAR +10/10legacy**, gồm15tests v2; vẫn chỉ fixture/logic, chưa relevance benchmark. Code/config/test identities mới ở `TXT/manifests/code_inventory_v2.json`; inventory cũ giữ làm lịch sử.
 
 ## 5. Quy tắc vận hành trước mọi lần chạy
 
@@ -161,7 +183,7 @@ Các job `reproduce/pool/sample/features/run/tune/annotation-export/export` mặ
 
 ## 6. Cần nhận dữ liệu nào và sửa config ra sao?
 
-`data/` hiện chỉ có `.gitkeep`. Readiness ghi thiếu **22 logical roles**; recipe R0 riêng cần **14 roles**. Không chờ đủ qrels/tokenizer mới chạy R0, và không hiểu global audit còn blocked là mọi công đoạn đều bị chặn.
+Snapshot readiness trước kết quả mới ghi `data/` chỉ có `.gitkeep`, thiếu **22 logical roles**; recipe R0 riêng cần **14 roles**. Kiểm lại artifact/run đã dùng cho bài TXT/BEAR trước khi lập danh sách thiếu hiện tại. Không mặc định phải nhận lại mọi input hoặc chạy lại baseline. Không chờ đủ qrels/tokenizer mới chạy R0 nếu việc tái lập cần thiết, và không hiểu global audit còn blocked là mọi công đoạn đều bị chặn.
 
 Nhận snapshot vào `TXT/inputs/handover/data/`, giữ cây tương đối như gói cũ:
 
@@ -194,7 +216,34 @@ Ghi SHA-256 dạng **64 ký tự hex chữ thường**; output hash mặc địn
 
 ## 7. Trình tự chạy và điều kiện chuyển bước
 
-**Không chạy cả mục này thành một batch bỏ qua lỗi.** Sau mỗi lệnh, kiểm JSON status, `$LASTEXITCODE`, manifest và artifact cần thiết rồi mới sang bước kế. Các lệnh execute bên dưới đã có code nhưng chưa được xác nhận trên dữ liệu thật.
+### 7.1. Vòng tiếp theo N0–N5
+
+Đây là tóm tắt vận hành sau kết quả TXT/BEAR `0.3445`; task, dependency và acceptance chi tiết theo [PLAN v2.0 §11](PLAN.md), lý do nghiên cứu theo [proposal §13](TXT_Proposal.md#13-lộ-trình-triển-khai-và-điều-kiện-chuyển-bước), lịch sử theo [improvement_log.md](improvement_log.md). N0–N5 vẫn là kế hoạch chưa nghiệm thu. Các report/output N0–N5 dưới đây **chưa được tạo**; đường dẫn là đích đề xuất dưới `TXT/reports/next_round/` hoặc `TXT/runtime/next_round/`. Config mới của vòng này đặt trong `TXT/configs/next_round/`, tham chiếu các template đang có; không chỉnh manifest completed để reuse sai hash.
+
+| Mốc | Việc ưu tiên và điều kiện chuyển | Đầu ra dự kiến — chưa tạo |
+|---|---|---|
+| **N0** | Nối score người dùng báo với run/submission/config/code/input hashes, qids và scoring output. Reuse baseline có parity/integrity verified cùng snapshot; chỉ reproduce khi thiếu chứng cứ hoặc mismatch. Giữ riêng điểm REPORTED và parity local. | `TXT/reports/next_round/N0_provenance_v1.md`; `TXT/runtime/next_round/N0_v1/provenance.json` |
+| **N1** | Audit features thực có và đường áp dụng/fallback, rồi đếm ranking/docset thay đổi thực so reference. Sample100 có freeze dùng cho chẩn đoán; audit full1200 khi có artifact toàn tập. Thiếu full features thì chỉ đề xuất full run sau khi biết bottleneck/cost, không ngoại suy gain hay runtime bằng nhân 12, không ép routing. | `TXT/reports/next_round/N1_application_audit_v1.md`; bảng per-query dưới `TXT/runtime/next_round/N1_v1/` |
+| **N2** | Đo fixed body L1 so local L4 trong **cùng PLARGE/pool/labels/query set/chunk policy**. Giữ λ `[0,0.02,0.05,0.10,0.20,0.35]`, λ0/reference và non-VI slots; combined tune L1_L4 có12registered trials. Chỉ kết luận trong judged scope. | `TXT/reports/next_round/N2_fixed_evidence_v1.md`; trials/ledger dưới `TXT/runtime/next_round/N2_v1/` |
+| **N3** | Pilot chunk độc lập: **C1 trước, C2 sau** với doc set/order, corpus/chunk boundaries và allocation đóng băng; đổi selector để tách cơ chế. Kiểm mapping và score coverage theo tầng, gồm extra VI nếu có. Không gộp gain C1/C2 hoặc đổi allocation trong cùng ablation. | `TXT/reports/next_round/N3_chunk_pilot_v1.md`; C1/C2 outputs dưới `TXT/runtime/next_round/N3_v1/` |
+| **N4** | Chỉ chạy F0 khi B/D source family, ranks và features đã verified. Sau fixed endpoints mới O0/H3, E(q)–utility, best constant, query-only và shuffled-E controls. Adaptive cần qua gate và runner đã hoàn thiện; thiếu headroom thì giữ fixed. | `TXT/reports/next_round/N4_routing_controls_v1.md`; trials/controls dưới `TXT/runtime/next_round/N4_v1/` |
+| **N5** | So các candidate hoặc tổ hợp **trên dev** bằng primary metric cùng scope, kiểm tương tác và cost rồi chọn **một** candidate chính; freeze trước **một lần** holdout. Không so ΔP trực tiếp với local LCS để chọn nhánh. Sau đó mới full features/inference và integrity cho candidate đã chốt. Không mở holdout riêng cho từng nhánh, không tự submit. | `TXT/reports/next_round/N5_confirmation_v1.md`; frozen/full/integrity outputs dưới `TXT/runtime/next_round/N5_v1/` |
+
+**Checklist N1 cần ghi thành số đo:**
+
+- Planned/effective qids, sample/full scope và hashes; pool size/cap, extra VI thực có, source provenance, frozen non-VI slots và eligibility theo query.
+- Số query/pair có concepts, body/local evidence hợp lệ; unavailable theo nguyên nhân và no-match/zero riêng. Đếm feature eligibility riêng với số query thực dùng nonzero evidence và số query fallback reference; ghi effective mode/weight, không dùng số dòng output làm mẫu số áp dụng BEAR.
+- Với cùng reference, đếm query đổi thứ tự, đổi top-40, đổi tập top-200; added/removed VI per-query và tổng. Giữ cả query đủ feature nhưng ranking không đổi và query không eligible để thấy cơ chế đang tác động ở đâu.
+- Với added/extra VI, đếm body/chunk refs verified, dense/Qwen scores có sẵn, missing/not-scored, selector fallback và allocation eligibility. Có feature document không đồng nghĩa chunk đã được chọn bằng score hoặc có chunk hợp lệ.
+- Ghi prediction/code/config/input/feature hashes và threshold/weight thực; phân biệt sample100 features với full1200 predictions. Báo cost đã đo trên scope thật; chưa đo thì ghi chưa đo. Không cưỡng ép routing để làm tỷ lệ áp dụng trông cao hơn.
+
+**N2 code2.0:** tune hỗ trợ L1/L4/L1_L4/F0; dùng configs/next_round/tune_body_local_v2.json + menus_v2.json để tạo đủ12body/local trials. evaluation_config=null chưa chọn best; bind reviewed dev evaluation trước scoring. Judgments phải phủ union differences mọi trials, cùng pool/query/chunk policy.
+
+**N3/N5 code2.0:** chunk-study giữ actual slots/doc/order; evaluate-chunks đo local_passage_recall, freeze bind records/refs và yêu cầu records hash trong dev report; release giữ selected chunks. Đây là local diagnostic, chưa official Chunk F2; snapshot/passages thật còn thiếu.
+
+### 7.2. Lệnh vận hành hiện có theo dependency
+
+Các bước A–H là hướng dẫn thao tác, không phải yêu cầu chạy lại cả pipeline sau điểm mới. Áp dụng chúng cho phần còn thiếu ở N0–N5; các tên config/output cũ là ví dụ có sẵn. Config mới dùng `TXT/configs/next_round/`, runtime dùng `TXT/runtime/next_round/`, report dùng `TXT/reports/next_round/` theo bảng §7.1. **Không chạy cả mục này thành một batch bỏ qua lỗi.** Sau mỗi lệnh, kiểm JSON status, `$LASTEXITCODE`, manifest và artifact cần thiết rồi mới sang bước kế. Khả năng chạy thực phải được kiểm từ run/artifact tương ứng, không suy từ fixtures.
 
 ### Bước A — Kiểm tra môi trường, inventory và readiness
 
@@ -205,11 +254,13 @@ python -B -m TXT.bear.cli audit --config TXT/configs/readiness.json
 python -B -m TXT.bear.cli reproduce --config TXT/configs/reproduce.json --dry-run
 ```
 
-Hai suite dự kiến 48 và 10 tests. Audit ghi `TXT/manifests/inputs.json`, `TXT/manifests/baseline.json`, `TXT/reports/DATA_READINESS.md` theo config. Hiện audit/R0 thiếu input thì exit 1 là dự kiến; tune dry-run chỉ báo menu chứ chưa kiểm được toàn downstream.
+Hai suite được ghi nhận trước đây có 48 và 10 tests; chỉ chạy checks phù hợp khi đổi code hoặc cần xác minh môi trường, không chạy lại tests vì chỉ cập nhật tài liệu. Audit ghi `TXT/manifests/inputs.json`, `TXT/manifests/baseline.json`, `TXT/reports/DATA_READINESS.md` theo config; kiểm đích ghi trước khi gọi để giữ snapshot cũ. Thiếu input thì exit 1 là dự kiến; tune dry-run chỉ báo menu chứ chưa kiểm được toàn downstream.
 
 Sau khi bind snapshot thật, `reproduce --dry-run` cần hết `missing_roles`. `inputs_present_unverified` mới chỉ xác nhận file có mặt, chưa chứng minh schema/hash/parity. Global audit có thể còn thiếu nhãn/tokenizer; ghi rõ dependency nào còn thiếu, vẫn chạy R0 nếu đủ 14 roles đúng snapshot.
 
-### Bước B — Tái lập R0, chưa ZIP
+### Bước B — Reuse baseline verified hoặc tái lập R0 khi cần, chưa ZIP
+
+N0 kiểm baseline artifact/parity report và hashes đã có trước. Nếu đủ, ghi nguồn vào report N0 và đi tiếp; không chạy lại R0 chỉ vì manifest cũ trong checkout chưa cập nhật. Lệnh dưới chỉ dùng khi chưa có baseline verified đúng snapshot hoặc đang giải quyết mismatch.
 
 ```powershell
 python -B -m TXT.bear.cli reproduce --config TXT/configs/reproduce.json --execute
@@ -258,7 +309,7 @@ Output pilot `TXT/runtime/features/uniform_v1/`: `pairs_*.jsonl`, `chunks_*.json
 
 Không có B support thì E(q) chưa dùng được cho routing. E(q) chỉ available khi actual support không rỗng và **tất cả** support docs valid; coverage=0 vẫn valid. Không nâng E bằng cách bỏ các doc thiếu feature khỏi denominator.
 
-Sau L0: báo số query/pair/chunk và feature hợp lệ, runtime, đo RAM/I/O thực; chưa có benchmark thì ghi chưa đo. Partial restart hiện recompute shard, không cam kết skip shard hoàn tất. L0 distributions không chứng minh H1/H2 hoặc relevance gain.
+Sau L0: báo số query/pair/chunk và feature hợp lệ, runtime, đo RAM/I/O thực; chưa có benchmark thì ghi chưa đo. Hoàn tất checklist N1 về **feature eligibility, áp dụng thực và ranking/docset changes** trước diễn giải số đo chất lượng. Partial restart hiện recompute shard, không cam kết skip shard hoàn tất. L0 distributions không chứng minh H1/H2 hoặc relevance gain.
 
 ### Bước E — Tạo fixed trial predictions trên dev
 
@@ -273,7 +324,7 @@ L1 có 6 λ: `[0,0.02,0.05,0.10,0.20,0.35]`, dùng body exact uniform. Output m�
 
 **`tune_l1.json` hiện `evaluation_config=null`: chỉ tạo predictions/ledger diagnostic, không chọn best.** Kiểm λ0 khớp reference; đọc `ranking_details.jsonl` để thấy fallback. Inference vẫn có thể xuất toàn query trong pool dù features chỉ có sample; các query thiếu features fallback reference. Vì vậy đủ 1.200 dòng chưa chứng minh đã áp dụng BEAR toàn tập.
 
-F0 có menu 18 configs trong `menus_v1.json`; chỉ tạo tuning config family F0 khi B/D sources/features đã verified. L2 IDF chưa có, L3 critical cần reviewed provenance, L4 local cần study riêng. Không tự chạy toàn bộ plan cũ E0–E10 hoặc mở rộng grid sau nhìn kết quả.
+F0 vẫn có18configs và cần B/D verified. L4/L1_L4 đã chạy qua tune2.0 trên fixtures với menu sáu λ; L2 IDF/L3 critical là study sau. Không mở rộng grid sau khi nhìn kết quả.
 
 ### Bước F — Annotation dev và chấm tất cả trials
 
@@ -298,7 +349,7 @@ python -B -m TXT.bear.cli compare --baseline-dir TXT/runtime/runs/R0 --candidate
 
 `compare/evaluate` chạy ngay, **không thêm `--execute` hoặc `--dry-run`**. Đọc `evaluation.json`: status, planned/effective queries, missing IDs, per-query delta và paired CI. Mọi added/removed phải có judgment; thiếu một doc cần thiết thì không suy label=0 hoặc chọn best từ subset thuận lợi.
 
-Đoạn delta/CI trên áp dụng cho PLARGE `replacement_delta_p`. Runner hiện chỉ tự thêm paired bootstrap cho metric đó; P200 `precision_at_k` mới trả P@40/per-query values của candidate. Muốn kết luận paired gain/CI P200 phải chấm control và dùng utility paired đúng cùng query/groups, hoặc hoàn thiện runner trước study; không giả định truyền `--baseline-dir` đã tự có ΔP@40/CI.
+Runner2.0 có paired bootstrap cho replacement và precision_at_k/macro_doc_f2 khi cung cấp baseline và đủ control judgments. P200 có paired ΔP@40 đúng query/groups; thiếu labels báo lỗi trước exposure.
 
 Muốn tune có scoring cho đủ menu, tạo **`TXT/configs/tune_l1_scored_v1.json`** từ config tuning cũ: trỏ `evaluation_config` tới dev config đã bind và đổi `output_dir` thành `TXT/runtime/studies/L1_dev_scored_v1`. Chạy:
 
@@ -310,13 +361,15 @@ python -B -m TXT.bear.cli tune --protocol TXT/configs/tune_l1_scored_v1.json --m
 
 ### Bước G — Quyết định có mở adaptive hay giữ fixed
 
-Thực hiện T11 theo PLAN trước A1: B/D endpoints, dev oracle O0/headroom, E(q) bins so với chênh lệch utility, best constant, query-only control và shuffled-E controls seeds `[11,23,37,53,71]`.
+Thực hiện N4 theo PLAN v2.0 §11 trước A1: B/D endpoints, dev oracle O0/headroom, E(q) bins so với chênh lệch utility, best constant, query-only control và shuffled-E controls seeds `[11,23,37,53,71]`. T11 trong [PLAN đã lưu](archive/PLAN_before_N0_N5_20261019.md) là hợp đồng triển khai lịch sử để tra thêm, không phải task mới để chạy lại từ đầu.
 
 Adaptive production hiện bị chặn; muốn chạy phải hoàn thiện phần runner/prerequisite còn thiếu, test phù hợp và cập nhật ledger, không chỉ bật mode trong JSON. Sparse S1/S2 cần checkpoint/revision/API/cost audit; C1/C2 cần mapping/score coverage và study runner; C3 cần budget/allocation study riêng. Thiếu trigger thì giữ backlog. Fixed có thể được confirm độc lập nếu adaptive không có headroom.
 
 ### Bước H — Freeze candidate chính, rồi một lần holdout
 
-Chỉ thực hiện khi primary dev đủ labels và candidate/control đã chọn. Tạo **`TXT/configs/protocol_confirm_v1.json`** từ protocol template, bind `selected_dev_report` là **`evaluation.json` có status available của đúng candidate**; không dùng `selection.json` thay nó. Bind controls, split, thresholds và `cost_ceiling_seconds` thực. Protocol hiện `proposed_not_frozen`, các trường null chưa đủ để freeze.
+Compare bên dưới dùng document metrics. Với chunk candidate dùng evaluate-chunks và local-passage config; freeze2.0 bind selected records/refs và không nhận dev document-only score cho chunk candidate.
+
+Đây là bước freeze/holdout trong N5, chỉ thực hiện sau dev selection: primary dev đủ labels, các nhánh đủ điều kiện trong N2/N3/N4 được so sánh trên dev, tổ hợp được kiểm tương tác và đã chọn một candidate/control chính. Nhánh deferred không chặn chọn fixed/chunk đã được kiểm chứng. Không mở holdout độc lập cho mỗi nhánh rồi chọn winner. Tạo **`TXT/configs/protocol_confirm_v1.json`** từ protocol template, bind `selected_dev_report` là **`evaluation.json` có status available của đúng candidate**; không dùng `selection.json` thay nó. Với vòng mới đặt config version dưới `TXT/configs/next_round/`. Bind controls, split, thresholds và `cost_ceiling_seconds` thực. Protocol hiện `proposed_not_frozen`, các trường null chưa đủ để freeze.
 
 Ví dụ nếu dev chọn `L1_1` trong study scored:
 
@@ -328,7 +381,7 @@ python -B -m TXT.bear.cli freeze --run-dir TXT/runtime/studies/L1_dev_scored_v1/
 
 Annotation holdout dùng config version riêng, `split=holdout`, `frozen_candidate` trỏ file frozen, chỉ liệt kê candidate/controls đã freeze. Nhận nhãn reviewed ở file holdout riêng. Tạo **`TXT/configs/evaluation_holdout_v1.json`** với hashes thật, metric/coverage đúng protocol, `split=holdout`, frozen path và output riêng.
 
-**Trước gọi chấm:** kiểm schema, đủ labels, hashes, metric/k/coverage, candidate/control và contamination bằng quy trình đọc/validate độc lập. `evaluate_runner.py` hiện ghi `holdout_exposure.json` **trước** một số kiểm metric/coverage/qrels; lỗi sau đó vẫn có thể đã tiêu lần mở. Không dùng lệnh holdout để thử config. Không xóa marker để chấm/chọn lại.
+**Trước chấm:** dùng CLI preflight để kiểm config/hashes/coverage/labels/contract; không trả scores hoặc tiêu exposure. Code2.0 exclusive-claim exposure sau validation. Không xóa marker hoặc dùng evaluate thử trước compare; vẫn review contamination theo protocol.
 
 Với PLARGE, gọi **một lần compare** cho candidate chính so R0; không gọi evaluate thử trước:
 
@@ -344,6 +397,7 @@ Trước khi nhìn con số gain, xác nhận: input/hash đúng, run completed,
 
 | Kết quả | Việc cần làm |
 |---|---|
+| Điểm TXT/BEAR mới `0.3445`, tăng `0.0003` so 15/10 | Giữ là REPORTED, nối provenance N0 và audit N1; chưa quy gain cho H1/H2/H3, chưa chọn tiếp một nhánh chỉ từ aggregate score. |
 | Test qua, dry-run hết missing | Chuyển sang execute đúng bước; chưa kết luận chất lượng. |
 | R0 fingerprints lệch | Dừng so BEAR, debug parity, báo sai khác và dependency. |
 | L0 thiếu views/mapping/coverage | Sửa adapter hoặc bổ sung artifact có provenance; version run và chạy lại diagnostics phù hợp. |
@@ -364,20 +418,24 @@ Config/protocol/menu/split/code/input hashes, snapshot, seed
 Pool/scope/language policy; reference và controls
 Evaluator/label policy/coverage; planned và effective queries; contamination
 Tất cả trials, per-query delta, mean/CI, win–tie–loss, subgroup/fallback
+Feature-eligible queries/pairs so với actual applied/fallback queries
+Ranking/top-40/docset changed counts; added/removed VI và extra-VI score/chunk coverage
 Runtime/RAM/I/O/GPU/annotation cost đã đo; trường nào chưa đo
 Integrity/parity, lỗi/missingness và kết quả âm
 Quyết định keep/reject/inconclusive, lý do, bước tiếp và rollback
 ```
 
-Cập nhật `IMPLEMENTATION_STATUS.md`, `RESULTS.md`, `DECISIONS.md`, `KNOWN_LIMITATIONS.md` và handover theo kết quả thật. Giữ lịch sử, không ghi đè report cũ để che trial thua. Nếu có kết quả server mới, lưu liên kết submission/run/hash/config với scoring archive trước khi đổi baseline.
+Cập nhật `IMPLEMENTATION_STATUS.md`, `RESULTS.md`, `DECISIONS.md`, `KNOWN_LIMITATIONS.md` và handover theo kết quả thật khi có artifact tương ứng. Giữ các report/ledger trước điểm mới như snapshot lịch sử; bản cập nhật điểm hiện ở [improvement_log.md](improvement_log.md). Không ghi đè report cũ để che trial thua. Kết quả server được ghi REPORTED ngay khi người dùng cung cấp; nối submission/run/hash/config với scoring output trước khi chứng nhận provenance hoặc đổi baseline kỹ thuật.
 
 ## 9. Khi nào và cách xuất submission?
 
 Technical package và quyết định chọn phương pháp là hai mốc riêng. Không xuất pilot như thể BEAR đã áp dụng đủ tập, không tự upload/promote.
 
-1. R0 đã qua parity và giữ nguyên làm rollback.
+Release2.0 giữ selected C1/C2 records/refs khi candidate_kind=chunk, kiểm same corpus/doc/head/actual slots trước validate/package. Release vẫn cần full1200×200 và đủ14inputs frozen; pilot không thể xuất thành full submission.
+
+1. Baseline verified đã có hoặc R0 đã qua parity, giữ nguyên làm rollback; không yêu cầu reproduce lại nếu chứng cứ sẵn đủ.
 2. Candidate có bằng chứng phù hợp, config/parameters đã freeze. Copy pilot feature config thành **`TXT/configs/l0_full_v1.json`**, đặt `query_ids_path=null`, output mới (ví dụ `TXT/runtime/features/full_v1`). Run config full phải trỏ `feature_manifest` tới manifest mới này và giữ đúng frozen parameters. Không tune lại từ holdout. Đối chiếu subset đã đánh giá vẫn có hành vi tương đương, ghi full run provenance.
-3. Kiểm full ranking đủ 1.200×200, membership/non-VI slots/missing feature/fallback đúng policy. Có 1.200 rows do baseline fallback chưa đủ để chứng nhận full BEAR inference.
+3. Kiểm full ranking đủ 1.200×200, membership/non-VI slots/missing feature/fallback đúng policy. Báo số query có đủ features, actual applied/fallback, ranking/docset thay đổi và score/chunk coverage của extra VI như N1. Có 1.200 rows do baseline fallback chưa đủ để chứng nhận full BEAR inference.
 4. Copy `export.json` thành config release version riêng, bind đúng 14 inputs, corpus/hash và `output_dir` mới. Ví dụ sau khi đã tạo `TXT/configs/run_full_v1.json` và `TXT/configs/export_release_v1.json`:
 
 ```powershell
@@ -413,12 +471,13 @@ Manifest release mặc định `promoted=false`. Ghi fingerprint/SHA-256 package
 
 ## 11. AI tiếp theo nên bắt đầu ngay thế nào?
 
-1. Đọc các nguồn ở mục 1, kiểm dirty state và input hiện có; đừng tạo lại bộ BEAR từ đầu.
-2. Chạy help/tests và R0 dry-run. Nếu chưa nhận dữ liệu, bàn giao **danh sách 14 roles R0 còn thiếu + query/source/label dependency theo bước**, tiếp tục phần adapter/fixture độc lập nếu có task phù hợp.
-3. Khi đủ snapshot, bind paths/hash → audit → R0 execute → parity → pool/sample → smoke2/L0. Sau mỗi mốc cập nhật report bằng số đo thật.
-4. Có L0 hợp lệ mới tạo menu predictions, annotation reviewed và dev selection. Chưa đủ điều kiện thì giữ T11–T15 ở trạng thái deferred tương ứng.
-5. Kết thúc lượt làm việc bằng: đã chạy lệnh nào, output ở đâu, bằng chứng gì, blocker còn lại, quyết định và **bước kế tiếp cụ thể**.
+1. Đọc handover để vận hành, [improvement_log.md](improvement_log.md) để nắm lịch sử, proposal §13 để hiểu hướng nghiên cứu, rồi [PLAN v2.0 §11](PLAN.md) để chọn task/dependency/nghiệm thu N0–N5. Kiểm dirty state và run/artifact hiện có. Ghi nhận kết quả TXT/BEAR đã được người dùng báo; đừng tạo lại bộ BEAR hoặc xem ledger cũ là bằng chứng chưa từng có điểm mới.
+2. Làm **N0**: nối score với run/config/hashes/qids, kiểm baseline verified để reuse. Nếu cần R0 mới kiểm 14 roles, bind/hash và reproduce; lập thiếu hụt theo đúng bước, không mặc định toàn bộ pipeline phải chạy lại.
+3. Làm **N1**: audit features và application/fallback/ranking/docset changes trên phạm vi artifact thật. Phân biệt sample100/full1200, không suy đủ 1.200 rows là đủ BEAR. Ghi extra-VI score/chunk coverage và cost đã đo.
+4. Làm **N2/N3 độc lập** sau readiness của từng nhánh: fixed body/local với sáu λ; C1 rồi C2 với doc set/allocation cố định. N4 chỉ mở khi có N2 và B/D verified, rồi F0/O0/H3/controls. Chưa đủ labels hoặc runner thì ghi thiếu cụ thể; không ép adaptive và không mở rộng grid sau nhìn điểm.
+5. **N5** chọn một candidate hoặc tổ hợp trên dev sau kiểm tương tác, freeze rồi một lần holdout; sau đó full features/integrity. Mọi output mới của vòng tiếp theo dưới `TXT/reports/next_round/` hoặc `TXT/runtime/next_round/`; không tự nộp bài.
+6. Kết thúc lượt làm việc bằng: lệnh thực chạy, output, bằng chứng, blocker, quyết định và bước kế tiếp. Code2.0 đã chạy fixtures/tests/N0 inventory; chưa benchmark thật/GPU/full package/submission. Xem report v2 để phân biệt lịch sử sửa tài liệu với lượt triển khai code.
 
 Prompt ngắn có thể giao cho AI tiếp quản:
 
-> Đọc `TXT/TXT_handover.md` và các file được chỉ dẫn, đối chiếu code/config hiện tại. Tiếp tục task đầu tiên đủ dependency trong `TXT/reports/IMPLEMENTATION_STATUS.md`; mọi file/output mới dưới TXT. Ưu tiên nhận/bind snapshot và tái lập R0 trước benchmark. Không nhầm fixture/proxy với quality gain, không dùng feedback làm qrels, không tự mở holdout, chạy GPU nặng hoặc nộp bài khi chưa đủ điều kiện. Hoàn tất phần được giao và ghi report kết quả/blocker cùng bước tiếp theo.
+> Đọc `TXT/TXT_handover.md` để vận hành, `TXT/improvement_log.md` để nắm lịch sử, `TXT/TXT_Proposal.md` §13 để hiểu hướng nghiên cứu và `TXT/PLAN.md` v2.0 §11 để chọn task/dependency/nghiệm thu N0–N5. PLAN gốc T01–T16 đã lưu tại `TXT/archive/PLAN_before_N0_N5_20261019.md`; ledger kỹ thuật cũ là snapshot, không phải nghiệm thu N0–N5. Người dùng đã báo kết quả bài TXT/BEAR FINAL 0.3445, Doc F2 0.3612, Chunk F2 0.3279; giữ attribution này và nối provenance kỹ thuật ở N0. Reuse baseline verified hoặc reproduce khi thật sự cần, rồi N1 audit feature eligibility so với actual application/fallback và ranking/docset changes, phân biệt sample100/full1200. N2 fixed body/local cùng sáu λ và N3 C1 rồi C2 là hai nhánh độc lập sau readiness. N4 cần N2 và B/D verified, rồi F0/O0/H3/controls; adaptive chỉ khi qua gate. N5 chọn một candidate hoặc tổ hợp trên dev, kiểm tương tác, freeze, một lần holdout rồi full features/integrity. Config mới dưới `TXT/configs/next_round/`, outputs dưới `TXT/reports/next_round/` hoặc `TXT/runtime/next_round/`; tên file dự kiến chưa phải artifact đã có. Giữ report/ledger cũ như snapshot trước điểm mới, không dùng proxy/feedback làm qrels, không tự nộp bài. Ghi bằng chứng, blocker và bước kế tiếp cụ thể.

@@ -1,0 +1,10 @@
+{
+  "feature_manifest": "TXT/runtime/features/uniform_v1/manifest.json",
+  "feature_name": "body_coverage",
+  "lambda": 0.1,
+  "mode": "fixed_evidence",
+  "output_dir": "TXT/runtime/next_round/N2_v1/example",
+  "pool_manifest": "TXT/runtime/pools/plarge_v1/manifest.json",
+  "run_id": "fixed_v2",
+  "schema_version": 1
+}

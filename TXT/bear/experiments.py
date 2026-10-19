@@ -142,6 +142,12 @@ def freeze(run_dir, protocol_path):
     dev = read_json(required_path(protocol["selected_dev_report"]))
     if dev.get("status") != "available" or dev.get("split") != "dev":
         raise SchemaInvalidError("Freeze cần primary dev evaluation hợp lệ")
+    from .contracts import validate_finite_number
+    validate_finite_number(protocol["cost_ceiling_seconds"], "cost_ceiling_seconds", min_val=0)
+    if protocol["cost_ceiling_seconds"] <= 0:
+        raise SchemaInvalidError("Cost ceiling must be positive")
+    if protocol.get("primary_metric") and dev.get("primary_metric") and protocol["primary_metric"] != dev["primary_metric"]:
+        raise SchemaInvalidError("Protocol primary metric differs from selected dev metric")
     candidate = root / "candidates.jsonl"
     if dev.get("candidate_sha256") != sha256_file(candidate):
         raise SchemaInvalidError("Dev selection không thuộc candidate này")
@@ -153,6 +159,22 @@ def freeze(run_dir, protocol_path):
               "controls": [file_identity(p) for p in protocol["controls"]],
               "code": [file_identity(p) for p in code], "selection": file_identity(protocol["selected_dev_report"]),
               "confirmatory_eligible": split["confirmatory_eligible"], "holdout_exposed": False}
+    # Bind the whole candidate, including selector, offsets and selected chunks.
+    if manifest.get("candidate_kind") == "chunk":
+        selected_records = root / "records.json"
+        selected_refs = root / "chunk_refs.jsonl"
+        for item in (selected_records, selected_refs):
+            identity = file_identity(item)
+            if identity not in manifest["artifacts"]:
+                raise SchemaInvalidError("Chunk candidate artifacts not bound to run manifest")
+        if dev.get("records_sha256") != sha256_file(selected_records):
+            raise SchemaInvalidError("Chunk freeze needs selected chunk evaluation, not document-only score")
+    frozen.update(candidate_kind=manifest.get("candidate_kind", "document"),
+                  candidate_manifest=file_identity(root / "manifest.json"),
+                  candidate_artifacts=manifest["artifacts"],
+                  evaluation_contract={key: dev.get(key, protocol.get(key)) for key in (
+                      "primary_metric", "k", "coverage", "label_policy_version", "empty_gold_policy")
+                      if dev.get(key, protocol.get(key)) is not None})
     path = root / "frozen.json"
     if path.exists() and read_json(path) != frozen:
         raise SchemaInvalidError("Candidate đã freeze, không overwrite")

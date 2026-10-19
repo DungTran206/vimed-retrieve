@@ -1,5 +1,7 @@
 # BEAR runbook
 
+**BEAR2.0:** hướng dẫn mới tại [configs/next_round/README.md](../configs/next_round/README.md). Có provenance/application-audit/L1_L4/chunk-study/evaluate-chunks/routing-diagnostics/preflight. Preflight không scores/exposure; evaluate/compare/freeze chạy ngay. Các lệnh nền bên dưới giữ để tra compatibility; trạng thái mới trong report v2.
+
 Chạy từ repo root với Python hiện có. --help không đọc corpus và không import NumPy/pandas/torch.
 CLI tự trỏ temp/model cache vào TXT/runtime khi chạy command; tests cần đặt TEMP/TMP trước.
 

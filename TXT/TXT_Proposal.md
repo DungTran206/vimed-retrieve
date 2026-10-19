@@ -1,14 +1,18 @@
 # TXT Proposal — Biomedical Evidence-Aware Retrieval
 
-> **Mục đích:** đặc tả nghiên cứu và kế hoạch thực nghiệm để cải tiến hệ thống ViMed Retrieval bằng bằng chứng thuật ngữ y khoa, lựa chọn ứng viên và fusion thích ứng theo truy vấn.
+> **Code2.0:** backend CPU và fixtures đã được triển khai sau lần sửa proposal. Các đoạn kế hoạch dưới đây là hợp đồng nghiên cứu; trạng thái thực thi mới nhất ở [báo cáo v2](reports/next_round/V2_IMPLEMENTATION.md). Chưa có benchmark relevance mới.
+
+> **Mục đích:** đặc tả ý tưởng nghiên cứu để cải tiến lựa chọn tài liệu bằng evidence cố định/local và kiểm tra lựa chọn chunk như một nhánh độc lập. Fusion thích ứng theo truy vấn là mở rộng có điều kiện sau khi đo được giá trị của evidence và routing headroom.
 >
-> **Phiên bản:** 1.0 · **Ngày:** 19/10/2026 · **Ngôn ngữ:** tiếng Việt.
+> **Phiên bản:** 1.2 · **Cập nhật:** 19/10/2026 · **Ngôn ngữ:** tiếng Việt.
 >
 > **Đối tượng đọc:** người nghiên cứu, người triển khai và AI coding agent.
 >
-> **Trạng thái:** đề xuất chưa được benchmark. Tài liệu này không tuyên bố BEAR đã vượt baseline và không phải báo cáo kết quả thực nghiệm.
+> **Trạng thái:** người dùng đã báo kết quả nộp của hướng TXT/BEAR: **FINAL 0.3445**, so với **0.3442** của `w045_TF` ngày 15/10. Đây là kết quả **REPORTED**; checkout chưa có manifest/config/hash nối với bài nộp mới để kiểm chứng cơ chế và phạm vi áp dụng. Chưa xác nhận H1–H6 hoặc chọn baseline mới.
 >
-> **Phạm vi thay đổi của lần soạn tài liệu:** chỉ tạo proposal; các bước sửa code, tải dữ liệu, chạy GPU và xuất submission dưới đây là công việc trong kế hoạch.
+> **Bước tiếp theo trên dữ liệu thật:** N0 nối provenance và xác nhận baseline → N1 audit features/fallback/thay đổi đầu ra → N2 fixed body/local và N3 chunk pilot độc lập → N4 routing nếu có headroom → N5 chọn trên dev, freeze và xác nhận một lần. Backend2.0 đã kiểm fixtures và execute N0 inventory, chưa có relevance benchmark mới. Chi tiết tại mục13 và improvement_log.
+>
+> **Hợp đồng triển khai hiện hành:** [PLAN.md](PLAN.md) v2.0 là tài liệu dùng để giao việc, chọn config, dependency, output và điều kiện chuyển N0–N5. Proposal giữ lập luận/giả thuyết và các hợp đồng nghiên cứu; bản PLAN trước N0–N5 được giữ tại [archive/PLAN_before_N0_N5_20261019.md](archive/PLAN_before_N0_N5_20261019.md) để tra lịch sử, không dùng thay kế hoạch hiện hành.
 
 ## Mục lục
 
@@ -26,7 +30,7 @@
 12. [Ma trận thực nghiệm](#12-ma-trận-thực-nghiệm)
 13. [Lộ trình triển khai và điều kiện chuyển bước](#13-lộ-trình-triển-khai-và-điều-kiện-chuyển-bước)
 14. [Hợp đồng dữ liệu và cấu trúc mã nguồn](#14-hợp-đồng-dữ-liệu-và-cấu-trúc-mã-nguồn)
-15. [Cấu hình, thuật toán và lệnh dự kiến](#15-cấu-hình-thuật-toán-và-lệnh-dự-kiến)
+15. [Cấu hình, thuật toán và CLI hiện có](#15-cấu-hình-thuật-toán-và-cli-hiện-có)
 16. [Kiểm thử, tài nguyên và vận hành](#16-kiểm-thử-tài-nguyên-và-vận-hành)
 17. [Quy tắc quyết định và báo cáo](#17-quy-tắc-quyết-định-và-báo-cáo)
 18. [Checklist giao việc cho AI agent](#18-checklist-giao-việc-cho-ai-agent)
@@ -38,9 +42,9 @@
 
 ### 1.1. Lộ trình đọc
 
-- **Người quyết định hướng nghiên cứu:** đọc mục 2–5, 11–13 và 17.
-- **Người triển khai:** đọc toàn bộ, đặc biệt các hợp đồng tại mục 7–10 và 14–16.
-- **AI agent lần đầu nhận việc:** thực hiện checklist mục 18; không suy diễn rằng các module, CLI hoặc artifact được đề xuất đã tồn tại.
+- **Người quyết định hướng nghiên cứu:** đọc kết quả mới tại mục 3.6, kế hoạch N0–N5 tại mục 13, sau đó mục 2–5, 11 và 17.
+- **Người triển khai:** đọc PLAN.md hiện hành và handover trước khi chọn task; dùng mục 7–10 và 14–16 của proposal để hiểu hợp đồng kỹ thuật và ý nghĩa phép thử.
+- **AI agent lần đầu nhận việc:** đọc [TXT_handover.md](TXT_handover.md), [improvement_log.md](improvement_log.md) và checklist mục 18. Package CPU `TXT/bear/` đã có; xác minh từng runner/config và artifact thay vì dựng lại kiến trúc từ đầu.
 
 ### 1.2. Bốn mức độ chứng cứ
 
@@ -72,15 +76,16 @@ Mọi báo cáo sau này phải giữ sự phân biệt này. Một unit test xa
 
 ### 2.1. Ý tưởng cốt lõi
 
-Hệ thống hiện tại đã có nhiều retriever và reranker. Đề xuất này bổ sung khả năng giải thích **tại sao một tài liệu khớp hoặc không khớp các điều kiện quan trọng trong truy vấn y khoa**, sau đó kiểm tra liệu tín hiệu đó có cải thiện lựa chọn tài liệu và đoạn trích hay không.
+Hệ thống hiện tại đã có nhiều retriever và reranker. Ý tưởng cập nhật là dùng evidence bảo toàn thuật ngữ/identifier và vị trí xuất hiện để kiểm tra **tài liệu nào nên được thay vào top-200**, đồng thời kiểm tra riêng **chunk nào nên được chọn trong một doc đã có suất**. Evidence đo độ khớp đã quan sát; nó chưa chứng minh tài liệu trả lời đúng quan hệ, ý định hoặc điều kiện y khoa.
 
-Có ba bước suy luận khác nhau:
+Cần đi qua bốn bước theo thứ tự:
 
-1. **Đo bằng chứng:** tài liệu có chứa đúng bệnh, thuốc, gene, biến thể, phân nhóm hoặc điều kiện mà query yêu cầu không? Các thành phần đó có nằm trong cùng đoạn không?
-2. **Đo giá trị bổ sung:** bằng chứng này có giải thích relevance ngoài những gì BM25, dense, Qwen và baseline rank đã biết không?
-3. **Quyết định cách dùng:** cộng evidence bằng trọng số cố định, dùng để chọn trọng số retriever theo query, hay chỉ áp dụng cho chunk selection?
+1. **Xác định mức áp dụng trước:** nối bài nộp với artifact và đếm query/pair có feature, eligible, fallback, thực sự đổi output. Gain nhỏ có thể đi cùng mức áp dụng thấp, nhưng chưa được ngoại suy nếu chưa có số đếm.
+2. **Đo evidence:** tài liệu có chứa đúng bệnh, thuốc, gene, biến thể, phân nhóm hoặc điều kiện mà query yêu cầu không? Các concept cùng xuất hiện trong một chunk hay rải toàn body? Giữ nguyên corpus/offsets và ghi rõ missing/mapping.
+3. **Kiểm giá trị bổ sung bằng phép thử cố định:** N2 so residual `body_coverage` với baseline và `local_max_all` với body trên cùng PLARGE/menu/ngân sách. N3 độc lập giữ doc set/order/allocation để so existing chunk scores và local evidence với chunk đầu. Hai nhánh không cần adaptive thành công để có giá trị.
+4. **Chỉ mở routing khi có bằng chứng:** sau kết luận fixed body và nguồn B/D verified, kiểm F0/O0, E(q)–Δutility và controls trước khi cân nhắc adaptive. Nếu fixed hoặc chunk selection có ích nhưng gate không có ích, giữ phương án đơn giản đã được chứng minh.
 
-Không bỏ qua bước 2 để đi thẳng tới một gate phức tạp.
+Kết quả TXT/BEAR FINAL **0.3445** là kết quả bài nộp đã được người dùng xác nhận; technical run/config/hash và phạm vi áp dụng còn chưa nối. Nó là điểm xuất phát cho N0/N1, chưa xác nhận một trong hai cơ chế trên hoặc H1–H6. Mọi lựa chọn cuối cùng và interactions dùng dev; N5 freeze một candidate trước một lần holdout.
 
 ### 2.2. Cơ chế trực giác
 
@@ -100,7 +105,7 @@ Vì vậy, gate cần dự báo **lợi thế tương đối giữa các cấu h
 | ID | Giả thuyết | Bằng chứng cần có | Khi nào bác bỏ hoặc tạm dừng |
 |---|---|---|---|
 | H1 | Evidence có thông tin bổ sung ngoài baseline rank và score hiện có. | Fixed residual dùng evidence cải thiện trên holdout; phân tích trong cùng rank/language bins. | Chỉ tương quan toàn cục nhưng mất tín hiệu sau khi kiểm soát rank/ngôn ngữ. |
-| H2 | Local evidence hữu ích hơn chỉ đếm thực thể trong toàn doc. | Title/best-chunk variant vượt full-doc variant dưới cùng ngân sách. | Lợi ích biến mất khi kiểm soát độ dài/số chunk hoặc thấp hơn chi phí. |
+| H2 | Local evidence hữu ích hơn chỉ đếm thực thể trong toàn doc. | Vòng này: `local_max_all` vượt `body_coverage` dưới cùng menu/ngân sách; title/top-2 là ablation có điều kiện sau. | Lợi ích biến mất khi kiểm soát độ dài/số chunk hoặc thấp hơn chi phí. |
 | H3 | Evidence dự báo được khi nào lexical-centric tốt hơn semantic-centric. | Quan hệ ổn định giữa E(q) và chênh lệch utility của hai cấu hình trên dữ liệu chưa tune. | E(q) cao nhưng không dự báo hướng thắng; gate không hơn constant/shuffled control. |
 | H4 | Adaptive fusion vượt fixed fusion mạnh nhất trong cùng điều kiện. | Paired comparison trên holdout, cùng features/pool/rank mapping/tuning budget. | Chỉ thắng fixed yếu, hoặc lợi ích không lặp lại ngoài dev. |
 | H5 | BGE-M3 sparse bổ sung tín hiệu mà các nhánh hiện tại chưa có. | Fixed + sparse vượt fixed không sparse; số tài liệu đúng được thay vào lớn hơn số bị mất. | Chủ yếu lặp phiếu cho BM25/dense và làm hại kết quả. |
@@ -108,13 +113,26 @@ Vì vậy, gate cần dự báo **lợi thế tương đối giữa các cấu h
 
 ### 2.4. Quyết định ưu tiên
 
-**Ưu tiên đầu:** baseline/evaluator readiness → evidence tối giản → fixed controls → adaptive.
+**Ưu tiên vòng tiếp theo:** N0 nối đúng bài TXT đã nộp và baseline → N1 audit phạm vi áp dụng/fallback → N2 fixed body/local evidence trên PLARGE và N3 chunk pilot độc lập. N2/N3 có thể chuẩn bị/chạy song song sau N0/N1 khi prerequisites của từng nhánh đủ; N3 không phải chờ kết luận evidence ở tầng doc. Adaptive chỉ mở sau kết luận fixed body, nguồn B/D verified và kiểm chứng routing headroom/H3.
 
-**Nhánh độc lập:** BGE-M3 sparse được thử khi đủ tài nguyên; không phải điều kiện bắt buộc trước khi kiểm tra gate BM25/dense.
+**Nhánh độc lập:** C1/C2 có thể tận dụng scores/evidence đang có sau readiness. BGE-M3 sparse giữ backlog cho tới khi có bằng chứng giá trị bổ sung và ngân sách; không phải điều kiện trước gate BM25/dense.
 
 **Sau cùng:** dictionary expansion, document-specific gate, discovery toàn kho, SPLADE riêng, fine-tuning.
 
 Một kết quả tốt có thể là fixed evidence thắng nhưng adaptive không thắng. Khi đó giữ fixed evidence và báo cáo trung thực rằng query gate chưa mang lại lợi ích.
+
+### 2.5. Ánh xạ giả thuyết, cơ chế và phép đo
+
+| Giả thuyết | Cơ chế và đối chứng của vòng hiện hành | Phép đo cho phép kết luận |
+|---|---|---|
+| H1 | N2 L1: residual `body_coverage` với sáu λ, so reference λ=0 trên cùng PLARGE và eligibility/fallback. | Macro Doc F2 khi có full gold universe; nếu chỉ có reviewed replacement labels, paired ΔP@200/Δhits với toàn bộ differences đã judged. Kiểm rank/language bins và cost. |
+| H2 | N2 L4: `local_max_all` so L1 body, cùng sáu λ/pool/tuning budget; không đồng thời thêm title/IDF/critical. | Cùng primary metric/query universe với H1; phân tích length/chunk-count bins, headroom và chi phí. Local coverage tăng riêng chưa xác nhận H2. |
+| H3 | N4 sau fixed-body conclusion và B/D provenance: E(q) dự báo Δutility giữa lexical/semantic endpoints đã khóa; so query-only length và shuffled E. Rarity chỉ thêm khi IDF có sẵn và control được đăng ký riêng. | Per-query Δutility theo primary metric đúng scope; quan hệ/dấu thắng ngoài tuning và so controls. E cao trong top BM25 chưa phải endpoint thắng. |
+| H4 | N4 adaptive có điều kiện so best fixed F0 cùng components/pool/rank mapping/tuning budget; N5 mới xác nhận ngoài dev nếu adaptive được chọn. | Cùng primary metric của cả candidate/control, paired estimate/CI, regressions, application/fallback và cost. Không đổi metric để chọn adaptive. |
+| H5 | S1 fixed+sparse so fixed không sparse; giữ backlog tới khi có trigger, cache/revision và budget. | Relevant additions so losses và paired quality metric đúng phạm vi; agreement/diversity không thay nhãn relevance. Không có kết quả H5 trong vòng này nếu chưa mở study riêng. |
+| H6 | N3 C1/C2: existing score/local evidence so chunk đầu, giữ doc set/order, allocation và slots; C1/C2 phải nối runner/export trước execution. | Chunk metric với references cùng query/doc dưới controlled budget. Local LCS còn là diagnostic nếu chưa xác minh tương đương official; không gọi gain do tăng slots là selector gain. |
+
+P200 chỉ đổi thứ tự nên không dùng Doc F2 của cùng 200 doc làm utility. N5 chỉ so/chọn các candidate bằng **cùng primary metric đã đăng ký**, xử lý interactions trên dev rồi freeze; không xếp hạng trực tiếp ΔP@200 với local LCS. Nếu chưa có nhãn hợp lệ cho kết luận tổ hợp, giữ kết quả từng nhánh ở mức tương ứng hoặc chọn một cơ chế chính có guardrails rõ.
 
 ---
 
@@ -122,7 +140,7 @@ Một kết quả tốt có thể là fixed evidence thắng nhưng adaptive kh�
 
 ### 3.1. Baseline được bàn giao — REPORTED
 
-Nguồn chính: [HANDOVER.md](HANDOVER.md).
+Nguồn chính: [HANDOVER ngày 15/10](../doc/HANDOVER.md). Giữ baseline này làm đối chứng/rollback; kết quả mới được ghi riêng tại mục 3.6.
 
 | Thuộc tính | Snapshot 15/10/2026 |
 |---|---|
@@ -164,7 +182,7 @@ VI + ZH
   -> JSON + ZIP
 ~~~
 
-RRF hiện tại dùng rank bắt đầu từ 1, mặc định k=60; tie-break bằng doc_id dạng chuỗi. Đây là thông tin CODE-VERIFIED trong [index/fuse.py](index/fuse.py).
+RRF hiện tại dùng rank bắt đầu từ 1, mặc định k=60; tie-break bằng doc_id dạng chuỗi. Đây là thông tin CODE-VERIFIED trong [index/fuse.py](../index/fuse.py).
 
 ### 3.3. Kết quả lịch sử cần kế thừa
 
@@ -183,7 +201,7 @@ Code silver_gate_test.py và PROPOSAL_ADAPTIVE_FUSION.md không có trong checko
 | Vấn đề | Hệ quả | Công việc trước benchmark |
 |---|---|---|
 | data/ chỉ có .gitkeep. | Chưa tái lập baseline, chưa xác minh schema artifact thật hoặc qrels. | Lấy đúng gói handover, kiểm kê và hash. |
-| scripts/build_best.sh đổi cwd vào scripts/ nhưng các đường dẫn sau đó giả định repo root. | Với layout hiện tại, đường dẫn data/index/submit bị lệch. | Sửa tối thiểu đường dẫn trong readiness task riêng; không đổi thuật toán. |
+| scripts/build_best.sh đổi cwd vào scripts/ nhưng các đường dẫn sau đó giả định repo root. | Với layout hiện tại, đường dẫn data/index/submit bị lệch. | Dùng runner `TXT.bear.cli reproduce` đã có; giữ script legacy làm nguồn recipe. |
 | Handover ghi lệnh ở root nhưng file hiện ở scripts/. | Không copy nguyên lệnh trong handover mà chưa kiểm tra layout. | Ghi lại lệnh chạy đã kiểm chứng. |
 | submit/score.py dùng token overlap 0,5, không giữ thứ tự và không gắn gold info với doc_id. | Chưa tương đương luật LCS 0,40/cùng doc ghi trong PROGRESS. | Giữ tên proxy cho evaluator cũ; xây evaluator mới khi có đặc tả. |
 | tok_vi loại số thuần và token 1 ký tự. | Type 1/type 2 có thể thành cùng token sequence; một số gene/đơn vị bị mất. | Matching evidence có quy tắc riêng; chưa đổi tokenizer baseline trong cùng phép thử. |
@@ -193,6 +211,8 @@ Code silver_gate_test.py và PROPOSAL_ADAPTIVE_FUSION.md không có trong checko
 
 Root val_calib.py còn có biến thể MaxP và beta_m.json. Không thay nó cho scripts/val_calib.py khi tái lập chỉ vì tên file giống nhau.
 
+Package CPU `TXT/bear/` hiện có audit, R0, pool, evidence, fixed inference/tuning, evaluation và export qua fixtures. [IMPLEMENTATION_STATUS.md](reports/IMPLEMENTATION_STATUS.md) mô tả tiến độ kỹ thuật; [RESULTS.md](reports/RESULTS.md) và các giới hạn cũ là snapshot trước khi nhận điểm mới. Việc người dùng đã nộp TXT/BEAR không xác nhận tự động rằng tất cả các runner trong checkout đã chạy trên dữ liệu thật.
+
 ### 3.5. Luật và phiên bản corpus
 
 - CLAUDE.md ghi macro F2; plan cũ có câu ghi micro F2. Proposal chọn **macro làm giả định làm việc theo code/tài liệu dự án**, yêu cầu xác minh bằng đặc tả BTC trước khi gọi evaluator là official-like.
@@ -201,6 +221,37 @@ Root val_calib.py còn có biến thể MaxP và beta_m.json. Không thay nó ch
 - Ngoại lệ vinmec trong filter hiện có là hành vi baseline được ghi nhận; không tự xóa hoặc mở rộng ngoại lệ khi làm parity. Tính hợp lệ hiện hành phải kiểm tra riêng.
 - Theo CLAUDE.md, private chọn query từ cùng 1.200 query đã phát hành. Không mô tả private là một bộ câu hỏi hoàn toàn mới.
 - Theo quy định dự án ghi nhận, mô hình tham gia pipeline/gán nhãn phải đáp ứng giới hạn mô hình mở và các điều kiện cuộc thi. AI agent soạn code/tài liệu không được dùng chính mình làm bộ sinh nhãn hoặc sinh query cho experiment nếu không hợp lệ.
+
+### 3.6. Kết quả TXT/BEAR mới và đánh giá giả thuyết — REPORTED 19/10
+
+Người dùng xác nhận khối điểm dưới đây thuộc bài nộp thực hiện theo handover/idea trong `TXT/`. **19/10 là ngày nhận báo cáo**, chưa biết ngày thực thi/chấm chính xác. Technical run ID, config, submission hash, query coverage và per-query feedback chưa được nối với artifact trong checkout. Không gán kết quả này cho một trong ba ZIP ở root chỉ vì chúng đang có sẵn.
+
+| Metric | `w045_TF`, 15/10 | TXT/BEAR mới | Δ tuyệt đối |
+|---|---:|---:|---:|
+| FINAL_SCORE | 0.3442 | 0.3445 | +0.0003 |
+| DOCS_F2MACRO | 0.3605 | 0.3612 | +0.0007 |
+| CHUNKS_F2MACRO | 0.3279 | 0.3279 | 0.0000 |
+| DOCS_PRECISION | 0.1884 | 0.1886 | +0.0002 |
+| DOCS_RECALL | 0.6047 | 0.6065 | +0.0018 |
+| CHUNKS_PRECISION | 0.1931 | 0.1926 | -0.0005 |
+| CHUNKS_RECALL | 0.4573 | 0.4585 | +0.0012 |
+
+Nguồn P/R baseline: [PROGRESS](../doc/PROGRESS.md), kết quả `w045_zh38w_e120`/`w045_T2` xác nhận cùng doc set và kết quả `w045_TF` cho chunk. FINAL tăng khoảng 0.087% tương đối; mức tăng F2 hiển thị nằm ở doc. Chunk recall tăng và precision giảm, nên F2 bằng nhau ở bốn chữ số **không chứng minh chunk output giống nhau**. Không tính lại macro F2 từ mean P/R, không suy ý nghĩa thống kê khi chưa có paired per-query scores. Chênh lệch do các trường được làm tròn riêng cũng phải được giữ trong diễn giải.
+
+| Giả thuyết | Đánh giá hiện tại | Phép thử tiếp theo |
+|---|---|---|
+| H1: evidence bổ sung ngoài rank/score | Chưa xác nhận; kết quả tổng tăng nhẹ chưa cô lập evidence. | N1 audit application, N2 L1 so λ=0 trên cùng pool; phân tích rank/language bins. |
+| H2: local hơn full-body | Chưa được chứng minh bởi khối điểm này; config L1 mẫu dùng `body_coverage`. | N2 L4 dùng `local_max_all`, cùng menu λ/ngân sách và kiểm soát length/chunk-count. |
+| H3: evidence dự báo lexical thắng semantic | Ưu tiên kiểm tra trước adaptive; E cao trong top BM25 có thể chỉ lặp cơ chế chọn của BM25. | N4 đo quan hệ E(q) với Δutility giữa endpoints đã khóa. |
+| H4: adaptive hơn best fixed | Chưa kiểm chứng; runner hiện chặn adaptive nonzero. | Chỉ mở N4 adaptive sau F0/O0/H3 và controls; không bỏ guard chỉ để chạy. |
+| H5: sparse có tín hiệu mới | Chưa có bằng chứng từ lần nộp này. | Hoãn S1 tới khi có trigger, checkpoint/API/cost audit; không thêm nhánh theo trực giác. |
+| H6: chọn chunk tốt hơn ở tầng chưa dùng scores | Còn đáng pilot; F2 ngang không bác bỏ H6 khi chưa rõ selector của run. | N3 C1 rồi C2, giữ doc set và slot/allocation, đo score coverage/headroom. |
+
+**Rủi ro cần phân biệt với quan sát:** `sample_v1.json` chọn 100 query; `l0_pilot.json` trỏ split đó, còn inference có thể xuất đủ 1.200 query và fallback baseline khi thiếu features. **Nếu** bài nộp dùng nguyên pipeline pilot này, tối đa 100 query có features và ít nhất 1.100 query fallback do thiếu features; số query thực sự thay đổi còn có thể ít hơn. Chưa xác minh run mới dùng cấu hình đó. Không ngoại suy gain gấp 12 lần và không gọi output đủ 1.200 dòng là full BEAR.
+
+Templates run_l1/tune_l1 cũ vẫn là body-only/predictions-only khi evaluation_config=null. Backend2.0 bổ sung tune L4/L1_L4 và C1/C2 study/export/freeze/local diagnostic; không gán điểm R01 cho các module mới vì chưa có provenance tương ứng. Adaptive vẫn gated; không có căn cứ quy R01 cho H1–H6.
+
+**Quyết định:** `inconclusive` về giá trị bổ sung và cơ chế; giữ hướng fixed/local evidence và chunk pilot, giữ `w045_TF` làm rollback. Ghi nhận điểm mới trong [improvement_log.md](improvement_log.md), chưa promote baseline.
 
 ---
 
@@ -801,7 +852,7 @@ Full-corpus discovery chỉ bắt đầu sau pilot có lý do rõ; thành công 
 
 ### 10.1. Baseline thực tế theo code — CODE-VERIFIED
 
-Trong [submit/submission.py](submit/submission.py), với cấu hình handover:
+Trong [submit/submission.py](../submit/submission.py), với cấu hình handover:
 
 | Tầng | Số chunk cơ sở | Cách chọn thực tế |
 |---|---:|---|
@@ -990,7 +1041,7 @@ Fit p(gold) bằng aggregate score là cơ chế baseline được kế thừa, 
 
 ## 12. Ma trận thực nghiệm
 
-Mỗi run phải có experiment ID, hypothesis, parent/control, pool ID, feature version, chunk policy và evaluation source.
+Mỗi run phải có experiment ID, hypothesis, parent/control, pool ID, feature version, chunk policy và evaluation source. Ma trận dưới là danh mục câu hỏi nghiên cứu, gồm cả backlog; các task thực thi vòng hiện hành được giới hạn bởi N0–N5 trong PLAN.md. Có mã thí nghiệm trong bảng không có nghĩa CLI/study runner đã hỗ trợ hoặc study đã được mở.
 
 | ID | Thay đổi chính | Đối chứng trực tiếp | Pool | Kết luận có thể rút ra |
 |---|---|---|---|---|
@@ -1017,21 +1068,22 @@ Mỗi run phải có experiment ID, hypothesis, parent/control, pool ID, feature
 ### 12.1. Thứ tự thực hiện
 
 ~~~text
-R0/R1
-   -> L0
-   -> L1/L2/L3/L4 và F0
-   -> O0 + kiểm tra E dự báo Delta utility
-   -> A1/A2/A3
+N0: provenance + R0/R1 readiness
+   -> N1: L0/application/fallback/output-change audit
+   -> N2: L1 body và L4 local, fixed controls
+   -> N3: C1/C2 độc lập sau N0/N1, giữ doc set/allocation
 
-Sau readiness, có thể làm nhánh riêng:
-   -> C1/C2, giữ doc set
-   -> S1 nếu có tài nguyên; S2 chỉ khi cần
+N2 fixed-body conclusion + B/D provenance
+   -> N4: F0 -> O0/H3/controls -> adaptive nếu đủ điều kiện
 
-Chỉ sau khi có failure mode:
-   -> C3 / X1 / X2
+Candidate/interactions chọn trên dev bằng cùng primary metric
+   -> N5: freeze một candidate -> một holdout -> full features/integrity
+
+Backlog chỉ mở khi có trigger và ngân sách riêng:
+   L2/L3, A2 variants ngoài menu, S1/S2, C3, X1/X2
 ~~~
 
-Không bắt buộc S1 trước A1. Không bắt buộc adaptive thành công mới được giữ một fixed evidence hoặc chunk improvement hữu ích.
+N2/N3 độc lập sau readiness. Code2.0 có L1/L4/L1_L4/F0 tuning, C1/C2 study/export và local-passage diagnostic qua fixtures. Adaptive còn guard; sparse không bắt buộc trước A1; gain fixed/chunk không cần adaptive thành công.
 
 ### 12.2. Chạy trên hai phạm vi
 
@@ -1058,89 +1110,103 @@ Nếu metric không tính được, ghi not_available với lý do; không đi�
 
 ## 13. Lộ trình triển khai và điều kiện chuyển bước
 
-### Phase 0 — Readiness và baseline locking
+### 13.1. Thứ tự vòng tiếp theo sau kết quả 0.3445
 
-**Công việc**
+Mục tiêu vòng này là giải thích mức tăng nhỏ, kiểm tra H1/H2/H6 bằng các thay đổi tách biệt và quyết định có đáng mở H3/H4 không. **N0–N5 là kế hoạch mới, chưa có kết quả thực thi.** Mục này tóm tắt logic nghiên cứu; PLAN.md v2.0 giữ task/dependency/config/output/acceptance criteria dùng để triển khai. Tái sử dụng code/artifact đã xác minh, không dựng lại package hoặc chạy lại job nặng chỉ vì nhận một điểm mới.
 
-- Đọc lại tree, git status và các file hướng dẫn áp dụng.
-- Kiểm kê artifact, model revision, query version và corpus snapshot.
-- Giải quyết lỗi cwd của build script bằng thay đổi tối thiểu.
-- Khóa exact scorer/calibration; không refit beta.
-- Tái lập nếu đủ data, đối chiếu fingerprint legacy và provenance hash mới.
-- Đối chiếu đặc tả macro/chunk với nguồn BTC.
+```text
+N0: nối bài nộp, snapshot và R0 parity
+  → N1: audit applicability, fallback và thay đổi đầu ra
+  → N2: L1 body so L4 local trên PLARGE, nhãn dev reviewed
+  ↘ N3: C1/C2 chunk pilot độc lập, doc set/allocation cố định
 
-**Đầu ra:** baseline_manifest.json, DATA_READINESS.md, EVALUATOR_CONTRACT.md và parity report.
+N2 + B/D provenance → N4: F0/O0/H3/controls → adaptive nếu đủ điều kiện
+Các candidate đủ điều kiện → N5: interactions + chọn trên dev
+  → freeze một candidate chính → một lần holdout → full features/integrity/package
+```
 
-**Điều kiện chuyển:** đã xác định cái gì tái lập được; nếu data thiếu vẫn có thể làm fixtures, nhưng benchmark thật chưa được bắt đầu.
+N2/N3 có thể chạy song song sau N0/N1 và readiness của chính nhánh; N3 không chờ N2 hoặc adaptive. Sparse, IDF, critical weighting, alias, discovery, rechunk và calibration mới giữ backlog trừ khi error analysis chỉ ra trigger riêng. Không đưa tất cả biến thể vào cùng vòng tuning.
 
-### Phase 1 — Feature table và pool contracts
+| Bước | Câu hỏi và đối chứng | Điều kiện hoàn tất | Report dự kiến dưới `TXT/reports/next_round/` |
+|---|---|---|---|
+| N0 | Điểm mới nối về run/submission nào? R0 có đúng snapshot không? | Manifest/hash/config/query/evaluator đã nối, hoặc có danh sách thiếu cụ thể; R0 parity xác minh trước so cơ chế. | `N0_provenance_v1.md` |
+| N1 | Bao nhiêu query/pair có features, đủ điều kiện, fallback, thay order/set/chunk? | Count có mẫu số và per-query ledger; phân biệt thiếu features với features hợp lệ nhưng không đổi đầu ra. | `N1_application_audit_v1.md` |
+| N2 | Body/local evidence có ích ngoài baseline không? | Dev labels đủ mọi required differences của toàn menu, metrics cùng query universe; lưu cả trials thua. | `N2_fixed_evidence_v1.md` |
+| N3 | Scores/evidence chọn chunk có tốt hơn chunk đầu không? | Mapping/score coverage verified; cùng doc set, slot/allocation; metric chunk hợp lệ hoặc ghi diagnostic. | `N3_chunk_pilot_v1.md` |
+| N4 | E(q) có dự báo cấu hình thắng, adaptive có hơn best fixed không? | F0/O0/H3 và controls đủ bằng chứng; thiếu prerequisite thì ghi deferred. | `N4_routing_controls_v1.md` |
+| N5 | Candidate đã chọn có lặp lại gain ngoài dev và xuất đủ tập không? | Freeze một candidate, holdout hợp lệ một lần, full inference coverage và integrity qua; giữ rollback. | `N5_confirmation_v1.md` |
 
-**Công việc**
+Các tên report là **đích dự kiến**, chưa có sẵn. Config mới đặt trong `TXT/configs/next_round/`; runtime theo từng mốc là `TXT/runtime/next_round/N0_v1/`, `N1_v1/`, `N2_v1/`, `N3_v1/`, `N4_v1/`, `N5_v1/`; báo cáo là sáu tên `.md` dưới `TXT/reports/next_round/` trong bảng. Input nhận thêm trong `TXT/inputs/`. Tăng version khi thay config/code/input, không ghi đè completed artifacts. PLAN.md quy định config/child outputs cụ thể trong namespace này; các lệnh A–H trong handover dùng đường dẫn cũ để minh họa thao tác, không tự gán chúng cho run đã nộp. Mỗi mốc append một entry vào [improvement_log.md](improvement_log.md); report chứa chi tiết, log chứa quyết định và đường dẫn/hash.
 
-- Adapter JSONL/SQLite thật.
-- Freeze P200/C_large.
-- Chuẩn hóa ID, rank provenance và availability masks.
-- Ghi actual chunk mapping, scorer coverage và query translations.
+### 13.2. N0 — Nối provenance và xác nhận baseline
 
-**Đầu ra:** feature schema, pool manifest, data diagnostics.
+1. Nhận/pin run manifest, config thực thi, code revision/hash, submission JSON/ZIP SHA-256, scoring feedback liên kết, thời điểm thực thi/chấm và scorer/query universe. Giá trị chưa biết giữ `null` kèm lý do. User đã xác nhận đây là bài TXT/BEAR; không đổi attribution đó thành suy đoán về tên một ZIP local.
+2. Khóa corpus/query/membership, beta 8 hệ số và scorer `scripts/val_calib.py`. Kiểm integrity chunk offsets/doc IDs, 1.200 query × 200 doc nếu đó là scope thực tế. Không refit beta hoặc rechunk để bù dữ liệu thiếu.
+3. Tái sử dụng R0 nếu manifest, input/code hashes và fingerprints đã verified. Nếu chưa có, nhận 14 roles R0 rồi chạy `TXT.bear.cli reproduce` theo handover; không chạy nguyên script bash có lỗi cwd. Đối chiếu doc `c1e068422e5f`, chunk `fd07f9fc029a` và provenance đầy đủ.
+4. Phân biệt artifact parity với tái đo điểm server. Archive root có 600/593 query chưa nối với run không thay thế baseline hoặc kết quả mới.
 
-**Điều kiện chuyển:** join không làm mất/nhân đôi doc; baseline bypass/parity đúng; không có key bị đoán sai.
+**Gate:** có đủ artifact để so cùng scope/scorer; thiếu gì ghi `inconclusive`, vẫn làm phần audit/fixture độc lập nhưng chưa gán gain cho cơ chế. Không cần chạy lại GPU/crawl hoặc nộp lại chỉ để hoàn tất N0.
 
-### Phase 2 — Evidence tối giản
+### 13.3. N1 — Audit mức áp dụng và fallback trước khi tune
 
-**Công việc**
+Đọc config/features/L0/ranking_details/candidates và export refs của run đã nộp so R0. Code2.0 đã có CLI application-audit replay/per-query accounting; vẫn phải bind config R01 thật trước execute.
 
-- Exact protected-span matcher và uniform coverage.
-- Critical spans trong phạm vi có thể xác minh.
-- Title/local chunk evidence.
-- IDF-only như một ablation; chưa cần medical specificity hoặc ontology lớn.
-- Stress tests và kiểm tra lỗi type 1/type 2, identifier, relation mismatch.
+Report phải có:
 
-**Đầu ra:** L0 report, evidence feature table và các case explanation.
+- Số query dự kiến/thực xuất; query có features; số selectable pairs có feature hợp lệ; mapping/concept availability; tỷ lệ đủ điều kiện áp dụng theo **đúng mode** của run. `route_eligible` riêng cho routing, không dùng thay eligibility fixed evidence.
+- Query bypass λ=0; fallback theo từng reason; có features nhưng fallback vì một doc không hợp lệ; applied nhưng order không đổi; applied đổi order; đổi tập doc; đổi chunk. Các nhóm có thể giao nhau nên ghi định nghĩa, mẫu số và query IDs, không cộng máy móc thành một partition.
+- `added/removed` per-query, số extra VI thực sự selectable; frozen non-VI slots; doc-set hash tách order hash. Cùng 200 doc thì Doc F2 không đổi, nên gain Doc F2 đòi kiểm thay tập/số doc hoặc scorer/query universe.
+- Coverage Qwen/chunk-dense/calibration cho doc được thêm: phân biệt not-retrieved với not-scored, thiếu mapping và ngoài vùng support. Giữ beta/fallback đã freeze; không biến thiếu score thành relevance 0 hoặc refit để hợp thức hóa candidate.
+- Với chunk: số doc có nhiều hơn một lựa chọn, native mapping/complete score coverage theo tầng, số slot/chunk thực xuất, token/ký tự, duplicates/overlap và ZIP bytes nếu đã có package.
 
-**Điều kiện chuyển:** feature có semantics rõ, không missing giả thành zero, đủ cost diagnostics.
+Nếu run chỉ có pilot100, report tách full universe và subset đã áp dụng; mọi phân tích gain subset là exploratory khi đã nhìn score. Không đổi seed, không ngoại suy gain ×12. Chưa cần chạy full features chỉ để che coverage thấp. Nếu phải tạo features bổ sung, dùng output version mới và giữ nguyên fallback đã đăng ký; không tắt guard cho đủ 1.200 dòng.
 
-### Phase 3 — Nhãn local và fixed controls
+**Gate:** giải thích được phạm vi áp dụng và đầu ra thay đổi. Nếu pool không có extra VI, chuyển study thành P200 với metric đúng phạm vi hoặc bổ sung deep sources có provenance trong study mới; không gọi đó là PLARGE selection gain.
 
-**Công việc**
+### 13.4. N2 — Kiểm H1/H2 bằng fixed body/local evidence
 
-- Chốt representative/stress sample và splits.
-- Gán nhãn/review theo ngân sách; đo judged coverage.
-- Chạy L1–L4/F0, giữ nguyên chunk policy.
-- Chọn fixed control trên dev; không nhìn holdout để tune.
+**Scope/control:** PLARGE cap400 đã freeze, chỉ VI lane, giữ non-VI slots; reference λ=0 khớp R0. Giữ nguyên corpus, offsets, beta, chunk policy, split và eligibility/fallback. Reviewed labels chỉ đi qua evaluation; không đưa leaderboard feedback, p(gold) hoặc coding AI vào gold.
 
-**Đầu ra:** qrels/annotation ledger, fixed-control report.
+- L1 dùng menu hiện có: `body_coverage`, λ `[0,0.02,0.05,0.10,0.20,0.35]`.
+- L4 vòng này chỉ dùng `local_max_all`, cùng sáu λ và cùng ngân sách tuning với L1; kiểm soát body length/chunk count. Title blend/top2/IDF/critical là ablation sau nếu có trigger, chưa thêm vào menu này.
+- Tune2.0 hỗ trợ L1/L4/L1_L4: sáu body và sáu local_max_all trong menus_v2; evaluation_config=null vẫn chỉ diagnostic. Chọn best chỉ khi đủ primary labels mọi trial trên cùng planned universe.
+- Annotation dev phải phủ union added/removed của mọi trial trong menu L1/L4 trước khi chọn. Primary là paired ΔP@200 khi chưa có full gold universe; nếu có đầy đủ qrels mới dùng macro F2. Planned/effective queries phải giống nhau giữa controls; thiếu labels không chọn subset thuận lợi.
+- Báo mean/paired CI, win–tie–loss, subgroup rank/language/length/chunk count, application/fallback coverage và runtime/RAM/I/O đã đo. Coverage tăng chưa phải relevance tăng; matcher chưa hiểu quan hệ/phủ định.
 
-**Điều kiện chuyển:** có metric hợp lệ hoặc kết luận rõ rằng chỉ đủ proxy; không chuyển sang khẳng định adaptive hiệu quả bằng proxy.
+**Gate:** chọn best fixed trên dev bằng tie rules đã đăng ký, hoặc `reject/inconclusive` có lý do. Không mở holdout riêng cho từng λ, L1 hay L4. `evaluation_config=null` chỉ tạo predictions và không thỏa gate chọn best.
 
-### Phase 4 — Kiểm tra routing rồi adaptive
+### 13.5. N3 — Chunk pilot độc lập để kiểm H6
 
-**Công việc**
+1. Freeze doc set, order, plan/slots và beta của control đã verified; C1/C2 không đồng thời thay doc ranking/allocation/boundaries. Audit tỷ lệ multi-chunk và complete scores ở rank41–120/đuôi trước khi làm runner.
+2. C1 mở rộng `chunk_scores` sẵn có tới các tầng đó. Khi không đủ scores/mapping, dùng fallback chunk đầu đúng protocol và báo coverage. C2 chọn bằng local evidence dưới cùng slots; so C1 và baseline, không gán lợi ích do thêm chunk cho selector.
+3. Code2.0 nối selectors qua chunk-study, kiểm same corpus/doc/order/actual slots, export giữ selected chunks, freeze bind records/refs và records hash của dev report. Evaluate-chunks đo local_passage_recall trên reviewed offset refs; chưa official-equivalent. Không dùng doc ΔP=0 để xác nhận chunk gain; snapshot/passages thật còn thiếu.
+4. Dùng passage references reviewed cùng query/doc và tokenizer/normalizer đã khai báo; local LCS chỉ là diagnostic nếu chưa tương đương official. Giữ cùng số slot/doc và báo cả số chunk thực xuất, token/ký tự, overlap, cost. Thiếu passage refs thì dừng ở coverage/headroom/integrity, chưa chọn best chất lượng.
 
-- O0 trên menu cố định.
-- Phân tích E(q) và Delta utility.
-- Tune menu nhỏ cho A1/A2 trên dev.
-- Freeze và chạy holdout, constant/shuffled controls.
+**Kỳ vọng:** thử rẻ từ cache, không mặc định gain lớn. Lịch sử IDF selector từng thua, chunk-first tại khoảng150 chunk/query chưa hơn rõ; chunk450 từng thua mạnh. C3 allocation, chunk length mới và rerank GPU chỉ mở sau failure analysis/ngân sách riêng.
 
-**Đầu ra:** paired adaptive-vs-fixed report, go/no-go.
+**Gate:** có kết luận H6 đúng phạm vi hoặc `inconclusive`; giữ kết quả âm. Chưa mở holdout riêng nhánh chunk và không tự cộng gain N2 với N3.
 
-**Điều kiện chuyển:** adaptive có lợi ích thực tiễn và bằng chứng ngoài tuning; nếu không, giữ best fixed.
+### 13.6. N4 — F0, H3/oracle và adaptive có điều kiện
 
-### Phase 5 — Nhánh độc lập có điều kiện
+Chỉ làm khi N0/N1 qua, N2 đã có kết luận fixed body (có thể `keep/reject/inconclusive`, không bỏ qua kiểm chứng), có B/D source manifests verified và labels đủ metric đã đăng ký. Nếu N2 còn thiếu label/artifact để trả lời fixed-body question thì N4 giữ deferred thay vì dùng adaptive để vượt dependency. `sources=[]`/`b_family=null` chưa thỏa dependency; mixed `c_blendQB8` không thay thế một family lexical/dense thuần.
 
-- C1/C2: tận dụng chunk_scores/evidence ở tầng chưa dùng.
-- S1: sparse subset và cost report; S2 nếu có lý do.
-- X1/X2: chỉ khi failure analysis chỉ rõ synonym hoặc pool coverage bottleneck.
+1. Chạy menu F0 fixed đã đăng ký (18 configs hiện có), lưu source ranks gốc và reference components. Khóa lexical/semantic endpoints, chọn best constant trên dev bằng cùng pool/components/budget.
+2. O0 đo headroom trong menu cố định theo utility đúng phạm vi. Kiểm E(q) bins dự báo Δutility của lexical so semantic; E cao trong BM25 support chưa chứng minh lexical thắng. Headroom không đáng cost/uncertainty hoặc H3 không có tín hiệu thì defer adaptive và giữ best fixed.
+3. Đăng ký query-only length control, shuffled-E seeds `[11,23,37,53,71]` và constant tốt nhất. Rarity chỉ thêm khi IDF đã có và control được đăng ký trong study riêng, không mở IDF mặc định ở N4. Hoàn thiện T11 orchestration/tests rồi mới mở adaptive nonzero; không chỉ bỏ guard hoặc thay mode trong JSON.
+4. Tune trên dev với menu nhỏ, matched budget; báo cả controls thua/thắng và fallback. Sparse S1/S2 không phải dependency; vẫn giữ backlog nếu chưa có chứng cứ bổ sung.
 
-Mỗi nhánh có control và quyết định riêng; không gộp các gain thành một dự báo FINAL.
+**Gate:** chỉ đưa adaptive vào shortlist N5 khi vượt best fixed công bằng trên dev và controls hỗ trợ routing; kết luận ngoài dev để N5 xác nhận. Không dùng silver oracle cũ làm trần của mọi phương pháp hoặc gold cho gate mới.
 
-### Phase 6 — Tích hợp cuối và submission validation
+### 13.7. N5 — Chọn candidate, xác nhận một lần và chuẩn bị release
 
-- Ghép các thành phần đã được chọn; chạy interaction check vì gain riêng không chắc cộng được.
-- Giữ một bản baseline rollback.
-- Validate full 1.200 query, integer IDs, corpus membership, chunk provenance, ZIP.
-- So official khi được phép và có đủ điều kiện.
-- Hoàn thành report kể cả khi mọi nhánh mới bị reject.
+- Trên dev, so các candidate đủ điều kiện từ N2/N3/N4. Nếu muốn ghép doc/chunk, chạy interaction check cùng controls và metric rõ trước freeze; không cộng các gain độc lập để dự đoán FINAL. Không xếp hạng một candidate bằng ΔP@200 với candidate khác bằng local LCS. Chọn primary metric đúng scope trước khi so; nếu chưa có nhãn để đánh giá tổ hợp, giữ các nhánh ở mức diagnostic hoặc chọn một cơ chế chính cùng guardrails đã đăng ký, chưa tuyên bố tăng FINAL.
+- Chốt **một candidate chính** và controls bằng cùng primary metric trên dev, rồi ghi metric đó trong protocol xác nhận; pin code/config/input/menu/split/label hashes, minimum worthwhile gain, regression tolerance, cost ceiling, tie rules và contamination status trước holdout. Template ΔP@200≥0.005 là đề xuất, không phải ngưỡng FINAL; không so trực tiếp nó với +0.0003 FINAL mới.
+- Chỉ mở holdout một lần cho candidate đã freeze. Code2.0 có preflight không scores/exposure và exclusive claim sau validation. Multi-control trong cùng exposure vẫn cần orchestration riêng. Split exposed/contaminated phải ghi exploratory; không xóa marker/đổi seed để gọi confirmatory.
+- Báo `keep/reject/inconclusive` theo paired evidence/subgroup/cost; không tự promote nhờ điểm tổng nhỏ hoặc unit tests. Giữ `w045_TF` và bản TXT đã nộp làm artifacts lịch sử/rollback riêng.
+- Sau selection, tạo full feature config mới với `query_ids_path=null`, output mới; pin frozen parameters, kiểm inference coverage/applied/fallback và subset behavior trước export. Đủ 1.200 rows do fallback không chứng nhận full BEAR. Hoàn tất 1.200×200 integrity, calibration support, offsets/membership/non-VI slots, package/hash/size nếu xuất.
+- Cập nhật [improvement_log.md](improvement_log.md), reports và handover bằng số đã đo; technical package và quyết định chọn phương pháp là hai mốc riêng. Upload/nộp chỉ khi người dùng yêu cầu và theo quy định hiện hành.
+
+**Definition of Done vòng này:** N0/N1 có audit hoặc blocker cụ thể; N2/N3 có controlled result hoặc dependency rõ; N4 có quyết định go/defer; N5 chỉ complete khi prerequisites thật sự qua. Nếu thiếu dữ liệu, bàn giao bằng chứng và bước tiếp cụ thể thay vì đánh dấu toàn bộ kế hoạch đã chạy.
 
 ---
 
@@ -1160,38 +1226,33 @@ Mỗi nhánh có control và quyết định riêng; không gộp các gain thà
 | submit/score.py | Evaluator proxy lịch sử | Evaluator có contract/phiên bản mới khi xác minh được luật. |
 | utils/audit.py | Corpus/offset checks hiện có | Bổ sung checks cho source artifacts, feature table và submission. |
 
-### 14.2. Layout đề xuất
+### 14.2. Layout hiện có và phần còn thiếu
 
-Không tạo toàn bộ skeleton ngay. Bắt đầu từ adapter, matcher và runner cần cho experiment đầu; tách thêm module khi thực sự dùng.
+Tái sử dụng package trong `TXT/`; không tạo thêm `adaptive_retrieval/` hoặc `experiments/txt_bear/` theo layout ý tưởng cũ. Mọi input mới, config, code, test, report, cache và output tiếp theo vẫn dưới `TXT/`; legacy bên ngoài chỉ đọc.
 
 ~~~text
-adaptive_retrieval/
-  adapters.py
-  matching.py
-  evidence.py
-  fusion.py
-  sparse.py                  # chỉ khi chạy S1
-  chunk_experiments.py       # chỉ khi chạy C1/C2
-
-evaluation/
-  local_qrels.py
-  chunk_lcs.py               # contract đã xác minh mới official-like
-  paired.py
-
-experiments/txt_bear/
-  configs/
-  manifests/
-  reports/
-  cli.py
-
-tests/
-  test_evidence_contract.py
-  test_evaluation_contract.py
-  test_fusion_contract.py
-  test_baseline_integration.py
+TXT/
+  TXT_Proposal.md
+  TXT_handover.md
+  PLAN.md                    # v2.0: hợp đồng triển khai N0–N5 hiện hành
+  archive/                   # PLAN trước N0–N5, chỉ tra lịch sử
+  improvement_log.md          # lịch sử kết quả, đánh giá và quyết định
+  bear/                      # code CPU đã có
+    cli.py, config.py, io.py, artifacts.py, contracts.py
+    adapters.py, audit.py, baseline.py, reproduce.py
+    pools.py, matching.py, evidence.py, features.py, fusion.py
+    experiments.py, tuning.py, evaluation.py, evaluate_runner.py, paired.py
+    chunk_experiments.py, chunk_study.py, chunk_evaluation.py # selectors/study/local diagnostic
+    integrity.py, release.py
+  configs/                   # templates; phải bind đúng paths/hashes
+  inputs/                    # dữ liệu nhận thêm, không dùng làm job output
+  manifests/                 # readiness/baseline/inventory snapshots
+  reports/                   # reports hiện có và các N0–N5 dự kiến
+  tests/                     # fixtures/integration tests hiện có
+  runtime/                   # ignored; run/cache/temp có version
 ~~~
 
-Layout này là PROPOSED, chưa tồn tại. Có thể điều chỉnh theo quy ước repo nhưng phải giữ các hợp đồng và đường baseline.
+L4/L1_L4 đã có family trong code2.0; A1 production vẫn gated, sparse/discovery chưa mở. File/fixture tồn tại không chứng nhận job thật đã chạy; xem report/manifest của đúng run.
 
 ### 14.3. Feature table
 
@@ -1312,7 +1373,7 @@ load_candidates sẽ sort lại theo score. Vì vậy:
 
 ---
 
-## 15. Cấu hình, thuật toán và lệnh dự kiến
+## 15. Cấu hình, thuật toán và CLI hiện có
 
 ### 15.1. Cấu hình tối giản
 
@@ -1412,19 +1473,19 @@ Baseline không được phụ thuộc vào các tham số adaptive null. Dry-ru
 15. Save metrics, paired diffs, cost, missingness and decision report.
 ~~~
 
-### 15.3. CLI dự kiến
+### 15.3. CLI hiện có và giới hạn vận hành
 
-Các lệnh dưới đây là **interface đề xuất**, chưa có trong checkout. Agent phải triển khai rồi kiểm tra help/schema trước khi hướng dẫn người dùng chạy.
+Runner hiện tại là `python -B -m TXT.bear.cli`. Xem help, schema và lệnh theo dependency tại [TXT_handover.md](TXT_handover.md) và [RUNBOOK.md](reports/RUNBOOK.md). Ví dụ đọc giao diện hoặc kiểm dependency:
 
 ~~~powershell
-python -m experiments.txt_bear.cli audit --config <config_path>
-python -m experiments.txt_bear.cli features --config <config_path>
-python -m experiments.txt_bear.cli run --config <config_path>
-python -m experiments.txt_bear.cli evaluate --config <config_path>
-python -m experiments.txt_bear.cli compare --baseline <run_id> --candidate <run_id>
+python -B -m TXT.bear.cli --help
+python -B -m TXT.bear.cli reproduce --config TXT/configs/reproduce.json --dry-run
+python -B -m TXT.bear.cli tune --protocol TXT/configs/tune_l1.json --menu TXT/configs/menus_v1.json --dry-run
 ~~~
 
-Lệnh rebuild đã được sửa đường dẫn và kiểm chứng phải ghi trong baseline report riêng. Không copy lệnh bash cũ như thể script hiện đã sửa.
+Job `reproduce/pool/sample/features/run/tune/annotation-export/export` mặc định dry-run; phải có `--execute` mới thực thi. `audit/evaluate/compare/freeze` chạy ngay và có ghi output, không có dry-run này. `compare` nhận `--baseline-dir`, `--candidate-dir`, `--config`; `export` nhận `--run-dir` và `--config`. Evaluate/compare không có `--execute`. Các ví dụ trên là hướng dẫn, chưa được chạy lại trong lần sửa tài liệu này.
+
+Code2.0 có application-audit/chunk-study/evaluate-chunks/routing-diagnostics/preflight và tune L4/L1_L4; sparse/A1 production chưa mở. Config minh họa §15.1 không phải schema nạp trực tiếp; dùng configs/next_round và config.py. Đổi code/input/config phải version output, không overwrite completed run.
 
 ---
 
@@ -1482,8 +1543,11 @@ Batch đọc SQLite, cache body/features theo doc_id và hash, tránh một kế
 Sau khi có thay đổi code, chạy tests phù hợp và bộ offline hiện có nếu môi trường đủ dependency:
 
 ~~~powershell
-python -m unittest discover tests
+python -B -m unittest discover -s TXT/tests -t . -v
+python -B -m unittest discover -s tests -v
 ~~~
+
+Thiết lập temp/cache dưới `TXT/runtime/` theo handover trước khi chạy tests. Chỉ sửa Markdown thì kiểm diff, số liệu, liên kết và tính nhất quán; không chạy lại benchmark/unit tests như thể có thay đổi thuật toán.
 
 Audit dữ liệu thật chỉ báo pass khi dữ liệu tồn tại và đã thực sự chạy. Không chuyển một test fixture xanh thành trạng thái real-data audit passed.
 
@@ -1560,28 +1624,28 @@ Experiment ID / hypothesis / status
 
 ## 18. Checklist giao việc cho AI agent
 
-### 18.1. Việc đầu tiên khi bắt đầu triển khai
+### 18.1. Việc đầu tiên khi tiếp quản vòng sau 0.3445
 
-- [ ] Đọc proposal này, HANDOVER, CLAUDE và các mục PROGRESS liên quan.
+- [ ] Đọc mục 3.6, ý tưởng mục 2 và tóm tắt N0–N5 mục 13; dùng PLAN.md hiện hành để nhận task/config/dependency, rồi [TXT_handover.md](TXT_handover.md), [improvement_log.md](improvement_log.md) và HANDOVER/CLAUDE/PROGRESS trong `doc/` khi cần.
 - [ ] Kiểm tra hướng dẫn repo, git status; giữ nguyên các thay đổi có sẵn của người dùng.
 - [ ] Không tự tạo toàn bộ kiến trúc hoặc chạy job nặng.
-- [ ] Lập inventory và báo artifact nào thiếu.
+- [ ] Nối bài TXT đã nộp với config/hash/feedback; lập inventory và báo artifact nào thiếu, không phủ nhận kết quả REPORTED vì thiếu local files.
 - [ ] Xác nhận exact baseline scorer/beta, pool và corpus version.
 - [ ] Nêu rõ luật evaluator đã được xác minh tới đâu.
 - [ ] Chọn một phạm vi experiment: P200, PLARGE hoặc chunk-only.
+- [ ] Đếm query/pair có features, đủ điều kiện, fallback và thực sự thay output; kiểm giả thiết pilot100 trước khi tune/full inference.
 
-### 18.2. Deliverables vòng triển khai đầu
+### 18.2. Deliverables vòng tiếp theo
 
-1. DATA_READINESS.md: artifact, schema đã xác minh, blocker cụ thể.
-2. baseline_manifest.json: reported/observed tách riêng; không giả reproduction.
-3. EVALUATOR_CONTRACT.md: macro/chunk rules, phần chưa biết và các test.
-4. Adapter + evidence matcher tối giản, có availability/provenance.
-5. Feature table pilot hoặc explicit missing-data report.
-6. Baseline parity tests và stress tests liên quan.
-7. L0 report; nếu đủ nhãn thì thêm một fixed residual experiment.
-8. Đề xuất next step dựa trên số đo, không tự động chạy hết ma trận.
+1. N0 provenance/parity report: nối kết quả mới, tái sử dụng R0 verified hoặc ghi dependencies để reproduce.
+2. N1 audit: counts theo query/pair, fallback reasons, doc-set/order/chunk changes và coverage của scores/calibration.
+3. N2 fixed body/local ledger với đúng menu, reviewed differences và paired metrics; thiếu labels ghi `inconclusive`.
+4. N3 score/mapping/headroom report; chỉ thêm C1/C2 runner và pilot khi prerequisites qua.
+5. N4 go/defer report cho H3/oracle/controls; không mở adaptive nonzero khi thiếu dependency.
+6. N5 frozen candidate/holdout/full release report chỉ khi đủ điều kiện; không buộc phải tạo package trong vòng thiếu data.
+7. Mỗi mốc append [improvement_log.md](improvement_log.md), giữ kết quả âm, cập nhật handover và reports liên quan bằng số đo thật.
 
-### 18.3. Chưa làm trong vòng đầu
+### 18.3. Ngoài ưu tiên vòng này khi chưa có trigger
 
 - [ ] Không train learned router/reranker mới.
 - [ ] Không full-corpus sparse indexing hoặc crawl thêm.
@@ -1607,17 +1671,19 @@ Experiment ID / hypothesis / status
 
 ### 19.1. Nguồn nội bộ
 
-- [HANDOVER.md](HANDOVER.md): snapshot baseline và artifacts.
+- [TXT_handover.md](TXT_handover.md): vận hành hiện tại, audit và bước tiếp.
+- [improvement_log.md](improvement_log.md): baseline, kết quả TXT/BEAR mới và lịch sử quyết định qua từng vòng.
+- [HANDOVER.md](../doc/HANDOVER.md): snapshot baseline và artifacts.
 - [BIOMEDICAL_ADAPTIVE_RETRIEVAL_AGENT_PLAN.md](BIOMEDICAL_ADAPTIVE_RETRIEVAL_AGENT_PLAN.md): plan BEAR trước đó.
-- [CLAUDE.md](CLAUDE.md): bối cảnh, luật ghi nhận, hạ tầng và đính chính.
-- [PROGRESS.md](PROGRESS.md): lịch sử đo; chú ý ngày 07/10, 12–15/10 và các đính chính.
-- [METHODS.md](METHODS.md): cơ chế/phương pháp lịch sử; không thay thế snapshot mới.
-- [PIPELINE.md](PIPELINE.md): thiết kế pipeline và lịch sử quyết định.
-- [index/fuse.py](index/fuse.py), [index/bm25.py](index/bm25.py), [index/bm25_ent.py](index/bm25_ent.py).
-- [index/dense.py](index/dense.py), [index/dense_chunks.py](index/dense_chunks.py).
-- [query_processing/expand.py](query_processing/expand.py), [query_processing/translate.py](query_processing/translate.py).
-- [scripts/build_best.sh](scripts/build_best.sh), [scripts/val_calib.py](scripts/val_calib.py), [val_calib.py](val_calib.py).
-- [submit/submission.py](submit/submission.py), [submit/score.py](submit/score.py), [utils/audit.py](utils/audit.py).
+- [CLAUDE.md](../doc/CLAUDE.md): bối cảnh, luật ghi nhận, hạ tầng và đính chính.
+- [PROGRESS.md](../doc/PROGRESS.md): lịch sử đo; chú ý ngày 07/10, 12–15/10 và các đính chính.
+- [METHODS.md](../doc/METHODS.md): cơ chế/phương pháp lịch sử; không thay thế snapshot mới.
+- [PIPELINE.md](../doc/PIPELINE.md): thiết kế pipeline và lịch sử quyết định.
+- [index/fuse.py](../index/fuse.py), [index/bm25.py](../index/bm25.py), [index/bm25_ent.py](../index/bm25_ent.py).
+- [index/dense.py](../index/dense.py), [index/dense_chunks.py](../index/dense_chunks.py).
+- [query_processing/expand.py](../query_processing/expand.py), [query_processing/translate.py](../query_processing/translate.py).
+- [scripts/build_best.sh](../scripts/build_best.sh), [scripts/val_calib.py](../scripts/val_calib.py), [val_calib.py](../val_calib.py).
+- [submit/submission.py](../submit/submission.py), [submit/score.py](../submit/score.py), [utils/audit.py](../utils/audit.py).
 
 File biomedical_multilingual_hybrid_retrieval_project.md được plan cũ dẫn chiếu không có trong checkout khi soạn. Proposal này không tuyên bố đã đọc file đó.
 
@@ -1631,6 +1697,6 @@ Các trang ngoài có thể thay đổi. Khi thực nghiệm phải pin revision
 
 ### 19.3. Giới hạn hiện tại
 
-Chưa có corpus/ranking/calibration artifacts thật trong checkout để tái lập. Chưa có qrels đầy đủ hoặc PDF luật chấm gốc để kiểm tra độc lập. Chưa benchmark evidence, sparse hay adaptive mới.
+Checkout chưa có corpus/ranking/calibration artifacts thật để tái lập R0 hoặc manifest nối với bài TXT/BEAR mới. Chưa có qrels đầy đủ hoặc PDF luật chấm gốc để kiểm tra độc lập. Người dùng đã báo điểm server ở mục 3.6; điều đó chưa xác minh application coverage, isolated evidence gain, sparse hay adaptive. Các reports kỹ thuật cũ cần đọc theo thời điểm ghi, không thay cho entry mới trong improvement log.
 
 Mọi công thức, interface và lộ trình mới là thiết kế có thể kiểm chứng. Giá trị của BEAR sẽ được quyết định bởi việc evidence có cải thiện lựa chọn tài liệu/đoạn và có dự báo đúng lợi thế giữa retriever trên dữ liệu ngoài tuning hay không.

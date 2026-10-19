@@ -1,5 +1,20 @@
 # IMPLEMENTATION STATUS — 19/10/2026
 
+## Cập nhật code2.0.0 — N0–N5
+
+Chi tiết tại [V2_IMPLEMENTATION.md](next_round/V2_IMPLEMENTATION.md), lệnh tại [v2 runbook](../configs/next_round/README.md). Đã qua63/63tests BEAR và10/10legacy; chưa benchmark relevance thật.
+
+| Task mới | Trạng thái | Evidence / còn thiếu |
+|---|---|---|
+| N0 | inventory_executed / blocked_input | Provenance CLI ghi18roles thiếu; chưa nối R01 hoặc parity R0 thật |
+| N1 | implemented / fixture_verified | Application replay/flags/accounting; R01 artifacts thật chưa có |
+| N2 | implemented / fixture_verified | Combined L1_L4 chạy12trials fixture; chưa reviewed dev labels để chọn best |
+| N3 | implemented / fixture_verified | C1/C2 native-offset study, local passage evaluator, freeze/export integration; chưa corpus/passages thật |
+| N4 | diagnostics_implemented / production_deferred | Oracle/E bins/length/5shuffles; A1 matched-budget orchestration chưa mở, thiếu B/D và headroom evidence |
+| N5 | implemented / fixture_verified / full_run_blocked | Preflight, exposure-after-validation, paired doc stats, chunk artifacts freeze/release đã kiểm; multi-control exposure/full1200/package chưa chạy |
+
+## Snapshot T01–T16 trước code2.0
+
 Đối chiếu `TXT/PLAN.md`. Không dùng `done` để thay cho dữ liệu hoặc kết quả thực nghiệm chưa có.
 Vòng triển khai này thực hiện nhánh độc lập với dữ liệu theo §1.4, §1.6 và §13.3.
 `fixture_verified` chỉ là kiểm tra kỹ thuật trên dữ liệu tổng hợp nhỏ, không phải benchmark thật.

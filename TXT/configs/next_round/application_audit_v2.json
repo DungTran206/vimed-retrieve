@@ -1,0 +1,9 @@
+{
+  "baseline": "TXT/runtime/runs/R0/candidates.jsonl",
+  "baseline_chunk_refs": null,
+  "calibration_sources": {},
+  "candidate_chunk_refs": null,
+  "output_dir": "TXT/runtime/next_round/N1_v1",
+  "run_dir": "TXT/inputs/handover/R01",
+  "schema_version": 1
+}

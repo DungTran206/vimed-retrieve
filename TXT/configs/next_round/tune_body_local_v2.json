@@ -1,0 +1,9 @@
+{
+  "baseline_dir": "TXT/runtime/runs/R0",
+  "evaluation_config": null,
+  "family": "L1_L4",
+  "output_dir": "TXT/runtime/next_round/N2_v1",
+  "run_config": "TXT/configs/next_round/run_fixed_v2.json",
+  "schema_version": 1,
+  "study_id": "PLARGE_body_local_v2"
+}
