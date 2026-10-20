@@ -1,5 +1,7 @@
 # N0 provenance — kiểm tra checkout, 19/10/2026
 
+> Inventory checkout lịch sử; không là prerequisite chạy lại. N0/N1 đã được nguồn báo1200câu/parity100%/5.5doc đổi. Hướng hiện hành [PLAN v3.3](../../PLAN.md), [BEAR_ALGORITHM](../../BEAR_ALGORITHM.md) xây doc/chunk selector trên0,391; giữ nguyên status/đếm lịch sử bên dưới.
+
 Đã execute inventory bằng BEAR2.0; chưa reproduce baseline hoặc nối R01 với artifact.
 
 Điểm TXT/BEAR do người dùng báo vẫn REPORTED: FINAL0.3445, Doc F2 0.3612, Chunk F2 0.3279.

@@ -2,16 +2,18 @@
 
 Ngày mở sổ: **19/10/2026**. Đọc cùng [TXT_Proposal.md](TXT_Proposal.md) và [TXT_handover.md](TXT_handover.md). Sổ này theo dõi kết quả từng lượt, mức bằng chứng, quyết định và kế hoạch tiếp theo; không thay manifest hoặc báo cáo của từng run.
 
+**Hiện hành20/10/2026:** [PLAN v3.3](PLAN.md) và [BEAR_ALGORITHM](BEAR_ALGORITHM.md) xây thuật toán selected_docs/selected_chunks trên0,391. [Readiness và CPU](reports/EXPERIMENT_READINESS_20261020.md) đã kiểm thật:5input roles thiếu, structured algorithm chưa ready, CPU kernel cũ đã đo. Đọc D06/D07; chưa có relevance gain mới.
+
 ## 1. Quy tắc ghi sổ
 
 - **Chỉ nối thêm lịch sử.** Khi sửa một kết luận hoặc bổ sung provenance, thêm mục mới có `corrects_entry`/`supplements_entry`; giữ nguyên số đã báo và lý do đính chính. Kế hoạch chưa chạy phải ghi `PROPOSED`, không ghi như kết quả.
 - `reported_date` là ngày nhận/bản nguồn báo kết quả; `execution_date` là ngày job chạy; `scored_date` là ngày evaluator chấm. Không suy hai ngày sau từ ngày báo. Lưu timezone nếu có timestamp.
 - `null` nghĩa là chưa biết hoặc chưa có bằng chứng; không thay bằng 0. Phân biệt `not_applicable` với thiếu dữ liệu. Giữ số đầy đủ do nguồn cung cấp; delta từ số hiển thị phải ghi rõ độ chính xác đó.
 - Mỗi lượt gắn một thay đổi chính, parent/control, phạm vi P200/PLARGE/chunk-only, query universe, evaluator và ngân sách. Nếu ghép nhiều thay đổi, ghi là integrated run và không quy toàn bộ gain cho một giả thuyết.
-- Ghi config/menu đã freeze và SHA-256 của config, menu, input, corpus/query/pool/split, code và output. Tên file giống nhau không chứng minh cùng snapshot. Legacy fingerprint chỉ dùng đối chiếu đúng phạm vi hash của nó.
+- Ghi config/menu và định danh artifact thực dùng; bổ sung SHA-256 khi có. Với lượt thử nhỏ, thiếu một trường metadata không buộc chạy lại nghiên cứu đã được báo; giữ `null` và nguồn rõ theo D02. Tên file giống nhau không chứng minh cùng snapshot; legacy fingerprint chỉ đối chiếu đúng phạm vi hash của nó.
 - Lưu cả số query có output, có đủ feature, thực sự được can thiệp, fallback theo nguyên nhân và số query/doc/chunk đổi so với control. Đủ 1.200 dòng output chưa chứng minh BEAR áp dụng trên cả 1.200 query.
 - Nhãn/evaluation cần nguồn và coverage rõ. Điểm tổng người dùng báo không phải qrels. Không biến item chưa judged thành âm tính hoặc dùng feedback để dựng nhãn giả cho inference/gate.
-- Chọn cấu hình trên dev; freeze một candidate và các controls trước một lần xác nhận holdout. Không chọn lại nhánh hoặc threshold sau khi xem holdout. Ghi mọi lần xem và mọi trial thua.
+- Chọn cấu hình trên validation và ghi mọi trial. Nếu có holdout thật chưa xem, freeze candidate/controls trước xác nhận và không chọn lại sau đó. Không gọi 593 câu đã dùng nhiều lượt là holdout sạch hoặc tạo split mới để tuyên bố hết contamination; xem PLAN v3 §10.4.
 - `keep`, `reject`, `inconclusive` là quyết định về chất lượng trong phạm vi đã đo; promote baseline là quyết định riêng, cần bằng chứng và khả năng rollback.
 
 | Mức bằng chứng | Cách hiểu trong sổ |
@@ -19,6 +21,7 @@ Ngày mở sổ: **19/10/2026**. Đọc cùng [TXT_Proposal.md](TXT_Proposal.md)
 | `REPORTED` | Người dùng hoặc tài liệu báo kết quả; chưa tự xác minh toàn bộ artifact/run. |
 | `ARTIFACT_OBSERVED` | Đã đọc artifact xác định; chỉ kết luận trong phạm vi provenance/semantics đã xác minh. |
 | `CODE_VERIFIED` | Đã đối chiếu code hoặc có kiểm thử kỹ thuật; không đồng nghĩa retrieval gain. Khi kế thừa từ báo cáo cũ phải ghi rõ, không nói vừa chạy lại. |
+| `DOC_ONLY` | Chỉ cập nhật kế hoạch/tài liệu; không có phép đo chất lượng, test hoặc submission mới. |
 | `PROPOSED` | Kế hoạch chưa chạy hoặc chưa freeze. |
 | `UNRESOLVED` | Còn thiếu dữ liệu hoặc liên kết cần thiết để kết luận. |
 
@@ -102,7 +105,7 @@ Delta trên tính chính xác từ **các số hiển thị bốn chữ số**. 
 
 Các kiểm tra trên không chứng minh relevance gain hoặc full-data parity. C1/C2 hiện có pure selectors; adaptive runner còn prerequisites; sparse/discovery chưa có study hoàn chỉnh. Báo cáo fixture cũ chưa chứa kết quả R01 được người dùng báo sau đó; giữ hai mức bằng chứng riêng. Không chạy lại tests, benchmark hoặc GPU để tạo entry này.
 
-## 4. Kế hoạch hiện tại sau R01 — PROPOSED
+## 4. Lịch sử kế hoạch sau R01 — PROPOSED ngày 19/10, đã thay bằng PLAN v3
 
 Mọi mốc dưới đây chưa có kết quả nếu chưa được nối bằng entry thực nghiệm. Mỗi study ghi budget/trial menu/cost ceiling và primary metric trước khi chạy. N2/N3 có thể chuẩn bị độc lập sau N0–N1; mọi lựa chọn nhánh và interaction đều dùng dev trước N5.
 
@@ -217,3 +220,213 @@ Việc đồng bộ tài liệu không xác nhận provenance bài nộp, hoàn 
 | Rollback | Giữ recipe/artifacts B00 và R01 riêng; không đổi corpus/beta hoặc promote baseline vì tests xanh |
 
 Token/passage metric mới là local_passage_recall với tokenizer local và official_equivalent=false; không so trực tiếp nó với Doc ΔP hoặc gọi official Chunk F2. Runtime fixtures chỉ chứng minh invariants. Trạng thái N0 partial được lưu bằng manifest/hashes; khi nhận inputs khác phải dùng output version mới, không sửa completed manifest.
+
+## 8. Kết quả và quyết định nhận ngày 20/10/2026
+
+### R02 — L1/L4 trên bài tốt nhất 0,4076
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `supplements_entry` | `R02` / `R01`, `I20`; giữ nguyên các số và diễn giải lịch sử |
+| `recorded_date` / `reported_date` | `2026-10-20` / `2026-10-20` |
+| `execution_date` / `scored_date` | `null` / `null`; không suy từ ngày nhận báo cáo |
+| Mức bằng chứng / nguồn | `REPORTED`; người dùng chuyển kết quả của AI đã chạy thí nghiệm trong hội thoại |
+| Control | Bài tốt nhất được báo **0.4076**; technical run/submission ID và bộ bảy metric `null`. Không đồng nhất với archive local có Doc F2 0.407343155932693 |
+| Phạm vi / ngân sách | Giữ `k_q` từng câu, số doc ZH và chunk toàn body; chỉ xếp lại/chọn làn VI trên pool 400. Không áp mặc định 200 doc/câu |
+| Features / coverage | `full_v1`, coverage được báo **100% / 99,6%**; định nghĩa riêng và mẫu số hai tỷ lệ `null` |
+| Trial menu | L1 và L4, mỗi family sáu λ: `0, 0.02, 0.05, 0.10, 0.20, 0.35`; λ=0 là control |
+| Nhãn | Mọi doc được chọn có nhãn theo nguồn báo; `not_gold` vẫn có khả năng âm giả do điều kiện chunk overlap |
+| Config/code/input/output hashes / query universe | `null`; không dựng thông tin artifact từ lời mô tả |
+| CI / per-query / cost | CI95 được báo chạm 0 hoặc âm; endpoints, per-query deltas, bootstrap settings, runtime/RAM/chi phí `null` |
+| Report | [L1_L4_20261020.md](reports/L1_L4_20261020.md) |
+
+| λ | Δ Doc F2 L1 | Δ Doc F2 L4 |
+|---:|---:|---:|
+| 0 | 0 (control) | 0 (control) |
+| 0.02 | +0.0003 | +0.0004 |
+| 0.05 | +0.0002 | +0.0001 |
+| 0.10 | +0.0003 | +0.0003 |
+| 0.20 | −0.0021 | −0.0018 |
+| 0.35 | −0.0085 | −0.0081 |
+
+**Quyết định:** `reject` các cấu hình L1/L4 đã thử cho việc nộp bài; đóng vòng tuning này. Không đủ bằng chứng về gain ổn định; không suy Δ FINAL từ Δ Doc F2. Bài 0,4076 là control thực nghiệm tiếp theo theo kết quả người dùng báo, không phải promote do fixtures BEAR 2.0.0.
+
+**Giới hạn nhãn:** nguồn báo khoảng 0,5 doc/query là doc đúng bị đưa vào `not_gold` khi không chunk nào overlap ≥ 0,4; chưa biết ID. Ước lượng bias `±0.0002` là số nguồn báo, chưa có sensitivity analysis hoặc bound chứng minh. “Đã có nhãn” không đồng nghĩa mọi nhãn âm chính xác. Không kết luận rằng L1/L4 không thể hữu ích với mọi features/baseline khác.
+
+**Bước tiếp:** chẩn đoán control từ cache theo PLAN v3, chỉ thử một thay đổi khi có headroom. Không mở thêm λ hoặc nộp các point estimate dương rất nhỏ. Giữ nguyên output control và dùng exporter tương thích `k_q`/full body.
+
+### A02 — Kiểm tra nhất quán `val.jsonl` local
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `supplements_entry` | `A02` / `R02` |
+| `recorded_date` / evidence | `2026-10-20` / `ARTIFACT_OBSERVED` |
+| Artifact | [val.jsonl](../val.jsonl) tại root checkout; đường dẫn `data/lb/val.jsonl` là phía người chạy báo, chưa xác nhận cùng snapshot |
+| Query / unique ID | 593 / 593 |
+| Cặp `gold` / `not_gold` | 22.091 / 66.547 |
+| `gold_unseen` | 582 query > 0; tổng 20.186 |
+| Độ lệch `d_q = G − len(gold) − gold_unseen` | 205 query > 0, tổng 305, trung bình 0,5143338954/query; min 0, max 8 |
+| Diễn giải | Kiểm tra trường dữ liệu cùng quy mô với nguồn báo; không chứng minh nguyên nhân chunk-overlap hoặc xác định doc âm giả |
+| Quyết định | Dùng nhãn BTC offline với nguồn/semantics rõ; tách negative mức doc, âm suy từ chunk và unknown. Không coi unknown là âm; không bắt gán tay lại toàn bộ 593 câu |
+| Quality metric / submission mới | `null` / không có |
+
+### D02 — Chuyển sang kế hoạch từ control 0,4076
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `supplements_entry` | `D02` / `R02`, `A02`; cập nhật hướng đi sau D01/I20 |
+| `recorded_date` / evidence | `2026-10-20` / `DOC_ONLY`; các phép thử tiếp theo là `PROPOSED` |
+| Nguồn hiện hành | [PLAN v3](PLAN.md), [proposal](TXT_Proposal.md), [handover](TXT_handover.md), [README](README.md) và [RESULTS](reports/RESULTS.md) |
+| Kết luận được tiếp nhận | N0/N1 đủ 1.200 câu, w045 parity 100%, trung bình 5,5 doc đổi/query là `REPORTED`; không bắt lặp lại. N3 không ưu tiên khi control dùng full body. Routing oracle cũ khoảng 1,5% trên silver là bằng chứng hẹp để hạ ưu tiên, không phải upper bound cho mọi cách định tuyến |
+| Thay đổi kế hoạch | Đóng L1/L4; chẩn đoán control 0,4076 rồi thử một thay đổi từ cache theo PLAN v3 trước khi quyết định stop/go. Không chạy lại L1/L4 hoặc mở rộng grid |
+| Cách ghi metadata | Mẫu log đầy đủ phía trên là khả năng lưu khi có dữ liệu, không phải danh sách thủ tục phải hoàn tất trước mọi phép thử nhỏ. Artifact ở máy người chạy có thể được dẫn từ đó; field chưa biết giữ `null`, không biến thiếu artifact local thành yêu cầu làm lại công việc đã báo |
+| Code / kiểm tra / metric | Phần mềm giữ 2.0.0. Không chạy lại tests hoặc benchmark, không chạy GPU, nén ZIP hoặc submit trong lượt sửa docs. Kết quả 63/63 + 10/10 là kiểm tra lịch sử I20 |
+| Quyết định / rollback | Kế hoạch N0–N5 phía trên là lịch sử; dùng PLAN v3. Nếu probe không có gain đáng tin trong phạm vi nhãn được đánh giá, giữ bài 0,4076 và dừng vòng đó |
+
+Các entry mới tách số nguồn báo, quan sát artifact local và quyết định tài liệu. Không thay nhãn đánh giá bằng output suy luận, không quy score 0,4076 cho phần triển khai TXT chưa benchmark.
+
+## 9. Đổi baseline theo yêu cầu người dùng —20/10/2026
+
+### B01 — Baseline hiện hành Pipeline0,391
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `supplements_entry` | `B01` / `R02`, `D02`; đổi mốc làm việc, không sửa kết quả cũ |
+| Ngày ghi / nguồn | 2026-10-20; người dùng yêu cầu “baseline mới trong file pipeline0,391” |
+| Baseline được chọn | **0.391**; `USER_SELECTED` / `REPORTED`, chưa xác nhận score artifact |
+| Nguồn local | [Pipeline0,391 - Miro.html](<../Pipeline 0,391 - Miro.html>) |
+| Quan sát artifact | `ARTIFACT_OBSERVED`: tên board Pipeline0,391 và đoạn editor “Embed title + 600 kí tự”; bản lưu canvas chưa cung cấp recipe đầy đủ |
+| Full metrics / run ID / ngày chạy-chấm | `null`; không tự gán0.391 là Doc F2, Chunk F2 hay tái tạo FINAL từ nó |
+| Corpus/query snapshot, k, quota, cap, chunk/exporter | Chưa xác nhận; không kế thừa full-body/pool400/calibration từ0.4076 hoặc w045 |
+| Report nguồn | [BASELINE_0391_20261020.md](reports/BASELINE_0391_20261020.md) |
+| Bằng chứng chất lượng mới / submission mới | `null` / không có; đổi baseline không là phép đo regression từ0.4076 |
+| Vai trò0.4076/L1/L4 | Giữ nguyên toàn bộ số ở R02; không chuyển delta hoặc CI sang0.391 |
+
+### D03 — Đồng bộ kế hoạch v3.1 theo baseline0,391
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `corrects_entry` | `D03` / phần “control tiếp theo0.4076” của `D02`; giữ lịch sử D02 |
+| Ngày ghi / trạng thái | 2026-10-20 / `DOC_ONLY`; M0–M3 vẫn `PROPOSED` |
+| Tài liệu hiện hành | [PLAN v3.1](PLAN.md), [proposal](TXT_Proposal.md), [handover](TXT_handover.md), [README](README.md), runbook và các report liên quan |
+| Kế hoạch trước đổi baseline | [PLAN v3 snapshot](archive/PLAN_v3_before_baseline_0391_20261020.md) |
+| M0 | Dùng đúng artifacts/evaluator/recipe pipeline0.391; không lấy λ0/hits/per-query score0.4076 thay control mới; không dựng lại toàn bộ w045 |
+| M1/M2 | Đọc count, policy chunk, ngôn ngữ và cap thật `P0` của0.391. Một họ/tối đa hai candidate; A đổi countVI chỉ khi recipe phù hợp và chưa thử, B mở cap thật nếu có headroom/cache |
+| Invariants | Mọi phần không can thiệp giữ theo baseline0.391 thực có; không mặc định một chunk body/doc hoặc cap400; control phải khớp đúng tập doc/policy mới |
+| Quyết định dừng | Không có gain đáng tin thì `retain_0.391`; không tự mở lại L1/L4 chỉ vì đổi baseline |
+| Code / tests / benchmark | Giữ software2.0.0; không sửa code hoặc chạy benchmark/tests mới trong lượt này |
+
+B01/D03 thay baseline hiện hành, không xóa B00/R01/R02, A02, D01/D02 hoặc I20. Số đo và ngày chạy không có artifact xác nhận tiếp tục để `null`.
+
+## 10. Bổ sung sơ đồ pipeline cho agent —20/10/2026
+
+### D04 — Chuyển hai ảnh Miro thành Markdown
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `supplements_entry` | `D04` / `B01`, `D03` |
+| Ngày ghi / loại thay đổi | 2026-10-20 / `DOC_ONLY`; không sửa code hoặc chạy benchmark |
+| Nguồn | Hai ảnh Miro do người dùng đính kèm trong hội thoại; quan sát trực tiếp nội dung ảnh, chưa đối chiếu run/config |
+| File tạo | [PIPELINE_0391.md](PIPELINE_0391.md), gồm luồng chữ, Mermaid, tham số và phần chưa rõ |
+| VI đọc từ ảnh | BM25F có dấu title×3/tags×2/descr×1.5/body×1; dense đầu bài title+600 ký tự đầu body; dense chunking. Mỗi nguồn top1000; union khoảng2200; RRF k60; lấy300VI |
+| ZH đọc từ ảnh | BGE-M3/Qwen3-8B với queryVI gốc và queryZH dịch bằng Qwen3.5-9B; weights1/1/0.3/0.3; RRF →400 →40ZH. Chưa ghi k RRF nhánh này |
+| Rerank/chọn doc | 300VI+40ZH →Qwen reranker4B →P(Yes)/softmax →MaxP →p̂ →threshold, mục tiêu trung bình160doc/query |
+| Phân biệt cần giữ | 340 là ứng viên trước rerank;160 là trung bình sau threshold. Quota đầu vào không bảo đảm quota đầu ra; “Lấy full” không xác nhận chunk=body |
+| Phần còn thiếu | Threshold/MaxP/phép tính p̂, model revisions, chunk nộp/exporter, paths/config và metric thành phần |
+| Đồng bộ bàn giao | README/handover/PLAN/proposal và report baseline dẫn bản Markdown. Phép thử count phải dùng policy sau rerank/tính p̂, không dùng prefix raw ranking như baseline |
+| Metric / submission mới | `null` / không có; lịch sử L1/L4 trên0.4076 giữ nguyên |
+
+D04 bổ sung thông tin ảnh mà bản HTML canvas trước đó chưa đọc được. Baseline vẫn0.391, software vẫn2.0.0; không tự mở thêm phép thử hoặc thay recipe theo suy đoán.
+
+## 11. Gắn baseline0,391 với ý tưởng BEAR —20/10/2026
+
+### D05 — Kế hoạch3.2: threshold đúng tầng và BEAR phân tích lỗi
+
+| Trường | Giá trị |
+|---|---|
+| `entry_id` / `corrects_entry` / `supplements_entry` | `D05` / menu countVI ở `D03` / `D04`, `B01`; giữ nguyên nội dung lịch sử |
+| Nguồn yêu cầu | Người dùng yêu cầu cải tiến TXT theo baseline và xác nhận ý tưởng là BEAR trong proposal hiện có |
+| Ngày / trạng thái | 2026-10-20 / `DOC_ONLY`; các nghiên cứu mới vẫn `PROPOSED` |
+| Vấn đề được sửa | Kế hoạch cũ thử VIcount×0.85/1.15 và giữ ZH sau lọc; sơ đồ thực có300VI+40ZH trước rerank rồi threshold trên p̂, counts output biến thiên |
+| Phép thử hiện hành | Giữ candidates/scores/MaxP/p̂/chunk, chỉ đổi threshold cuối nếu baseline xác nhận mộtτ₀chung và chưa tối ưu cùng phép thử |
+| Menu hữu hạn | Tối đa2threshold khác control, chọn từ score không dùng nhãn để meanTOTALcounts gần0.85K̄₀/1.15K̄₀. K̄₀ đo thật,160 chỉ là mục tiêu trên ảnh. Không áp hệ số cho VI hoặc từng query |
+| Ý tưởng BEAR được giữ | Bảo toàn identifier/biến thể, evidence cùng ngữ cảnh, quan hệ/intent; audit doc gần threshold bằng span/cờ/mức chắc chắn. Chưa hard-filter, đổi score, coi flags là gold hoặc mở routing |
+| Nhánh BEAR sau này | Chỉ đề xuất pilot cho1loại mismatch có bằng chứng bổ sung ngoài L1/L4; chưa mở trong vòng threshold. Pool/refitcalibration là backlog riêng |
+| Sửa đánh giá | Khi k đổi, delta phụ thuộc hits control g₀; uncertainty của doc giữ nguyên cũng có thể ảnh hưởng. Sensitivity không chỉ xét added/removed;±0.0002 và305không phải bound |
+| Tài liệu / đặc tả | [PLAN v3.2](PLAN.md), [proposal](TXT_Proposal.md), [handover](TXT_handover.md), README/runbook/reports; [JSON tham chiếu](specs/pipeline_0391.json) không chạy CLI |
+| Bản lưu trước cập nhật | [PLAN3.1](archive/PLAN_v3_1_before_threshold_alignment_20261020.md), [proposal3.1](archive/TXT_Proposal_v3_1_before_threshold_alignment_20261020.md) |
+| Code quan sát, chưa liên kết run | Root val_calib.py có --maxp/beta8 hoặc10, nhưng chưa xác minh0.391 dùng recipe đó; không thực thi fit/ghi beta |
+| Software / metric mới | Giữ2.0.0; không sửa code, chạy benchmark/GPU hoặc submit. Gain mới/CI/Chunk/FINAL = null |
+| Quyết định giữ | Nếu không có gain đáng tin hoặc phép thử đã tối ưu, retain_0.391. Không tự chạy lại L1/L4 hay N0/N1 |
+
+D05 cải tiến sự phù hợp giữa baseline, ý tưởng và phép thử. Nó không chứng minh điểm retrieval đã tăng; số thực nghiệm được nối bằng entry riêng khi có run thật.
+
+## 12. Khôi phục mục tiêu thuật toán BEAR —20/10/2026
+
+### D06 — BEAR phải retrieve doc và chunk
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / corrects_entry | D06 / D05; giữ nguyên lịch sử v3.2 |
+| Nguồn đính chính | Người dùng: “BEAR ban đầu là để tạo thuật toán retrieve doc và chunk” |
+| Sai phạm vi được sửa | v3.2 thu hẹp BEAR thành audit và threshold-only; chưa thể hiện đủ mục tiêu thuật toán |
+| Vai trò hiện hành | Retrieval hai tầng: tái dùng candidates/score baseline0,391 →structured evidence →Doc Selector + Chunk Selector →output doc/chunk |
+| Output nghiệm thu | selected_docs và selected_chunks nối được tới submission; flags/report đơn lẻ chưa đủ |
+| Thiết kế | [BEAR_ALGORITHM.md](BEAR_ALGORITHM.md), [proposal3.3](TXT_Proposal.md), [PLAN3.3](PLAN.md) |
+| Công việc tiếp | A0adapter →A1structured evidence →A2doc selection →A3chunk selection →A4ablation/joint |
+| Đối chứng mới | B0baseline, D1doc-only, C1chunk-only, DC1joint; tối đa3candidate mới và1control trong pilot đã khóa |
+| Budget pilot | D1giữ k thực từng query để cô lập thay doc; C1giữ doc set/order/slots/text budget để cô lập chunk selector |
+| L1/L4 | Vẫn đóng cấu hình uniform coverage đã thử trên0,4076; không suy mọi structured evidence/chunk algorithm vô ích hoặc chạy lại tên mới |
+| Audit/threshold | Công cụ kiểm feature và operating point/control phụ; không thay mục tiêu retrieval |
+| Code/gain | Giữsoftware2.0.0; matcher/uniform features/fusion/C1C2scaffolding có sẵn, structured relation/conflict và adapter mới chưa triển khai đầy đủ. Chưa có benchmark/metric/gain mới |
+| Bản lưu | [PLAN3.2](archive/PLAN_v3_2_before_doc_chunk_restore_20261020.md), [proposal3.2](archive/TXT_Proposal_v3_2_before_doc_chunk_restore_20261020.md) |
+| Tính nhất quán | README/handover/runbook/reports/spec được đồng bộ; facts baseline/metrics lịch sử giữ nguyên |
+
+D06 sửa mục tiêu và đặc tả; chưa đánh dấu thuật toán mới đã code xong. Bằng chứng triển khai và quality gain chỉ nối thêm khi thực sự có run/evaluation.
+
+## 13. Chuẩn bị thử nghiệm và tài nguyên —20/10/2026
+
+### D07 — Preflight A0 và benchmark CPU tái lập được
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / supplements_entry | D07 / D06; mục tiêu BEARdoc/chunk giữ nguyên |
+| Bằng chứng | CODE_VERIFIED cho CLI/config/tool phụ trợ; ARTIFACT_OBSERVED cho input inventory và CPU microbenchmark; không phải retrieval quality benchmark |
+| File chuẩn bị | [Preflight template](configs/bear_doc_chunk/preflight_0391.template.json), [readiness report](reports/EXPERIMENT_READINESS_20261020.md), [benchmark tool](tools/benchmark_cpu.py) |
+| Preflight đã chạy | CLIprovenance --dry-run; statusblocked_input, exit1; [JSON thực](reports/bear_doc_chunk_preflight_20261020.json) |
+| Inputs hiện diện | btc_validation:rootval.jsonl,864073byte; tồn tại file không chứng minh mọi labels negative đáng tin |
+| Inputs thiếu | queries, baseline_0391_predictions, candidates_and_cached_scores, corpus, baseline_chunk_policy_and_refs |
+| Code chưa đủ | Structured relation/conflict/evidence mới + adapter/Doc/Chunk runner0,391; oldpool/chunkstudy/export còn fixed200. Không đánh dấu A1–A4xong |
+| Phần code mới | Benchmark utility đo kerneldocument_evidence exact cũ, không sửa corepackage hoặc triển khai thuật toán mới |
+| Môi trường đo | 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz;8logicalthreads;RAM7.8GiB;available0.7GiB lúc đo;Python3.13.1 |
+| Workload synthetic | 8concepts/query,chunk1000char,nooverlap,1thread,3samples×0.65s/scenario;repeatedtext và warmcache |
+| Kernel medians | 4kchar:725.58pair/s;20k:173.63;80k:44.51 |
+| Ngoại suy408000pair | 9.37min / 39.16min / 152.77min theo4k/20k/80kchar;chỉkernel,không fullrun |
+| Scope và giới hạn | [JSON CPU](reports/cpu_kernel_benchmark_20261020.json). Không tính I/O,feature structured mới,selectors,scorer/bootstrap/export hoặc model inference. ETA end-to-end=null |
+| Tài nguyên | CPU được cho nhánh cache+feature nhẹ khi có inputs/code; model/LLM mới hoặc rerunQwen cần dự toán riêng. Không giả toàn bộ BEAR đã CPU-ready |
+| Bước đo tiếp | 20query thật đại diện sau khi adapter/selector hoạt động;streamquery1worker trước/cachefeaturemộtlần cho các ablation |
+| Ngân sách sơ bộ | 1–4giờ fullnhẹ/cacheđầyđủ là lịch dự phòng chưa kiểm, có thể vượt do scorer/memory;không gồm thời gian code và chuẩn bị data |
+| Gain / tests | Relevance metrics mới=null. Không chạy lại63+10tests cũ;toolbenchmark đã được chạy thực thành công |
+| Source và rollback | Không đổi corpus/models/beta/sourceMiro/legacy artifacts;package vẫn2.0.0 |
+
+D07 tách **docs đúng hướng**, **inputs/code chưa ready** và **CPU kernel đã đo**. Không coi một CLI inventory hoặc microbenchmark tổng hợp là runBEARv3.3 thành công.
+
+## 14. Chuẩn bị dùng máy GPU khác —20/10/2026
+
+### D08 — Tách tài nguyên, dữ liệu và phần code còn thiếu
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / supplements_entry | D08 / D06, D07; giữ hướng BEAR retrieve doc/chunk |
+| Nguồn | Người dùng sẵn sàng dùng máy GPU khác; chưa biết card/VRAM/RAM/OS, mô tả cấu hình ổn |
+| Trạng thái | DOC_ONLY; không có GPU connection/model execution mới, hardware chưa kiểm |
+| Tài liệu | [Readiness §7](reports/EXPERIMENT_READINESS_20261020.md#7-máy-gpu-đã-có-còn-thiếu-gì-và-ai-chuẩn-bị), PLAN, README, handover và config README |
+| Dữ liệu cần bàn giao | Query, corpus, output control0,391, pool/score cache, policy/native chunk refs; một nguồn có thể đáp ứng nhiều role |
+| Lý do | Có nội dung để tính evidence, doc thay thế để chọn, control/budget đúng để so và refs để xuất chunk nguyên văn |
+| Trách nhiệm code | Agent triển khai adapter variable-k, structured evidence, Doc/Chunk selectors, runner/evaluator/export; không chuyển việc này thành yêu cầu người dùng cung cấp thuật toán |
+| Nhãn | val.jsonl đã có, không bắt gán tay593câu; official ChunkF2/FINAL còn cần passage judgments/scorer đúng semantics |
+| Tài nguyên | Tái dùng cache khi đủ; GPU dùng cho model mới hoặc cache thiếu. Không khóa A1 vào feature nhẹ chỉ vì local CPU |
+| Môi trường/ETA | Kiểm backend/driver/dependencies/checkpoint khi vào máy; chưa ấn định VRAM/batch/thời gian. Smoke rồi20query thật trước full |
+| Code/software/gain | Core vẫn2.0.0; không thêm runner/feature mới, không chạy benchmark relevance, metric mới=null |
+
+D08 ghi nhận khả năng dùng GPU; không coi tài nguyên đã giải quyết các input/code gaps và không tự mở grid hoặc chạy lại pipeline từ đầu.

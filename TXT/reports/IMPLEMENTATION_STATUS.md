@@ -1,5 +1,9 @@
 # IMPLEMENTATION STATUS — 19/10/2026
 
+> **Báo cáo kỹ thuật lịch sử.** Cập nhật hướng đi 20/10: [PLAN v3.3](../PLAN.md), [baseline 0.391](BASELINE_0391_20261020.md), [L1/L4 lịch sử trên 0.4076](L1_L4_20261020.md). N0/N1 và trials remote đã được người dùng báo; bảng dưới chỉ ghi code/fixtures và inputs checkout khi triển khai. Không dùng cột “thiếu reviewed labels” để cấm nhãn BTC hoặc bắt chạy lại N0/N1. Kiến trúc từ ảnh đã có [Markdown](../PIPELINE_0391.md) và [spec tham chiếu không thực thi](../specs/pipeline_0391.json), chưa liên kết recipe runtime. Lượt docs/spec không thay code 2.0.0, manifests hoặc tests.
+
+**Phạm vi hiện tại:** [BEAR_ALGORITHM](../BEAR_ALGORITHM.md) yêu cầu structured evidence + doc selector + chunk selector. Code2.0 chỉ có nền matcher/features/fusion/chunk scaffolding; chưa triển khai đầy đủ parser/structured conflict/adapter0,391/joint mới. Threshold-only không còn là mục tiêu chính. Các bảng dưới là lịch sử kỹ thuật, không bị sửa thành completed mới.
+
 ## Cập nhật code2.0.0 — N0–N5
 
 Chi tiết tại [V2_IMPLEMENTATION.md](next_round/V2_IMPLEMENTATION.md), lệnh tại [v2 runbook](../configs/next_round/README.md). Đã qua63/63tests BEAR và10/10legacy; chưa benchmark relevance thật.
@@ -63,6 +67,12 @@ Tất cả code/config/test/report mới hoặc sửa nằm dưới TXT. Runtime
 Giữ nguyên các staged renames root→doc và untracked val_calib.py đã có của người dùng; không stage/commit.
 `TXT/manifests/code_inventory.json` chứa SHA256 của code/config/test/doc triển khai; không hash nó vào chính nó.
 
-## Việc cần làm tiếp
+## Bước tiếp theo của snapshot19/10 — đã được PLAN v3.3 thay thế
 
 Nhận đúng handover dưới TXT/inputs/handover, update paths/hash từ file thật → audit → R0 execute (chưa ZIP) → đối chiếu fingerprints → frozen pool → sample/smoke2 → L0 pilot. Sau đó mới annotation/dev/fixed selection. T11–T15 chỉ mở theo trigger; không đánh dấu toàn PLAN hoàn thành khi các điều kiện này chưa có.
+
+**Bước tiếp hiện hành:** A0adapter control0,391 →A1structured evidence →A2selected_docs →A3selected_chunks →A4B0/D1/C1/DC1. D1giữ k thực từng query, C1giữ doc set/order/slots/budget. Audit/threshold là công cụ hỗ trợ. Chưa có code hoặc metric mới từ lượt tài liệu.
+
+## Kiểm tra chuẩn bị20/10 — công cụ phụ trợ mới
+
+Đã thêm [config inventory](../configs/bear_doc_chunk/preflight_0391.template.json), chạy dry-run ghi5roles thiếu; [benchmark utility](../tools/benchmark_cpu.py) đã chạy, lưu [JSON CPU](cpu_kernel_benchmark_20261020.json). Đây là kernel exact cũ, không là implementation structured selector hoặc quality benchmark. Package vẫn2.0.0. [Readiness](EXPERIMENT_READINESS_20261020.md) tách rõ thiếu code/inputs và điều kiện CPU.

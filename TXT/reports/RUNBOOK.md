@@ -1,59 +1,51 @@
-# BEAR runbook
+# Runbook — Xây BEAR chọn doc và chunk
 
-**BEAR2.0:** hướng dẫn mới tại [configs/next_round/README.md](../configs/next_round/README.md). Có provenance/application-audit/L1_L4/chunk-study/evaluate-chunks/routing-diagnostics/preflight. Preflight không scores/exposure; evaluate/compare/freeze chạy ngay. Các lệnh nền bên dưới giữ để tra compatibility; trạng thái mới trong report v2.
+Theo [PLAN v3.3](../PLAN.md) và [BEAR_ALGORITHM](../BEAR_ALGORITHM.md). Mục tiêu output doc/chunk thực; threshold-only v3.2 không còn là kế hoạch chính. Software2.0.0 chưa có runner đầy đủ cho đặc tả mới.
 
-Chạy từ repo root với Python hiện có. --help không đọc corpus và không import NumPy/pandas/torch.
-CLI tự trỏ temp/model cache vào TXT/runtime khi chạy command; tests cần đặt TEMP/TMP trước.
+## A0 — Adapter baseline
 
-```powershell
-$env:PYTHONUTF8 = '1'
-$env:PYTHONDONTWRITEBYTECODE = '1'
-$env:TEMP = Join-Path (Get-Location) 'TXT/runtime/tmp'
-$env:TMP = $env:TEMP
-$env:TMPDIR = $env:TEMP
-New-Item -ItemType Directory -Force $env:TEMP | Out-Null
-python -B -m TXT.bear.cli --help
-python -B -m unittest discover -s TXT/tests -t . -v
-python -B -m unittest discover -s tests -v
-```
+Dùng prediction/candidates/scores/corpus/query/native chunks và budget/exporter0,391 thật. Bypass trả đúng output gốc. Không tái tạo toànw045, ép k160/200 hoặc suy policychunk từ ảnh.
 
-Các lệnh dưới đã được kiểm tra ở chế độ đọc/dry-run. Hiện audit, R0, pool và features báo blocked_input, exit1 đúng dự kiến. Không nối chúng thành một chuỗi execute bất kể lỗi.
+## A1 — Evidence có cấu trúc
 
-```powershell
-python -B -m TXT.bear.cli audit --config TXT/configs/readiness.json
-python -B -m TXT.bear.cli reproduce --config TXT/configs/reproduce.json --dry-run
-python -B -m TXT.bear.cli pool --config TXT/configs/pool_v1.json --dry-run
-python -B -m TXT.bear.cli features --config TXT/configs/l0_pilot.json --dry-run
-python -B -m TXT.bear.cli tune --protocol TXT/configs/tune_l1.json --menu TXT/configs/menus_v1.json --dry-run
-```
+Chọn một support/conflict khác uniform coverage; xuất spans, role/identity mapping, availability và fallback. Unknown khác observed no-match; evidence không tự gold hoặc hard-filter. Không trả list rỗng rồi coi detector đã xong.
 
-Sau khi nhận snapshot, đặt trong TXT/inputs/handover/data theo cây gốc, sửa readiness/reproduce paths và expected_sha256 từ file thật. Readiness cũ trỏ data/ để ghi nhận checkout hiện tại; reproduce template trỏ vị trí nhận handover mới. Chưa có source hash thì giữ null, không điền giả.
+## A2 — Doc selector
 
-Các lệnh execute sau **đã implement nhưng chưa verified trên dữ liệu thật**:
+Kết hợp điểm nền và evidence hợp lệ, chọn lại doc theo một config pilot đã khóa và k thực từng query. Xuất selected_docs/added/removed. Chỉ đổi thứ tự cùng tập chưa tăng DocF2.
 
-```powershell
-python -B -m TXT.bear.cli reproduce --config TXT/configs/reproduce.json --execute
-python -B -m TXT.bear.cli pool --config TXT/configs/pool_v1.json --execute
-python -B -m TXT.bear.cli sample --config TXT/configs/sample_v1.json --execute
-python -B -m TXT.bear.cli features --config TXT/configs/l0_smoke.json --execute
-python -B -m TXT.bear.cli features --config TXT/configs/l0_pilot.json --execute
-python -B -m TXT.bear.cli run --config TXT/configs/run_l1.json --execute
-python -B -m TXT.bear.cli tune --protocol TXT/configs/tune_l1.json --menu TXT/configs/menus_v1.json --execute
-python -B -m TXT.bear.cli annotation-export --config TXT/configs/annotation_dev.json --execute
-```
+Nếu chỉ có VIfeatures thì ghi D1-VI và giữ non-VI/VIcount baseline làm đối chứng. Thiếu feature trong scope thì baseline fallback, không loại doc chưa có feature.
 
-R0 cần NumPy; membership parquet cần pandas/pyarrow hiện có hoặc cài vào TXT/.venv sau khi cần thật. Không tự cài requirements-train. Pool mặc định chưa có B/D sources, vì chưa có provenance. Thêm source manifest entries verified và artifact/corpus/query hashes trước F0; support lấy B verified, không lấy ranking output gate.
+## A3 — Chunk selector
 
-sample ghi split.json và smoke_ids.json theo seed42. Smoke2 chỉ là kiểm I/O; không tune hoặc dùng làm representative estimate. Pilot sử dụng sampled_ids đã freeze. Queries chưa có feature sẽ fallback reference, có explanation.
+C1giữ doc set/order/slots/token budget; chọn native chunks/windows bằng evidence và score nền có thật. Xuất selected_chunks nối đúng corpus/body/offset/hash và exporter.
 
-L1 tune mặc định evaluation_config=null: tạo predictions và ledger diagnostic, không chọn best. annotation_dev.json hiện minh họa một prediction; trước annotation study thật phải liệt kê **tất cả** predictions trong menu preregister. Với P200 dùng topk40; PLARGE dùng differences200.
+Không thêm text rồi gọi gain do selector. Nếu full-body duy nhất không có lựa chọn tương đương, báo C1không có headroom; ảnh chưa chứng minh policy đó.
 
-Người review điền grade/annotator/support offsets/adjudication, đặt qrels đã review dưới TXT/inputs/evaluation. Copy evaluation_dev.template.json thành config version riêng, điền qrels/split SHA256 thật. Không chỉnh grade threshold sau kết quả. Doc F2 cần label_coverage_manifest complete-universe; topK/differences không suy full recall.
+## A4 — Ablation và joint
 
-Sau đó dùng CLI evaluate/compare với --config và --run-dir hoặc --baseline-dir/--candidate-dir. Tuning config chỉ trỏ evaluation config dev. Freeze dùng --run-dir và --protocol; protocol cần selected_dev_report, controls, split_manifest, cost_ceiling_seconds thực. Holdout config cần frozen_candidate; evaluation lần2 bị reject. Không sửa marker để chọn lại.
+B0baseline; D1doc-only; C1chunk-only; DC1joint. Tối đa3candidate mới và1control cho pilot; không thêm grid. Hai selector có thể được giữ độc lập.
 
-Export có CLI --run-dir, --config TXT/configs/export.json --execute. Nó đòi full1200×200, calibration inputs, corpus/offset/hash, rồi gọi LZMA768MiB và testzip/readback/<100000000bytes. Không chạy cho fixtures hoặc pilot; không tự upload. Output technical package không đồng nghĩa phương pháp đã được promote.
+Chấm DocF2/ChunkF2 và FINAL bằng metric đúng scope/scorer. BTC labels được dùng, unknown/weak not_gold không tự âm. K đổi cần hits control/sensitivity cả docs giữ nguyên; giữ query universe và report fallback.
 
-Mọi run có manifest partial/completed. Reuse completed chỉ khi code/config/input hashes giống; khác hash cần run_id/output_dir mới. Không sửa trực tiếp completed artifacts. Giữ R0 exact làm rollback sau khi reproduction thành công.
+Audit phục vụ debug/kiểm feature, threshold/count tuning phục vụ operating point hoặc control phụ. Chúng không thay output retrieval.
 
-Adaptive production, sparse encoder, C3 allocation và discovery chưa mở theo prerequisite trong PLAN. Không có CLI giả cho các nhánh này; xem task ledger để tiếp quản.
+## Công cụ và ghi kết quả
+
+[JSON tham chiếu](../specs/pipeline_0391.json) không chạy CLI; [configs N0–N5](../configs/next_round/README.md) là scaffolding lịch sử. Evaluator/exporter fixed200/reviewed còn cần adapter.
+
+Khi thực thi, output mới dướiTXT/runtime/bear_doc_chunk/run_id và nối [log](../improvement_log.md). Lượt này chưa triển khai parser/selector mới, tạo run hoặc đo gain.
+
+## Kiểm tra chuẩn bị thực tế và đo CPU
+
+[Readiness20/10](EXPERIMENT_READINESS_20261020.md) ghi code còn thiếu và5input roles chưa có. Từ repo root:
+
+    python -B -m TXT.bear.cli provenance --config TXT/configs/bear_doc_chunk/preflight_0391.template.json --dry-run
+
+Exit1 cùng blocked_input là kết quả khi thiếu file, không phải lỗi cài đặt. Không chạy --execute hoặc oldrun/export để giả BEARv3.3. Config chỉ inventory, không inference.
+
+Đo kernel CPU cũ, không tải model:
+
+    python -B -m TXT.tools.benchmark_cpu --output TXT/runtime/bear_doc_chunk/cpu_probe_new.json
+
+Output mới dùng tên khác khi đo lại. Benchmark synthetic chỉ kernel exact, không tính structured extraction/I/O/evaluation/export. Khi A0–A3 đủ inputs/code, đo20query thật đại diện, cache feature một lần và kiểm RAM trước fullB0/D1/C1/DC1. Model inference mới có dự toán riêng.

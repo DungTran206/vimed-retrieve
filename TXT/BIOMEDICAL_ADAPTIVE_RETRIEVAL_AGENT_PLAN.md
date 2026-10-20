@@ -1,5 +1,7 @@
 # Biomedical Evidence-Aware Adaptive Retrieval (BEAR)
 
+> **Tài liệu thiết kế lịch sử, ngày18/10.** [PLAN v3.3](PLAN.md) và [BEAR_ALGORITHM](BEAR_ALGORITHM.md) khôi phục mục tiêu BEAR chọn doc/chunk trên [baseline0,391](PIPELINE_0391.md). Audit/threshold tuning chỉ hỗ trợ. Nội dung dưới đây giữ để tra ý tưởng/code cũ; dùng proposal/PLAN hiện hành khi khác scope.
+
 > **Implementation specification / Research plan cho coding agent**  
 > Ngôn ngữ: tiếng Việt | Phiên bản tài liệu: 1.0 | Ngày tổng hợp: 18/10/2026  
 > **Nguồn nội bộ:** `HANDOVER.md` (snapshot leaderboard 15/10/2026) và `biomedical_multilingual_hybrid_retrieval_project.md`.  

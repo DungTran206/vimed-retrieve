@@ -1,0 +1,271 @@
+{
+  "specification_version": "1.1",
+  "kind": "reference_specification",
+  "executable": false,
+  "updated_date": "2026-10-20",
+  "research_plan_version": "3.3",
+  "software_version": "2.0.0",
+  "sources": {
+    "pipeline_markdown": "../PIPELINE_0391.md",
+    "plan": "../PLAN.md",
+    "proposal": "../TXT_Proposal.md",
+    "evidence": "User-provided Miro screenshots; not verified against runtime artifacts"
+  },
+  "baseline": {
+    "name": "Pipeline 0,391",
+    "reported_score": 0.391,
+    "reported_score_metric": null,
+    "submission_id": null,
+    "code_config_linkage_verified": false,
+    "corpus_snapshot": null,
+    "query_universe": null
+  },
+  "retrieval": {
+    "english": {
+      "enabled_in_diagram": false
+    },
+    "vietnamese": {
+      "source_top_k": 1000,
+      "sources": [
+        {
+          "name": "BM25F",
+          "keep_diacritics": true,
+          "field_weights": {
+            "title": 3,
+            "tags": 2,
+            "descr": 1.5,
+            "body": 1
+          }
+        },
+        {
+          "name": "dense_head",
+          "input": "title + first 600 characters of body"
+        },
+        {
+          "name": "dense_chunk",
+          "document_aggregation": null
+        }
+      ],
+      "ambiguous_diagram_label": "Embed - Qwen 3.5-9B",
+      "merged_document_count_approximate": 2200,
+      "rrf": {
+        "k": 60,
+        "source_weights": null,
+        "tie_policy": null
+      },
+      "candidates_to_reranker": 300
+    },
+    "chinese": {
+      "document_input_label": "Embed title + 600 kí tự",
+      "exact_600_character_field": null,
+      "model_labels": [
+        "BGE-M3",
+        "Qwen3-8B"
+      ],
+      "translated_query_model_label": "Qwen 3.5-9B",
+      "rrf": {
+        "k": null,
+        "contributions": [
+          {
+            "model": "BGE-M3",
+            "query_language": "vi",
+            "weight": 1
+          },
+          {
+            "model": "Qwen3-8B",
+            "query_language": "vi",
+            "weight": 1
+          },
+          {
+            "model": "BGE-M3",
+            "query_language": "zh_translated",
+            "weight": 0.3
+          },
+          {
+            "model": "Qwen3-8B",
+            "query_language": "zh_translated",
+            "weight": 0.3
+          }
+        ]
+      },
+      "intermediate_document_count": 400,
+      "candidates_to_reranker": 40
+    }
+  },
+  "scoring": {
+    "combined_candidate_count_in_diagram": 340,
+    "runtime_counts_verified": false,
+    "stages": [
+      "Qwen reranker 4B",
+      "P(Yes) via softmax",
+      "MaxP",
+      "p_hat"
+    ],
+    "reranker_checkpoint": null,
+    "reranker_input_fields": null,
+    "maxp_formula": null,
+    "p_hat_formula": null,
+    "p_hat_calibration_verified": false,
+    "p_hat_numeric_range_verified": null
+  },
+  "selection": {
+    "diagram_policy": "threshold on p_hat",
+    "diagram_target_mean_docs_per_query": 160,
+    "fixed_top_k_per_query_in_diagram": false,
+    "fixed_final_language_quotas": null,
+    "final_language_quotas_status": "Not established by screenshots; 300 VI / 40 ZH are pre-rerank candidate quotas",
+    "runtime_selection_policy_verified": false,
+    "threshold_value": null,
+    "threshold_scope": null,
+    "comparator": null,
+    "rounding": null,
+    "tie_policy": null,
+    "actual_mean_docs_per_query": null,
+    "chunk_submission_policy": null
+  },
+  "bear": {
+    "user_confirmed_idea": "Biomedical evidence preserving identifiers, local context and answer intent",
+    "current_role": "Proposed inference algorithm selecting documents and evidence chunks; audit and threshold tuning are supporting tools",
+    "diagnostic_flags": [
+      "identifier_or_variant_mismatch",
+      "relation_or_indication_mismatch",
+      "negation_or_polarity",
+      "dose_or_unit_mismatch",
+      "patient_population_mismatch",
+      "terms_in_unrelated_passages"
+    ],
+    "flags_are_relevance_labels": false,
+    "hard_filter_enabled": false,
+    "adaptive_routing_status": "deferred",
+    "l1_l4_status": "Closed for the previously tested configuration on 0.4076; no automatic retest on 0.391",
+    "algorithm_specification": "../BEAR_ALGORITHM.md",
+    "algorithm_status": "PROPOSED_NOT_FULLY_IMPLEMENTED",
+    "proposed_outputs": [
+      "selected_docs",
+      "selected_chunks"
+    ],
+    "runtime_new_structured_score_adjustment_implemented": false,
+    "proposed_evidence_score_adjustment": true
+  },
+  "proposed_threshold_study": {
+    "status": "OPTIONAL_SUPPORTING_STUDY_NOT_PRIMARY",
+    "prerequisite": "Verify baseline uses one shared threshold and replay exact control policy from real artifacts",
+    "primary_change": "Final threshold only within this optional operating-point study; does not fulfill BEAR doc/chunk retrieval",
+    "cache_universe": "Declare and freeze before choosing thresholds; use all available baseline queries when available",
+    "threshold_selection_uses_relevance_labels": false,
+    "target_total_mean_count_multipliers": [
+      0.85,
+      1.15
+    ],
+    "actual_control_mean_count": null,
+    "target_refers_to": "Total VI + ZH mean count over the frozen query universe, not per-query or VI-only quotas",
+    "candidate_threshold_values": null,
+    "maximum_new_trials": 2,
+    "threshold_choice_order": [
+      "closest achieved mean count to target",
+      "closest threshold to baseline",
+      "smaller numeric threshold"
+    ],
+    "duplicate_or_noop_policy": "Skip; do not expand the trial menu",
+    "fixed_components": [
+      "candidate sets",
+      "corpus and query snapshot",
+      "retriever and reranker scores",
+      "MaxP and p_hat calculation",
+      "score precision and comparator",
+      "per-document chunk selector and exporter policy"
+    ],
+    "final_vi_zh_counts_may_change": true,
+    "pool_expansion_or_calibration_refit_allowed": false
+  },
+  "evaluation": {
+    "official_labels_allowed_for_offline_evaluation": true,
+    "unjudged_as_negative": false,
+    "chunk_derived_not_gold_is_trusted_doc_negative": false,
+    "variable_k_requires_control_hit_information": true,
+    "sensitivity_includes_control_hits_and_unchanged_docs": true,
+    "reported_bias_plus_minus_0_0002_is_verified_bound": false,
+    "official_chunk_and_final_metrics": null
+  },
+  "proposed_bear_algorithm": {
+    "status": "PROPOSED_NOT_FULLY_IMPLEMENTED",
+    "executable": false,
+    "first_stage": "Reuse baseline candidate generation and cached source/reranker scores",
+    "evidence": "Structured local support/conflict with identity, role and condition spans; unknown is not mismatch",
+    "document_selector": "Combine baseline component with valid structured evidence and select document IDs",
+    "chunk_selector": "Select native chunks or verified windows under the matched control budget",
+    "output_contract": [
+      "selected_docs",
+      "selected_chunks",
+      "availability_and_fallback"
+    ],
+    "pilot_scope": "VI first if only VI mappings are verified; multilingual requires verified language mappings",
+    "pilot_fixed_doc_count": "Use baseline actual k_q per query for doc-only ablation; do not impose 160 or 200",
+    "vi_only_pilot": "Freeze baseline non-VI and VI counts as an explicit experimental control, not a baseline final-language-quota claim",
+    "ablations": [
+      {
+        "name": "B0",
+        "document_selector": "baseline",
+        "chunk_selector": "baseline"
+      },
+      {
+        "name": "D1",
+        "document_selector": "BEAR",
+        "chunk_selector": "baseline policy"
+      },
+      {
+        "name": "C1",
+        "document_selector": "baseline set and order",
+        "chunk_selector": "BEAR with matched slots/text budget"
+      },
+      {
+        "name": "DC1",
+        "document_selector": "BEAR",
+        "chunk_selector": "BEAR"
+      }
+    ],
+    "maximum_new_candidates_in_pilot": 3,
+    "maximum_controls_in_pilot": 1,
+    "feature_and_weight_configuration": null,
+    "relation_or_intent_extractor_implemented": false,
+    "chunk_export_adapter_verified": false,
+    "gold_labels_read_at_inference": false
+  },
+  "execution_preparation": {
+    "checked_date": "2026-10-20",
+    "report": "../reports/EXPERIMENT_READINESS_20261020.md",
+    "preflight_config": "../configs/bear_doc_chunk/preflight_0391.template.json",
+    "observed_preflight": "../reports/bear_doc_chunk_preflight_20261020.json",
+    "input_status": "blocked_input",
+    "preflight_exit_code": 1,
+    "missing_input_roles": [
+      "queries",
+      "baseline_0391_predictions",
+      "candidates_and_cached_scores",
+      "corpus",
+      "baseline_chunk_policy_and_refs"
+    ],
+    "available_file_roles": [
+      "btc_validation"
+    ],
+    "file_presence_is_schema_or_algorithm_readiness": false,
+    "structured_algorithm_ready": false,
+    "cpu_mode": "Conditional cache reuse plus implemented lightweight structured features; not new model inference",
+    "cpu_benchmark_tool": "../tools/benchmark_cpu.py",
+    "cpu_benchmark_result": "../reports/cpu_kernel_benchmark_20261020.json",
+    "cpu_benchmark_scope": "legacy_exact_evidence_cpu_kernel_only",
+    "actual_full_experiment_runtime_minutes": null,
+    "provisional_lightweight_full_run_budget_hours": [
+      1,
+      4
+    ],
+    "provisional_budget_is_measured_eta": false,
+    "excludes_from_budget": [
+      "missing implementation and data preparation time",
+      "new model inference",
+      "potentially expensive chunk scoring or constrained RAM"
+    ],
+    "real_query_calibration_before_full_run": 20,
+    "baseline_score_gain_measured": false
+  }
+}

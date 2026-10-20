@@ -1,5 +1,7 @@
 # BEAR 2.0.0 — Nghiệm thu kỹ thuật, 19/10/2026
 
+> Snapshot kỹ thuật lịch sử. Hướng hiện hành là [PLAN v3.3](../../PLAN.md) và [BEAR_ALGORITHM](../../BEAR_ALGORITHM.md): structured evidence + doc selector + chunk selector trên0,391. Code2.0/nghiệm thu ở dưới chưa triển khai đầy đủ thiết kế mới; không bắt chạy lại N0/N1.
+
 Triển khai theo PLAN v2 và PLAN_v2_draft; mọi thay đổi dưới TXT, legacy chỉ đọc. Đây là backend CPU đã kiểm fixtures, **chưa phải nghiệm thu quality benchmark N0–N5 trên dữ liệu thật**. Điểm R01 người dùng báo vẫn FINAL0.3445/Doc0.3612/Chunk0.3279, không có score mới trong lượt triển khai này.
 
 ## Phần đã triển khai

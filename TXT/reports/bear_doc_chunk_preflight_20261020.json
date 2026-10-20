@@ -1,0 +1,36 @@
+{
+  "baseline_parity_verified": null,
+  "dry_run": true,
+  "evidence": "REPORTED",
+  "inventory": {
+    "baseline_0391_predictions": null,
+    "baseline_chunk_policy_and_refs": null,
+    "btc_validation": {
+      "bytes": 864073,
+      "path": "D:\\hackathon\\vimed-retrieve\\val.jsonl",
+      "sha256": "80399c4a34d51fe61db8ada71898871e76342343c2d3a4c85acf56748813f7ed"
+    },
+    "candidates_and_cached_scores": null,
+    "corpus": null,
+    "queries": null
+  },
+  "missing_roles": [
+    "queries",
+    "baseline_0391_predictions",
+    "candidates_and_cached_scores",
+    "corpus",
+    "baseline_chunk_policy_and_refs"
+  ],
+  "observed_metrics": null,
+  "promoted": false,
+  "quality_decision": "inconclusive",
+  "reported": {
+    "baseline_score": 0.391,
+    "purpose": "A0 input inventory only. File presence does not establish schema, linkage, label semantics, implementation readiness, or quality gain.",
+    "research_plan_version": "3.3",
+    "source": "User-provided pipeline and Miro screenshots"
+  },
+  "schema_version": 2,
+  "status": "blocked_input",
+  "submission_linkage": "unresolved"
+}

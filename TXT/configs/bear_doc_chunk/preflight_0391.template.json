@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "output_dir": "TXT/runtime/bear_doc_chunk/preflight_20261020",
+  "inputs": {
+    "queries": {
+      "path": "data/queries.jsonl",
+      "expected_sha256": null
+    },
+    "baseline_0391_predictions": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "candidates_and_cached_scores": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "corpus": {
+      "path": "data/corpus_new.sqlite",
+      "expected_sha256": null
+    },
+    "baseline_chunk_policy_and_refs": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "btc_validation": {
+      "path": "val.jsonl",
+      "expected_sha256": null
+    }
+  },
+  "reported": {
+    "baseline_score": 0.391,
+    "research_plan_version": "3.3",
+    "source": "User-provided pipeline and Miro screenshots",
+    "purpose": "A0 input inventory only. File presence does not establish schema, linkage, label semantics, implementation readiness, or quality gain."
+  },
+  "linkage_record": null
+}

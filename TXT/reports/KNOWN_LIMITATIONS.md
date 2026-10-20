@@ -1,16 +1,18 @@
-# Giới hạn hiện tại
+# Giới hạn hiện tại —20/10/2026
 
-**Cập nhật2.0:** đã có application audit, L4/L1_L4 tuning, C1/C2 study/local evaluator/freeze/export và preflight không tiêu exposure. N0 thực tế còn18roles thiếu (14R0 + baseline manifest +3R01 artifacts); benchmark vẫn blocked. Local passage recall chưa official-equivalent; A1 production/multi-control exposure chưa mở. Xem [report v2](next_round/V2_IMPLEMENTATION.md); các readiness counts bên dưới thuộc snapshot nền.
+Theo [PLANv3.3](../PLAN.md) và [BEAR_ALGORITHM](../BEAR_ALGORITHM.md), đích là doc/chunk retrieval, không chỉ audit/threshold.
 
-- 22 logical roles của readiness chưa có; 14 roles đủ recipe R0 cũng thiếu. Không có full reproduction, quality gain hoặc submission ready.
-- Các task partial/deferred được liệt kê đầy đủ trong IMPLEMENTATION_STATUS; không suy `done` từ sự tồn tại của file.
-- Official evaluator thiếu tokenizer/hash/spec và duplicate semantics. Chỉ có local metrics/LCS diagnostic. Feedback archive bị quarantine, không là qrels.
-- Protected exact matcher chưa hiểu negation/quan hệ/intent. Có đủ entities vẫn có thể trả lời sai câu hỏi. Không tự gán medical correctness.
-- External dense-index→native-offset adapter, metadata tags và translation provenance mở rộng chưa đủ; không dùng best_idx chưa verified để chọn chunk.
-- V1 chỉ sắp/chọn VI, giữ nguyên non-VI slots. PLARGE không có extra VI thì không tạo selection headroom. Source claims complete/provenance phải do handover xác minh.
-- Feature job dùng query shards/batch<=900, nhưng refs của một batch và source rankings vẫn nằm RAM. Partial restart recompute, không append; chưa benchmark RAM/I/O hoặc chứng nhận scale toàn corpus.
-- F0/L1/L4/L1_L4 đã có orchestration; C1/C2 có CPU study và local-passage diagnostic qua fixtures. A1 production vẫn chặn vì chưa có verified headroom/matched-budget controls; C3/sparse/discovery chưa mở.
-- Có guard holdout một lần trên filesystem local. Không phải cơ chế chống người dùng sửa file/đổi protocol; contamination vẫn cần review bằng người.
-- Chi phí LZMA dictionary768MiB chưa benchmark. Chỉ --execute/--export mới tạo ZIP; không chạy compression trong kiểm tra fixture.
-- Legacy readonly audit là diagnostic riêng. Final records được kiểm bằng BEAR integrity; các luật lịch sử fail không dẫn tới clean/migrate corpus.
-- Config evaluation có hash rỗng là template chưa bind; không thay bằng hash giả. Protocol proposed chưa đủ frozen/confirmatory vì chưa có cost ceiling hoặc dev selection.
+- Baseline0,391 là mốc người dùng chọn; ảnh có kiến trúc nhưng chưa đủ run/config/scorer, MaxP/p̂ và chunk export để tái tạo đầy đủ.
+- Code2.0 có matcher/uniform features/fusion/C1C2scaffolding. Structured relation/intent/conflict mới chưa hoạt động đầy đủ; critical_mismatches có chỗ trả list rỗng. Không gọi placeholder là thuật toán hoàn tất.
+- Pilot tái dùng pool baseline, chưa tìm doc ngoài pool. Nếu chỉ có VIfeatures thì ghi D1-VI và non-VI fallback; đa ngôn ngữ cần aliases/mapping đủ.
+- D1 cố định k từng query để kiểm chất lượng tập doc; chỉ đổi order cùng tập không tăng DocF2. C1 giữ doc set/order/slots/token budget để kiểm selector.
+- Chunk policy0,391 chưa xác nhận. Full-body duy nhất có thể không còn selector headroom dưới cùng budget; không kết luận điều này từ “Lấy full” hoặc0,4076.
+- Evidence là feature hỗ trợ inference, chưa tự xác nhận relevance y khoa. Unknown khác no-match; sai identifier ở đoạn không liên quan không tự là conflict toàn doc.
+- BTC val593qid có205dòng bất nhất/tổng305, không định danh doc sai; weaknot_gold có thể âm giả. ±0.0002 không là bound. K đổi còn cần hits control và sensitivity cả doc giữ nguyên.
+- 593câu đã khai thác không là holdout sạch. Bootstrap không sửa label bias hoặc selection bias.
+- Doc/Chunk/FINAL khác metric; local LCS thiếu tokenizer/spec không gọi officialChunkF2. Không suy ΔFINAL từ ΔDoc hoặc quy gain tăng text budget cho selector.
+- Runner/exporter cũ còn fixed200/manual-qrels/allocationw045; cần adapter0,391. Không tự fit beta8/10 hoặc sửa corpus để khớp thiết kế.
+- L1/L4 cũ đóng đúng scope, không chứng minh mọi evidence/chunk algorithm vô ích. Audit và threshold tuning chỉ hỗ trợ, không thay output selected_docs/selected_chunks.
+- Lượt này chỉ docs/spec; tests63+10 là nghiệm thu lịch sử, chưa có implementation/gain mới cho v3.3.
+
+[Handover](../TXT_handover.md), [evaluator](EVALUATOR_CONTRACT.md), [trạng thái code](IMPLEMENTATION_STATUS.md), [log](../improvement_log.md).
