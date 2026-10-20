@@ -17,7 +17,7 @@ def required_path(value):
 
 def file_identity(value):
     path = required_path(value)
-    if path.suffix in (".sqlite", ".db") and Path(str(path) + "-wal").exists():
+    if path.suffix.lower() in (".sqlite", ".sqlite3", ".db") and Path(str(path) + "-wal").exists():
         raise SchemaInvalidError(f"SQLite có WAL: cần snapshot nhất quán do chủ dữ liệu cung cấp: {path}")
     return {"path": str(path), "bytes": path.stat().st_size, "sha256": sha256_file(path)}
 

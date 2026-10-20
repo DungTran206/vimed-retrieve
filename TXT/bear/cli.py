@@ -67,6 +67,7 @@ def main(argv=None):
     parser.add_argument("--version", action="version", version=f"BEAR {__version__}")
     subs = parser.add_subparsers(dest="command")
     for name in ("audit", "reproduce", "pool", "features", "run", "sample", "annotation-export", "export",
+                 "corpus-index", "retrieve", "evidence-fuse",
                  "provenance", "application-audit", "chunk-study", "routing-diagnostics"):
         sub = subs.add_parser(name)
         sub.add_argument("--config", required=True)
@@ -125,7 +126,10 @@ def main(argv=None):
         else:
             command = "evaluate" if args.command == "compare" else args.command
             cfg = command_config(args.config, command)
-            if command == "audit":
+            if command in ("corpus-index", "retrieve", "evidence-fuse"):
+                from .parts_runner import inspect_parts, run_parts
+                result = run_parts(cfg, command) if args.execute else inspect_parts(cfg, command)
+            elif command == "audit":
                 from .audit import run_audit
                 result, code = run_audit(args.config)
                 print(canonical_json_dumps({"status": result["readiness_status"],

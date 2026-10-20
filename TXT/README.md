@@ -1,24 +1,27 @@
-# BEAR — Retrieval doc và chunk
+# BEAR — Hai phần retrieval riêng biệt
 
-**BEAR phải tạo doc set và chunks bằng chứng.** Baseline0,391 cung cấp ứng viên/score và làm control; audit và threshold tuning là công cụ hỗ trợ.
+**BEAR-Retriever tìm trên corpus/index. BEAR-Fusion thay RRF trên union các nguồn.** Hai phần dùng chung index/evidence scorer, giải quyết hai bài toán khác nhau nên giữ cả hai.
 
-| Đọc | Vai trò |
+```text
+B0: retrieval baseline → RRF          → downstream control
+BR: BEAR-Retriever                    → downstream control
+BF: retrieval baseline → BEAR-Fusion → downstream control
+```
+
+Scope VI: BR thay đầu ra generator + fusion VI; BF chỉ thay fusion. Giữ cùng corpus/query/lang/top-k/downstream và nhánh ZH control. Retriever có thể tìm doc ngoài union baseline; Fusion không thể.
+
+**20/10/2026:** [PLAN v3.5](PLAN.md) có prototype corpus_parts_v1 dùng stdlib lexical BM25/scorer chung. Explicit relations subject/predicate/object phải neo trong query; rules cùng-câu/thứ-tự/polarity chưa là NLP y sinh tổng quát. Không relations thì lexical-only. Chưa quality gain hoặc parity baseline 0,391.
+
+| Đọc | Nội dung |
 |---|---|
-| **[BEAR_ALGORITHM.md](BEAR_ALGORITHM.md)** | Evidence Engine →Doc Selector →Chunk Selector và output inference |
-| [PIPELINE_0391.md](PIPELINE_0391.md) | Baseline đọc từ hai ảnh |
-| [TXT_Proposal.md](TXT_Proposal.md) | H_doc/H_chunk/H_joint |
-| [PLAN v3.3](PLAN.md) | A0adapter →A1evidence →A2doc →A3chunk →A4joint/evaluation |
-| [TXT_handover.md](TXT_handover.md), [RUNBOOK](reports/RUNBOOK.md) | Code đã có/gap và bước tiếp |
-| [JSON tham chiếu](specs/pipeline_0391.json) | Facts baseline và thiết kế chưa thực thi |
-| [Log](improvement_log.md), [RESULTS](reports/RESULTS.md) | Lịch sử và metric |
-| **[Readiness và CPU/GPU](reports/EXPERIMENT_READINESS_20261020.md)** | Code/inputs đã kiểm, phép đo CPU và checklist máy GPU |
+| **[Handover](TXT_handover.md)** | Hai phần, code/output/gaps hiện hành |
+| [Algorithm](BEAR_ALGORITHM.md) | Contracts và evidence prototype |
+| [Study](BEAR_REPLACEMENT_STUDY.md) | B0/BR/BF và cách đo |
+| [Runbook](reports/RUNBOOK.md) | corpus-index/retrieve/evidence-fuse và demo |
+| [Proposal](TXT_Proposal.md), [PLAN](PLAN.md) | Giả thuyết và việc tiếp |
+| [Pipeline](PIPELINE_0391.md), [JSON](specs/pipeline_0391.json) | Baseline từ ảnh, chưa đủ linkage runtime |
+| [Log](improvement_log.md), [Results](reports/RESULTS.md) | Lịch sử/bằng chứng kiểm tra |
 
-D1chọn lại doc, C1chọn lại chunk cùng budget, DC1ghép hai selector; không chỉ đổi order hoặc tăng text budget. Tái dùng pool baseline trước khi nghĩ tới retrieval toàn kho mới.
+[Templates](configs/bear_parts/) riêng; [demo synthetic](tools/demo_bear_parts.py) chạy bằng `python -B -m TXT.tools.demo_bear_parts`. Candidates tương thích reranker; evidence chunk refs diagnostic chưa là selected_chunks submission.
 
-L1/L4 cũ vẫn đóng đúng scope; kết quả đó chưa bác bỏ mọi evidence/chunk algorithm. BTC labels dùng offline với semantics đúng, không buộc gán tay593câu.
-
-**Trạng thái20/10:** software2.0.0 có matcher/features/fusion/chunk scaffolding; structured relation/conflict và adapter0,391 chưa triển khai đầy đủ. v3.3 là đặc tả, chưa có gain mới. [v3.2 threshold-only](archive/PLAN_v3_2_before_doc_chunk_restore_20261020.md) đã được thay theo đính chính của người dùng.
-
-Đã chạy [preflight A0](configs/bear_doc_chunk/README.md):5/6roles input còn thiếu tại checkout, val.jsonl hiện diện. CPU có thể chạy nhánh cache+feature nhẹ sau khi có inputs/code; [tool benchmark](tools/benchmark_cpu.py) chỉ đo kernel exact cũ, không chứng minh structured BEARv3.3 đã chạy được.
-
-Người dùng có thể dùng máy GPU khác, thông số chưa biết. [Checklist bàn giao](reports/EXPERIMENT_READINESS_20261020.md#7-máy-gpu-đã-có-còn-thiếu-gì-và-ai-chuẩn-bị) giải thích dữ liệu cần lấy, code agent cần bổ sung và phần model/môi trường chỉ cần khi chạy inference mới. Chưa có phép chạy hoặc ETA GPU.
+Legacy 2.0.0 fixed200/w045 giữ riêng. D1/DC1/R1/C1 là later/legacy, không chặn BR/BF. Không tải model/rerun baseline hoặc claim gain. Mặc định VI, không claim ZH parity; model-free prototype chưa bảo đảm downstream CPU. BTC labels offline, unknown không tự âm.

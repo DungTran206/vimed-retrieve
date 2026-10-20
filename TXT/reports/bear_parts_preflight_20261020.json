@@ -1,0 +1,45 @@
+{
+  "baseline_0391_parity_verified": false,
+  "implementation_version": "corpus_parts_v1",
+  "quality_evaluated": false,
+  "reports": {
+    "corpus-index": {
+      "command": "corpus-index",
+      "dry_run": true,
+      "implementation_version": "corpus_parts_v1",
+      "missing_roles": [
+        "corpus"
+      ],
+      "output_dir": "TXT/runtime/bear_parts/index_001",
+      "quality_evaluated": false,
+      "status": "blocked_input"
+    },
+    "evidence-fuse": {
+      "command": "evidence-fuse",
+      "dry_run": true,
+      "implementation_version": "corpus_parts_v1",
+      "missing_roles": [
+        "index",
+        "queries",
+        "source:bm25f",
+        "source:dense_head",
+        "source:dense_chunk"
+      ],
+      "output_dir": "TXT/runtime/bear_parts/fuse_001",
+      "quality_evaluated": false,
+      "status": "blocked_input"
+    },
+    "retrieve": {
+      "command": "retrieve",
+      "dry_run": true,
+      "implementation_version": "corpus_parts_v1",
+      "missing_roles": [
+        "index",
+        "queries"
+      ],
+      "output_dir": "TXT/runtime/bear_parts/retrieve_001",
+      "quality_evaluated": false,
+      "status": "blocked_input"
+    }
+  }
+}

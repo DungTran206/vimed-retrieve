@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "output_dir": "TXT/runtime/bear_doc_chunk/preflight_replacement_f1_20261020",
+  "inputs": {
+    "queries": {
+      "path": "data/queries.jsonl",
+      "expected_sha256": null
+    },
+    "corpus": {
+      "path": "data/corpus_new.sqlite",
+      "expected_sha256": null
+    },
+    "baseline_0391_predictions": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "source_rankings_before_vi_fusion_and_frozen_zh_candidates": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "baseline_runtime_and_chunk_policy": {
+      "path": null,
+      "expected_sha256": null
+    },
+    "btc_validation": {
+      "path": "val.jsonl",
+      "expected_sha256": null
+    }
+  },
+  "reported": {
+    "baseline_score": 0.391,
+    "research_plan_version": "3.4",
+    "study": "F1",
+    "source": "User request to try BEAR replacing baseline retrieval stages",
+    "purpose": "Input inventory for replacing VI fusion/top-300 selection; not an inference runner or schema/parity/quality verification.",
+    "downstream_requirement": "Reuse Qwen/MaxP/p_hat cache when it covers newly selected documents; otherwise run the exact baseline scorer for missing documents. Cache availability is not checked by this inventory."
+  },
+  "linkage_record": null
+}

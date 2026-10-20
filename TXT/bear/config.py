@@ -5,6 +5,10 @@ from .io import load_config
 PATH = (str, type(None))
 COMMON = {"schema_version": int, "output_dir": str}
 SCHEMAS = {
+    "corpus-index": {"corpus": str, "chunk_chars": int},
+    "retrieve": {"index": str, "queries": str, "top_k": int, "languages": list},
+    "evidence-fuse": {"index": str, "queries": str, "sources": dict,
+                      "top_k": int, "languages": list},
     "provenance": {"inputs": dict, "reported": dict, "linkage_record": PATH},
     "application-audit": {"run_dir": str, "baseline": PATH, "candidate_chunk_refs": PATH,
                           "baseline_chunk_refs": PATH, "calibration_sources": dict},
@@ -40,6 +44,9 @@ SCHEMAS = {
     "export": {"corpus": str, "inputs": dict, "expected_fingerprints": dict},
 }
 REQUIRED = {
+    "corpus-index": ("corpus", "output_dir"),
+    "retrieve": ("index", "queries", "top_k", "output_dir"),
+    "evidence-fuse": ("index", "queries", "sources", "top_k", "output_dir"),
     "provenance": ("inputs", "reported", "output_dir"),
     "application-audit": ("run_dir", "output_dir"),
     "chunk-study": ("ranking_dir", "corpus", "allocation", "chunk_scores", "experiment", "output_dir"),
@@ -73,6 +80,15 @@ def fields(obj, schema, where, required=()):
 
 def validate_config(cfg, command):
     fields(cfg, COMMON | SCHEMAS[command], command, ("schema_version", *REQUIRED[command]))
+    if command in ("retrieve", "evidence-fuse"):
+        from .retrieval import validate_budget
+        validate_budget(cfg["top_k"], cfg.get("languages"))
+    if command == "evidence-fuse":
+        if not cfg["sources"] or any(not isinstance(name, str) or not name.strip()
+                or not isinstance(path, str) or not path.strip() for name, path in cfg["sources"].items()):
+            raise SchemaInvalidError("sources must map nonempty names to ranking file paths")
+    if command == "corpus-index" and cfg.get("chunk_chars", 1200) < 32:
+        raise SchemaInvalidError("chunk_chars must be at least 32")
     for role, spec in cfg.get("inputs", {}).items():
         fields(spec, {"path": PATH, "expected_sha256": PATH}, f"inputs.{role}", ("path",))
         digest = spec.get("expected_sha256")

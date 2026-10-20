@@ -430,3 +430,47 @@ D07 tách **docs đúng hướng**, **inputs/code chưa ready** và **CPU kernel
 | Code/software/gain | Core vẫn2.0.0; không thêm runner/feature mới, không chạy benchmark relevance, metric mới=null |
 
 D08 ghi nhận khả năng dùng GPU; không coi tài nguyên đã giải quyết các input/code gaps và không tự mở grid hoặc chạy lại pipeline từ đầu.
+
+## 15. Thử BEAR thay từng khối retrieval —20/10/2026
+
+### D09 — Baseline là control; mở nghiên cứu thay fusion/rerank/chunk/source
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / supplements_entry | D09 / D06–D08; giữ lịch sử và metric đã báo |
+| Nguồn | Người dùng hỏi vì sao BEAR chỉ đánh giá trên baseline và đề nghị thử thay các phần retrieval |
+| Nguyên nhân giới hạn cũ | Pilot selector tái dùng pool/scores để cô lập evidence; code cũ còn fixed200/laneVI. Chưa là bằng chứng BEAR không thay được tầng khác |
+| Thiết kế | [BEAR_REPLACEMENT_STUDY](BEAR_REPLACEMENT_STUDY.md), PLAN/proposal3.4; software vẫn2.0.0 |
+| Ưu tiên F1 | BEAR-only thay RRF/chọn top300VI trên union trước fusion; giữ source retrieval/ZH/downstream. RRF+evidence là residual ablation riêng |
+| R1/C1/S1/J1 | R1thay Qwen/MaxP với control fixed-k thực; C1thay chunk cùng budget; S1cần corpus index/generator thật; J1đo ghép các phần có ích |
+| Dữ liệu F1 cần thêm | Từng ranking nguồn trước fusion và union; doc mới cần Qwen cache hoặc inference đúng baseline, không điền score giả |
+| Budget thí nghiệm | Stage studies tuần tự một candidate và control tương ứng; giới hạn3candidate của pilot D1/C1/DC1 vẫn áp dụng pilot đó, không là giới hạn toàn bộ nghiên cứu |
+| Config / kiểm thực tế | [Inventory F1](configs/bear_doc_chunk/preflight_replacement_f1.template.json) qua CLIprovenance --dry-run; exit1/blocked_input; [report](reports/bear_replacement_f1_preflight_20261020.json) |
+| Thiếu / hiện diện | Thiếu5roles: queries,corpus,predictions0,391,source rankings/candidatesZH,runtime/chunkpolicy; val.jsonl hiện diện |
+| Kiểm tra tài liệu/config | JSON syntax và gitdiff whitespace được kiểm; không chạy lại coretests vì không đổi thuật toán |
+| Trạng thái quality | Chưa triển khai scorer/index/runner mới, chạy relevance benchmark, upload hoặc submit. Gain mới=null |
+
+D09 mở thiết kế thay khối theo yêu cầu; giữ phân biệt kiểm input thực tế với inference và quality evaluation. Không tuyên bố F1 tìm doc ngoài union hoặc S1 đã có retriever toàn kho.
+
+## 16. Triển khai Retriever và Fusion độc lập —20/10/2026
+
+### D10 — Hai phần có vai trò khác nhau, dùng chung index/scorer
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / corrects_entry | D10 / ưu tiên F1-trước, S1-để-sau của D09; giữ lịch sử |
+| Yêu cầu | Người dùng đề nghị cả phần thay retrieval và phần thay RRF nếu không thừa; triển khai và cập nhật handover |
+| Kết luận thiết kế | Không thừa: Retriever tìm độc lập từ corpus; Fusion chỉ xếp lại dedup union nguồn. Hai phần dùng chung index/evidence, không bắt chạy nối tiếp |
+| Implementation | [corpus_index](bear/corpus_index.py), [structured_evidence](bear/structured_evidence.py), [retrieval](bear/retrieval.py), [evidence_fusion](bear/evidence_fusion.py), [runner](bear/parts_runner.py) |
+| CLI/config | corpus-index, retrieve, evidence-fuse; [configs](configs/bear_parts/index.template.json); output candidates/evidence/diagnostics/manifest riêng |
+| Phiên bản | Prototype corpus_parts_v1; legacy package/runner2.0.0 vẫn giữ nguyên fixed200 và compatibility cũ |
+| Cơ chế thật | SQLite inverted index từ corpus; BM25 + phrase/entity evidence; binding subject/predicate/object khai báo cùng câu/thứ tự/polarity, span/availability rõ |
+| Giới hạn | Chưa có parser quan hệ y sinh tự động/ngữ nghĩa đầy đủ; raw query dùng lexical fallback; VI mặc định, chưa chứng minh ZH recall. Generated window refs chỉ diagnostic, chưa là submission chunk selector |
+| Đối chứng | B0 retrieval baseline+RRF; BR BEAR-Retriever thay đầu ra khối ứng viên VI; BF retrieval baseline+BEAR-Fusion thay RRF; cùng top-k/lang/corpus/downstream và nhánh ZH control |
+| Kiểm chứng | 98/98 tests BEAR, gồm35 mới, +10/10 legacy; CLI được execute trên fixture; input/config/code/tamper/resume/WAL/malformed-source guards qua |
+| Demo thực | [comparison](runtime/bear_parts/demo_two_parts_final_20261020/comparison.json): BR lấy c_outside ngoài union; BF không ra ngoài union và đổi thứ hạng RRF nhờ explicit relation |
+| Dữ liệu thật | Dry-run các config mẫu blocked_input: corpus/query/index/source rankings chưa có ở paths chuẩn; artifacts baseline0,391 còn thiếu |
+| Quality / side effects | Gain mới=null; không model/GPU inference, submit hoặc upload. Corpus nguồn chỉ đọc |
+| Bàn giao | [Handover](TXT_handover.md), PLAN/proposal/algorithm/replacement study/runbook/spec được cập nhật phân biệt BR và BF; [báo cáo](reports/BEAR_PARTS_20261020.md) |
+
+D10 triển khai phần mềm cho hai nghiên cứu riêng, không suy fixture thành metric thật hoặc tuyên bố toàn bộ BEAR doc/chunk đã hoàn tất.

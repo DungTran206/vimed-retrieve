@@ -1,5 +1,19 @@
 # Chuẩn bị BEAR doc/chunk trên baseline0,391
 
+**Hiện hành PLAN3.5:** hai phần Retriever/Fusion đã có prototype và [configs riêng](../bear_parts/README.md). Các inventory F1/pilot3.3 bên dưới là lịch sử chuẩn bị, không thay lệnh retrieve/evidence-fuse và không buộc Retriever phải đọc pool baseline.
+
+## F1 — Thay fusion trước top300 (thiết kế3.4)
+
+[Replacement study](../../BEAR_REPLACEMENT_STUDY.md) ưu tiên BEAR chọn lại ứng viên trên union ba nguồn VI trước fusion. Inventory riêng:
+
+    python -B -m TXT.bear.cli provenance --config TXT/configs/bear_doc_chunk/preflight_replacement_f1.template.json --dry-run
+
+Config này được CLI provenance hiện có nhận, **không chạy inference F1**. Role source rankings phải chứa từng nguồn trước cắt top300, union/dedup và candidates ZH đóng băng; pool cuối340 không đủ. Runtime policy cần đúng Qwen/MaxP/p̂/threshold và chunk/export0,391. Qwen cache bao phủ doc mới hoặc khả năng chạy bổ sung cần kiểm riêng, chưa nằm trong phép kiểm hiện diện file này. Structured evidence/adapter/runner vẫn cần triển khai.
+
+Đã chạy dry-run20/10: exit1/blocked_input,5roles thiếu, btc_validation hiện diện; [report F1](../../reports/bear_replacement_f1_preflight_20261020.json). Không suy readiness inference từ inventory.
+
+## Pilot selector3.3 — Inventory đã có
+
 preflight_0391.template.json là config **provenance inventory**, được CLI hiện có nhận; không phải config inference v3.3. Hiện có5role thiếu và1role validation hiện diện; xem [readiness report](../../reports/EXPERIMENT_READINESS_20261020.md).
 
     python -B -m TXT.bear.cli provenance --config TXT/configs/bear_doc_chunk/preflight_0391.template.json --dry-run

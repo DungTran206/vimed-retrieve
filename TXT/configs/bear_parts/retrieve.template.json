@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "index": "TXT/runtime/bear_parts/index_001/index.sqlite",
+  "queries": "data/queries.jsonl",
+  "top_k": 300,
+  "languages": ["vi"],
+  "output_dir": "TXT/runtime/bear_parts/retrieve_001"
+}

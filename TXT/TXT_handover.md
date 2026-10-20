@@ -1,53 +1,65 @@
-# Handover — BEAR Doc & Chunk Retrieval
+# Handover — BEAR-Retriever và BEAR-Fusion
 
-Cập nhật20/10/2026, [PLAN v3.3](PLAN.md), software2.0.0. Người dùng xác nhận BEAR nhằm tạo thuật toán retrieve doc và chunk; v3.2 chỉ audit/threshold đã được thay.
+Cập nhật 20/10/2026, [PLAN v3.5](PLAN.md). **BEAR có hai phần khác nhau, được triển khai ở mức prototype corpus_parts_v1: Retriever tìm corpus/index; Fusion chọn trong union để thay RRF.** Hai phần dùng chung index/evidence scorer. Chưa đánh giá chất lượng trên baseline 0,391.
 
-## 1. Đọc trước
+## 1. Hai phần và vị trí thay thế
 
-[BEAR_ALGORITHM](BEAR_ALGORITHM.md) →[pipeline0,391](PIPELINE_0391.md) →[proposal](TXT_Proposal.md) →[PLAN](PLAN.md). [JSON](specs/pipeline_0391.json) là tham chiếu, không config CLI.
+| Phần | Đầu vào → đầu ra | Giới hạn |
+|---|---|---|
+| **BEAR-Retriever / BR** | Query + corpus index → ranked candidates | Tìm độc lập trong scope ngôn ngữ; có thể tìm doc ngoài mọi pool baseline |
+| **BEAR-Fusion / BF** | Query + source rankings → dedup union → ranked candidates | Thay RRF, không thêm doc ngoài union của query |
 
-## 2. Control và lịch sử
+```text
+B0: Query → retrieval baseline → RRF          → cùng downstream
+BR: Query → BEAR-Retriever                    → cùng downstream
+BF: Query → retrieval baseline → BEAR-Fusion  → cùng downstream
+```
 
-Baseline0,391: ảnh ghi300VI+40ZH ứng viên →Qwen/MaxP/p̂/threshold, mean khoảng160doc/query. Chưa có đầy đủ run/config/metrics hoặc chunk nộp; không ép k160/200,40ZH cuối hoặc chunk=body từ “Lấy full”.
+Trong nghiên cứu VI, BR thay đầu ra cả khối sinh ứng viên + fusion VI; BF chỉ thay fusion VI. Giữ nhánh ZH theo control. Cùng corpus/query/lang/top-k/downstream. BR đo khả năng tìm tài liệu, BF đo chọn/gộp ứng viên đã có; không bắt BF trước BR hoặc chờ pilot doc/chunk cũ.
 
-w045FINAL0.3442 và TXT/BEARFINAL0.3445 giữ lịch sử. L1/L4 trên0.4076 có best ΔDocF2+0.0003/+0.0004, CI95 chạm0/âm theo báo cáo; không chạy lại uniform coverage dưới tên mới. N0/N1 w045 đã được báo đủ1200câu/parity100%/5.5doc đổi, không làm lại như prerequisite.
+## 2. Code, cấu hình và chạy thử
 
-## 3. Công việc cần xây
+- [corpus_index.py](bear/corpus_index.py): shared lexical index từ corpus chỉ đọc.
+- [structured_evidence.py](bear/structured_evidence.py): scorer chung, protected phrases và quan hệ tường minh.
+- [retrieval.py](bear/retrieval.py), [evidence_fusion.py](bear/evidence_fusion.py): hai thuật toán riêng.
+- [parts_runner.py](bear/parts_runner.py), [cli.py](bear/cli.py): I/O, manifest và CLI.
 
-| Bước | Output cần có |
+| Lệnh | Config mẫu |
 |---|---|
-| A0adapter | Nối control/candidates/scores/native chunks/budget; bypass đúng baseline |
-| A1evidence | Một support/conflict có identity/role/điều kiện, span/mapping/availability/fallback |
-| A2doc | selected_docs: chọn lại tập doc theo score BEAR, pilot giữ k thực từng query |
-| A3chunk | selected_chunks: native chunks/windows nguyên văn cùng slots/token budget, nối exporter |
-| A4joint | B0/D1/C1/DC1 và metric riêng doc/chunk/joint |
+| corpus-index | [index.template.json](configs/bear_parts/index.template.json) |
+| retrieve | [retrieve.template.json](configs/bear_parts/retrieve.template.json) |
+| evidence-fuse | [fuse.template.json](configs/bear_parts/fuse.template.json) |
 
-A2/A3 có thể phát triển độc lập. Chỉ flags/report chưa hoàn tất BEAR; threshold study chỉ là công cụ operating point.
+Dùng `python -B -m TXT.bear.cli <lệnh> --config <path> --dry-run`; thay bằng `--execute` khi bind inputs thật. [Runbook](reports/RUNBOOK.md) có trình tự. Templates chưa là linkage baseline đã xác minh.
 
-## 4. Đối chứng và nhãn
+Có [demo synthetic](tools/demo_bear_parts.py): `python -B -m TXT.tools.demo_bear_parts`. Demo xuất BR, BF, RRF_control và comparison.json; chỉ chứng minh kỹ thuật, không đánh giá baseline 0,391. [Báo cáo triển khai](reports/BEAR_PARTS_20261020.md) và [inventory hiện tại](reports/bear_parts_preflight_20261020.json) ghi kiểm chứng thực.
 
-B0baseline cả hai tầng; D1đổi doc selector/giữ chunk policy; C1giữ doc set/order/slots và đổi chunk selector; DC1ghép hai selector. Tối đa3candidate mới và1control trong một pilot, không thêm grid.
+Retrieve/Fusion xuất candidates.jsonl, evidence.jsonl và manifest.json dưới output_dir. Candidate có `id` và `candidates[{doc_id, score}]`, tương thích reranker. **Chunk refs/bear_window trong evidence là diagnostic, chưa phải native selected_chunks hoặc submission chunk selector.**
 
-D1-VI nếu chỉ có mapping VI đáng tin: giữ non-VI và VI count baseline làm đối chứng, không nói baseline có quota ZH cuối. Nếu full-body duy nhất không có lựa chọn dưới cùng budget, ghi C1không có headroom ở scope đó.
+## 3. Prototype và giới hạn
 
-BTC val được dùng; không giả annotator hoặc gán tay lại593câu. not_gold suy từ chunk có thể âm giả, unknown không tự âm;±0.0002/tổng305 không phải bound. D1fixed-k cần judgments changed docs; k đổi cần hits control/sensitivity cả docs giữ nguyên. C1giữ budget; local LCS không tự official ChunkF2, ΔDoc không tự ΔFINAL.
+Index/search dùng stdlib lexical BM25, title weight 2, k1=1.2, b=0.75; score prototype phối hợp 0.6 lexical + 0.4 evidence. Chưa chứng minh tối ưu hoặc calibrated probability. Không tải model.
 
-## 5. Code đã có/gap
+Scorer nhận phrases neo trong query và explicit subject/predicate/object với polarity; rules so thứ tự/cùng câu. Không có relations thì lexical-only/entity evidence, với structured_status=unavailable. Chưa có parser NLP tổng quát hay ngữ nghĩa y sinh đầy đủ; không diễn giải lexical score thành relation/intent đã hiểu.
 
-2.0.0 có matcher, uniform/local/critical coverage, fusion và C1/C2scaffolding. Structured relation/conflict mới chưa triển khai; critical_mismatches có chỗ trả list rỗng. Không xem placeholder là detector xong.
+Mặc định languages=["vi"], scope có cấu hình. Tokenization Han chưa bảo đảm Chinese substring lookup/recall parity; nghiên cứu VI giữ nhánh ZH baseline. Model-free candidate stage không đồng nghĩa Qwen/downstream chạy CPU.
 
-Runner/evaluator/exporter còn assumptions w045/fixed200/manual-qrels. Cần adapter0,391 và policy chunk thật. Rootval_calib cóMaxP/beta8/10 nhưng chưa liên kết run; không tự refit.
+**Legacy riêng:** package/runner 2.0.0 cũ còn fixed200/w045/residual fusion/C1C2 scaffolding; không dùng pool/run/export cũ để giả BR/BF. Corpus_parts_v1 là version prototype riêng.
 
-Dùng input thật cho A0/A1, thiếu phần nào ghi scope phần đó và làm phần độc lập. Mọi output mới dướiTXT, nguồn/completed artifacts chỉ đọc. [Runbook](reports/RUNBOOK.md), [logD06](improvement_log.md) hướng dẫn tiếp. Chưa có implementation structured-retrieval hoặc benchmark relevance mới.
+## 4. Đối chứng và bước tiếp
 
-## 6. Chuẩn bị chạy và CPU/GPU — đã kiểm20/10
+Bind corpus/query/source rankings đúng snapshot; khóa top-k/lang/corpus/query/downstream. Candidate top-k khác output variable-k cuối, không ép 160/200. Đo coverage cùng depth, BR doc mới ngoài union, BF changed top-k, build/index size/latency/RAM/availability/lexical-only rate.
 
-[Readiness report](reports/EXPERIMENT_READINESS_20261020.md) và [JSON preflight](reports/bear_doc_chunk_preflight_20261020.json):blocked_input,5roles thiếu, chỉ btc_validation hiện diện. data/ chỉ có .gitkeep; không tự dùng ZIP lịch sử chưa liên kết làm control0,391.
+Giữ Qwen checkpoint/prompt/preprocessing, MaxP/p̂/threshold/chunk policy control. Doc mới thiếu cache phải score đúng recipe; không gán 0/bỏ doc hoặc áp p̂ threshold lên BEAR score. Chỉ chấm Doc/Chunk/FINAL khi đủ judgments/scorer đúng semantics.
 
-[Config preflight](configs/bear_doc_chunk/preflight_0391.template.json) chạy bằng CLIprovenance --dry-run; exit1 là thiếu input. Đây là inventory A0, không chạy BEARv3.3. Bind paths thật trên máy có dữ liệu, đồng thời bổ sung code A1–A3 còn thiếu.
+BTC labels offline, không đọc tại inference. Unknown/chunk-derived not_gold không tự âm; 593 query đã khai thác không thành holdout mới. Không suy FINAL từ ΔDoc hoặc cộng gain BR+BF. Joint optional sau kết quả độc lập. D1/DC1/R1/C1/native chunk selector/exporter là later/legacy, không chặn Retriever.
 
-CPU chạy được nhánh cached-score+feature nhẹ; chưa cam kết toàn bộ structured relation extraction chỉ cần CPU. Máy đo i5-1135G7/8luồng/RAM7.8GiB, RAM trống lúc đo0.7GiB: khởi đầu streaming1worker. Kernel cũ ngoại suy khoảng9/39/153phút cho408kpair ở body4k/20k/80kchar; chưa tính I/O/feature mới/scorer/export. ETA end-to-end chưa có, cần20query thật sau khi đủ input/code. [Script benchmark](tools/benchmark_cpu.py) không tải model.
+## 5. Dữ liệu và lịch sử
 
-[LogD07](improvement_log.md) ghi kiểm tra này; không biến số CPU tổng hợp thành chất lượng retrieval.
+0,391 là score người dùng báo; sơ đồ khoảng 300 VI + 40 ZH trước rerank, threshold cho mean khoảng 160 docs/query. Chưa đủ run/config/scorer/chunk policy linkage; không coi counts sơ đồ là runtime đã đo.
 
-**Cập nhật GPU:** người dùng sẵn sàng dùng máy GPU khác, chưa biết thông số. Không chờ hardware để viết code, cũng chưa coi môi trường/model đã sẵn. [Readiness §7](reports/EXPERIMENT_READINESS_20261020.md#7-máy-gpu-đã-có-còn-thiếu-gì-và-ai-chuẩn-bị) tách dữ liệu cần lấy từ máy baseline, code agent phải triển khai, nhãn/scorer và môi trường máy GPU. Tái dùng cache khi đủ; GPU chỉ dùng cho phần model cần tính mới. Không ép nhánh CPU hoặc cam kết ETA từ cấu hình chưa kiểm; [logD08](improvement_log.md) ghi quyết định này.
+[Preflight cũ](reports/bear_doc_chunk_preflight_20261020.json), [readiness](reports/EXPERIMENT_READINESS_20261020.md) thiếu corpus/queries/artifacts baseline ở paths chuẩn; val.jsonl hiện diện. Đó là snapshot lịch sử, prototype không tự làm input xuất hiện. Chưa rerun baseline hoặc quality evaluation BR/BF.
+
+L1/L4 trên 0,4076 giữ best ΔDocF2 +0.0003/+0.0004, CI95 chạm 0/âm theo báo cáo; không chạy lại coverage bằng tên khác. N0/N1 w045 đã có kết quả được báo, không làm lại prerequisite. Output mới dưới TXT, nguồn/completed artifacts chỉ đọc. Máy GPU người dùng có thể dùng cho downstream models khi cần, chưa có ETA toàn hệ thống.
+
+Đọc [algorithm](BEAR_ALGORITHM.md), [study](BEAR_REPLACEMENT_STUDY.md), [PLAN](PLAN.md), [log](improvement_log.md), [results](reports/RESULTS.md).

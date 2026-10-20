@@ -1,14 +1,15 @@
 {
-  "specification_version": "1.1",
+  "specification_version": "1.3",
   "kind": "reference_specification",
   "executable": false,
   "updated_date": "2026-10-20",
-  "research_plan_version": "3.3",
+  "research_plan_version": "3.5",
   "software_version": "2.0.0",
   "sources": {
     "pipeline_markdown": "../PIPELINE_0391.md",
     "plan": "../PLAN.md",
     "proposal": "../TXT_Proposal.md",
+    "replacement_study": "../BEAR_REPLACEMENT_STUDY.md",
     "evidence": "User-provided Miro screenshots; not verified against runtime artifacts"
   },
   "baseline": {
@@ -125,7 +126,7 @@
   },
   "bear": {
     "user_confirmed_idea": "Biomedical evidence preserving identifiers, local context and answer intent",
-    "current_role": "Proposed inference algorithm selecting documents and evidence chunks; audit and threshold tuning are supporting tools",
+    "current_role": "Two independent corpus_parts_v1 prototype modules: BEAR-Retriever searches corpus/index; BEAR-Fusion ranks a deduplicated source union instead of RRF. Shared index/scorer, separate search spaces.",
     "diagnostic_flags": [
       "identifier_or_variant_mismatch",
       "relation_or_indication_mismatch",
@@ -139,13 +140,19 @@
     "adaptive_routing_status": "deferred",
     "l1_l4_status": "Closed for the previously tested configuration on 0.4076; no automatic retest on 0.391",
     "algorithm_specification": "../BEAR_ALGORITHM.md",
-    "algorithm_status": "PROPOSED_NOT_FULLY_IMPLEMENTED",
+    "algorithm_status": "CORPUS_PARTS_PROTOTYPE_IMPLEMENTED_FULL_BIOMEDICAL_DOC_CHUNK_SEMANTICS_NOT_IMPLEMENTED",
     "proposed_outputs": [
       "selected_docs",
       "selected_chunks"
     ],
-    "runtime_new_structured_score_adjustment_implemented": false,
-    "proposed_evidence_score_adjustment": true
+    "runtime_new_structured_score_adjustment_implemented": true,
+    "proposed_evidence_score_adjustment": true,
+    "current_outputs": [
+      "candidates.jsonl",
+      "evidence.jsonl",
+      "manifest.json"
+    ],
+    "chunk_refs_are_submission_selected_chunks": false
   },
   "proposed_threshold_study": {
     "status": "OPTIONAL_SUPPORTING_STUDY_NOT_PRIMARY",
@@ -188,11 +195,11 @@
     "official_chunk_and_final_metrics": null
   },
   "proposed_bear_algorithm": {
-    "status": "PROPOSED_NOT_FULLY_IMPLEMENTED",
+    "status": "FULL_DOC_CHUNK_PROPOSAL_CORPUS_PARTS_PROTOTYPE_IMPLEMENTED",
     "executable": false,
-    "first_stage": "Reuse baseline candidate generation and cached source/reranker scores",
-    "evidence": "Structured local support/conflict with identity, role and condition spans; unknown is not mismatch",
-    "document_selector": "Combine baseline component with valid structured evidence and select document IDs",
+    "first_stage": "BR searches corpus/index independently; BF ranks source union instead of RRF. Neither is prerequisite of the other.",
+    "evidence": "Shared lexical BM25 plus query-anchored explicit subject/predicate/object relations with same-sentence order and polarity rules; absent relations produce lexical-only status, not full biomedical parsing.",
+    "document_selector": "Corpus-parts candidate ranking is implemented; final document selection keeps the verified control downstream policy.",
     "chunk_selector": "Select native chunks or verified windows under the matched control budget",
     "output_contract": [
       "selected_docs",
@@ -229,7 +236,29 @@
     "feature_and_weight_configuration": null,
     "relation_or_intent_extractor_implemented": false,
     "chunk_export_adapter_verified": false,
-    "gold_labels_read_at_inference": false
+    "gold_labels_read_at_inference": false,
+    "explicit_relation_rule_scorer_implemented": true
+  },
+  "proposed_stage_replacement_study": {
+    "status": "CORPUS_PARTS_ENGINEERING_PROTOTYPE_IMPLEMENTED_QUALITY_NOT_EVALUATED",
+    "executable": true,
+    "specification": "../BEAR_REPLACEMENT_STUDY.md",
+    "priority": "BR_AND_BF_INDEPENDENT_STUDIES",
+    "studies": {
+      "B0": "Original baseline VI retrieval plus RRF, original ZH branch and downstream.",
+      "BR": "BEAR-Retriever independently searches corpus/index and replaces the VI generator plus fusion output; retain ZH and downstream control.",
+      "BF": "Original VI retrievers produce the frozen source union; BEAR-Fusion replaces RRF, cannot add outside-union documents; retain ZH and downstream.",
+      "R1": "Later/legacy reranker substitution study, not a prerequisite for BR or BF.",
+      "C1": "Later/legacy native chunk selection under matched budget, not implemented by diagnostic evidence refs.",
+      "J1": "Optional later joint study after useful independent results; measure interactions."
+    },
+    "residual_fusion_is_a_separate_augmentation_ablation": true,
+    "new_f1_documents_need_baseline_reranker_cache_or_inference": true,
+    "reuse_baseline_threshold_on_bear_only_scores": false,
+    "corpus_retriever_implemented": true,
+    "study_order": "BR and BF are independent, with matched controls/budgets; no mandatory F1-first or deferred-corpus-retriever policy.",
+    "input_inventory_config": "../configs/bear_parts/fuse.template.json",
+    "measured_quality_gain": null
   },
   "execution_preparation": {
     "checked_date": "2026-10-20",
@@ -266,6 +295,84 @@
       "potentially expensive chunk scoring or constrained RAM"
     ],
     "real_query_calibration_before_full_run": 20,
-    "baseline_score_gain_measured": false
+    "baseline_score_gain_measured": false,
+    "corpus_parts_prototype_ready": true,
+    "structured_algorithm_ready_scope": "General biomedical/doc-chunk semantics, distinct from implemented explicit-relation corpus-parts prototype.",
+    "prototype_report": "../reports/BEAR_PARTS_20261020.md",
+    "prototype_inventory": "../reports/bear_parts_preflight_20261020.json"
+  },
+  "prototype_implementation_version": "corpus_parts_v1",
+  "bear_parts": {
+    "implementation_version": "corpus_parts_v1",
+    "engineering_prototype_implemented": true,
+    "quality_evaluated": false,
+    "baseline_0391_linkage_verified": false,
+    "shared_engine": {
+      "index": "../bear/corpus_index.py",
+      "scorer": "../bear/structured_evidence.py",
+      "retrieval": "stdlib lexical BM25",
+      "bm25": {
+        "k1": 1.2,
+        "b": 0.75,
+        "title_weight": 2
+      },
+      "score_weights": {
+        "lexical": 0.6,
+        "evidence": 0.4
+      },
+      "relations": "Explicit query-anchored subject/predicate/object, same-sentence order/polarity rules",
+      "relations_absent_status": "structured_status=unavailable; lexical/entity evidence only",
+      "general_biomedical_parser_implemented": false,
+      "model_download_required": false,
+      "model_free_candidate_stage_implies_cpu_only_downstream": false
+    },
+    "retriever": {
+      "module": "../bear/retrieval.py",
+      "input": "queries plus corpus index",
+      "search_space": "corpus in configured language scope",
+      "may_retrieve_outside_baseline_union": true
+    },
+    "fusion": {
+      "module": "../bear/evidence_fusion.py",
+      "input": "queries plus source rankings and corpus index",
+      "search_space": "deduplicated source union per query",
+      "may_add_outside_source_union": false,
+      "replaces": "RRF"
+    },
+    "default_languages": [
+      "vi"
+    ],
+    "zh_recall_parity_claimed": false,
+    "vi_study_zh_policy": "Preserve original baseline ZH branch and merge its candidates before shared downstream.",
+    "commands": {
+      "corpus-index": "../configs/bear_parts/index.template.json",
+      "retrieve": "../configs/bear_parts/retrieve.template.json",
+      "evidence-fuse": "../configs/bear_parts/fuse.template.json"
+    },
+    "inference_outputs": [
+      "candidates.jsonl",
+      "evidence.jsonl",
+      "manifest.json",
+      "diagnostics.json"
+    ],
+    "candidate_schema": "id,candidates[{doc_id,score}]",
+    "chunk_evidence_refs": "Diagnostic bear_window/native references only; not final selected_chunks or submission exporter.",
+    "demo": "../tools/demo_bear_parts.py",
+    "implementation_report": "../reports/BEAR_PARTS_20261020.md",
+    "input_inventory": "../reports/bear_parts_preflight_20261020.json",
+    "independent_studies": [
+      "BR",
+      "BF"
+    ],
+    "matched_controls": [
+      "corpus",
+      "query universe",
+      "language scope",
+      "candidate top-k",
+      "original ZH branch",
+      "downstream Qwen/MaxP/p_hat/threshold/chunk policy"
+    ],
+    "joint_status": "optional after independent evaluation",
+    "measured_quality_gain": null
   }
 }

@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "corpus": "data/corpus_new.sqlite",
+  "chunk_chars": 1200,
+  "output_dir": "TXT/runtime/bear_parts/index_001"
+}

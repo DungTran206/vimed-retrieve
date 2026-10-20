@@ -1,6 +1,10 @@
 # Kết quả và quyết định hiện hành
 
-Cập nhật **20/10/2026**. Người dùng đã chọn **baseline mới 0,391** và xác nhận tiếp tục ý tưởng BEAR trong proposal. [PIPELINE_0391.md](../PIPELINE_0391.md) ghi kiến trúc đọc từ hai ảnh; [spec tham chiếu](../specs/pipeline_0391.json) không phải config thực thi. Điểm có mức bằng chứng `REPORTED`, baseline là `USER_SELECTED`; chưa liên kết metric/run/cache. Xem [hồ sơ baseline](BASELINE_0391_20261020.md), [PLAN v3.3](../PLAN.md) và [lịch sử cải tiến](../improvement_log.md).
+**Triển khai hiện hành — PLAN3.5:** BEAR có hai phần độc lập: corpus retrieval và fusion thay RRF, dùng chung index/scorer. [Báo cáo triển khai](BEAR_PARTS_20261020.md) ghi 98 BEAR +10 legacy tests qua và demo tổng hợp chạy thật. Đây là prototype lexical/explicit-relation, chưa có quality gain hoặc baseline0,391 parity mới. Các đoạn v3.3/v3.4 bên dưới mô tả lịch sử trước triển khai hai phần.
+
+Cập nhật **20/10/2026**. Người dùng đã chọn **baseline mới 0,391** và xác nhận tiếp tục ý tưởng BEAR trong proposal. [PIPELINE_0391.md](../PIPELINE_0391.md) ghi kiến trúc đọc từ hai ảnh; [spec tham chiếu](../specs/pipeline_0391.json) không phải config thực thi. Điểm có mức bằng chứng `REPORTED`, baseline là `USER_SELECTED`; chưa liên kết metric/run/cache. Xem [hồ sơ baseline](BASELINE_0391_20261020.md), [PLAN v3.4](../PLAN.md) và [lịch sử cải tiến](../improvement_log.md).
+
+**Mở rộng3.4 theo người dùng:** [F1/R1/C1/S1/J1](../BEAR_REPLACEMENT_STUDY.md) thử BEAR thay từng khối retrieval, ưu tiên fusion trước top300. Đây là thiết kế, chưa có kết quả quality. Pilot selector3.3 và các số lịch sử bên dưới giữ đúng phạm vi, không chứng minh BEAR đã thay candidate generator toàn kho.
 
 L1/L4 trên **bài 0,4076 trước đây** vẫn đóng theo kết quả đã báo: tối đa `+0.0003` / `+0.0004` Doc F2, CI95 chạm 0 hoặc âm. [Bảng sáu λ và giới hạn nhãn](L1_L4_20261020.md) là lịch sử của control đó; không chuyển delta hoặc CI sang baseline 0,391 và không chạy lại chỉ vì thay baseline.
 
