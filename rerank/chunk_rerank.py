@@ -31,7 +31,7 @@ def prep(a):
                 if t.strip():
                     by.setdefault(str(d), []).append(t)       # đúng lọc chunk rỗng như fetch_chunks
             for d, ts in by.items():
-                if len(ts) >= 3:
+                if len(ts) >= a.min_chunks:
                     for i, t in enumerate(ts):
                         o.write(json.dumps({"id": r["id"], "doc_id": d, "idx": i, "query": qs[r["id"]], "text": t},
                                            ensure_ascii=False) + "\n")
@@ -72,6 +72,7 @@ def main():
     ap.add_argument("--cands-out", default="data/chunk_cands.jsonl")
     ap.add_argument("--scores", default="data/chunk_scores.jsonl")
     ap.add_argument("--top", type=int, default=40)
+    ap.add_argument("--min-chunks", type=int, default=3, help="chỉ chấm doc có ≥ N chunk (baseline gọn: 1 = mọi doc)")
     ap.add_argument("--doc-chars", type=int, default=2800)
     ap.add_argument("--max-len", type=int, default=1400)
     ap.add_argument("--batch", type=int, default=8)
