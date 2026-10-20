@@ -10,6 +10,7 @@
 """
 import argparse
 import json
+import os
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -28,16 +29,21 @@ def main():
     ap.add_argument("--fit", default="data/val/p_w045.jsonl")
     ap.add_argument("--docs", type=float, default=160)
     ap.add_argument("--out", default="data/val/docs_clean160.json")
+    ap.add_argument("--scores", nargs="+", default=SCORES)
+    ap.add_argument("--confidence-out", default=None, help="lưu p̂, ngưỡng và quyết định baseline cho từng ứng viên")
     a = ap.parse_args()
-    L = {r["id"]: [(c["doc_id"], c["lang"]) for c in r["candidates"]] for r in map(json.loads, open(a.cands, encoding="utf-8"))}
+    with open(a.cands, encoding="utf-8") as f:
+        L = {r["id"]: [(c["doc_id"], c["lang"]) for c in r["candidates"]]
+             for r in map(json.loads, f)}
     cand = {(q, d) for q, ds in L.items() for d, _ in ds}
     M = {}
-    for p in SCORES:
-        for l in open(p, encoding="utf-8"):
-            r = json.loads(l)
-            k = (r["id"], r["doc_id"])
-            if k in cand:
-                M[k] = max(M.get(k, 0.0), r["score"])
+    for p in a.scores:
+        with open(p, encoding="utf-8") as f:
+            for l in f:
+                r = json.loads(l)
+                k = (r["id"], r["doc_id"])
+                if k in cand:
+                    M[k] = max(M.get(k, 0.0), r["score"])
     X, keys = [], []
     for q, ds in L.items():
         nv = sum(g == "vi" for _, g in ds)
@@ -47,7 +53,9 @@ def main():
             X.append([m, np.log(1 + (j - nv if z else j)), z, z * m])
             keys.append((q, d))
     X = np.array(X, dtype=float)
-    P = {r["id"]: {c["doc_id"]: c["p"] for c in r["candidates"]} for r in map(json.loads, open(a.fit, encoding="utf-8"))}
+    with open(a.fit, encoding="utf-8") as f:
+        P = {r["id"]: {c["doc_id"]: c["p"] for c in r["candidates"]}
+             for r in map(json.loads, f)}
     idx = [i for i, (q, d) in enumerate(keys) if d in P[q]]
     y = np.array([P[keys[i][0]][keys[i][1]] for i in idx])
     # nhãn mềm: mỗi mẫu nhân đôi (nhãn 1 trọng số p, nhãn 0 trọng số 1−p)
@@ -61,7 +69,17 @@ def main():
         if p >= t:
             by.setdefault(q, []).append((p, d))
     D = {q: [d for _, d in sorted(by.get(q, []), key=lambda x: -x[0])] for q in sorted(L)}
-    json.dump(D, open(a.out, "w"))
+    with open(a.out, "w", encoding="utf-8") as f:
+        json.dump(D, f)
+    if a.confidence_out:
+        confidence = {}
+        for (q, d), p in zip(keys, ph):
+            confidence.setdefault(q, []).append({
+                "doc_id": d, "p_hat": float(p), "baseline_selected": bool(p >= t),
+            })
+        os.makedirs(os.path.dirname(a.confidence_out) or ".", exist_ok=True)
+        with open(a.confidence_out, "w", encoding="utf-8") as f:
+            json.dump({"threshold": float(t), "queries": confidence}, f)
     n = [len(v) for v in D.values()]
     print(f"ngưỡng p̂ {t:.5f} → {sum(n) / len(n):.1f} doc/câu (ít nhất {min(n)}) -> {a.out}")
 
