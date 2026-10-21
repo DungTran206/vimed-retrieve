@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "queries": "TXT/inputs/medical_hypothesis/queries.jsonl",
+  "kb": "TXT/runtime/medical_hypothesis/kb/kb.jsonl",
+  "llm": {
+    "model": "Qwen/Qwen3.5-9B",
+    "num_parameters_b": 9,
+    "base_url": "http://127.0.0.1:8000/v1",
+    "enable_thinking": false,
+    "max_tokens": 2048,
+    "timeout_seconds": 120,
+    "system_prompt_path": "TXT/prompts/medical_query_system.txt",
+    "user_prompt_path": "TXT/prompts/medical_query_user.txt"
+  },
+  "output_dir": "TXT/runtime/medical_hypothesis/prepare"
+}

@@ -1,4 +1,6 @@
-# Giới hạn hiện tại —20/10/2026
+# Giới hạn snapshot lịch sử —20/10/2026
+
+Hiện hành 21/10: [medical hypothesis v4](MEDICAL_HYPOTHESIS_20261021.md) đã có code chạy và 146 tests đạt tổng cộng. Chưa có kết quả chất lượng thật; inputs/endpoint và source quality phải được ghi đúng. Các hạn chế lịch sử bên dưới không là lý do từ chối hay trì hoãn việc chạy hypothesis đã được ủy quyền.
 
 Theo [PLANv3.3](../PLAN.md) và [BEAR_ALGORITHM](../BEAR_ALGORITHM.md), đích là doc/chunk retrieval, không chỉ audit/threshold.
 

@@ -1,109 +1,65 @@
-# PLAN v3.5 — Hai phần BEAR độc lập
+# PLAN v4 — Thử medical-gated scoring và adaptive selection
 
-Cập nhật 20/10/2026. **Retriever tìm corpus/index; Fusion chọn source union để thay RRF.** Không thừa: một phần thay khả năng tìm tài liệu, phần kia thay cách chọn ứng viên đã tìm. Prototype corpus_parts_v1 dùng shared index/scorer, có đường chạy kỹ thuật; quality chưa đánh giá.
+Cập nhật 21/10/2026. Ý tưởng người dùng muốn kiểm chứng là contextual medical salience → observed concept matches → tăng vai trò BM25 khi lexical evidence quan trọng mạnh, tăng dense khi yếu; sigmoid calibration, adaptive threshold và source-backed enrichment cùng cache offline hỗ trợ thực nghiệm.
 
-## 1. Mục tiêu
+## 1. Chỉ dẫn ưu tiên
 
-So B0/BR/BF cùng corpus/query/lang/top-k/downstream. Không giới hạn Retriever trong pool baseline, không buộc F1-first/S1-deferred. [Algorithm](BEAR_ALGORITHM.md), [study](BEAR_REPLACEMENT_STUDY.md), [handover](TXT_handover.md) là hiện hành.
+Đây là hypothesis được người dùng yêu cầu thử. Agent phải tiếp tục triển khai/chạy phần có thể chạy và ghi kết quả. Có thể phản biện nhưng không dùng phản biện, lack of prior gain hay prerequisite cũ để trì hoãn experiment được ủy quyền. Thiếu inputs thì báo đúng artifact còn thiếu, chạy demo/available stages; không bịa score hoặc baseline parity.
 
-Dài hạn vẫn doc/chunk retrieval. Candidates/evidence refs chưa hoàn tất selected_chunks/submission exporter.
+Canonical docs: [proposal](TXT_Proposal.md), [handover](TXT_handover.md), [algorithm](BEAR_ALGORITHM.md), [study](BEAR_REPLACEMENT_STUDY.md). Workflow mới `TXT.bear.medical_cli`; CLI prototype cũ vẫn là control riêng.
 
-## 2. Control và lịch sử
+## 2. Các phần cần thử
 
-0,391 là score người dùng báo, chưa đủ metric/run/config linkage. Sơ đồ khoảng 300 VI + 40 ZH trước rerank, threshold cho mean khoảng 160 docs/query; chưa là runtime counts/quotas cuối.
-
-L1/L4 trên 0,4076 giữ best ΔDocF2 +0.0003/+0.0004, CI95 chạm 0/âm theo báo cáo, không chạy coverage lại bằng tên khác. N0/N1 w045 đã có kết quả được báo, không làm lại prerequisite. Không áp policy baseline khác cho 0,391.
-
-## 3. Kiến trúc và output
-
-Shared corpus_index.py/structured_evidence.py phục vụ retrieval.py/evidence_fusion.py. Retriever lookup corpus độc lập, Fusion chấm dedup union không thêm docs. Parts_runner.py nối CLI/config/manifest.
-
-CLI corpus-index/retrieve/evidence-fuse có --config và --dry-run/--execute. [Templates](configs/bear_parts/) riêng. Hai inference paths xuất candidates.jsonl/evidence.jsonl/manifest.json; schema id,candidates[{doc_id,score}] tương thích reranker. Chunk refs/bear_window là diagnostic.
-
-### 3.3. Giới hạn ghi
-
-Thay đổi/output mới dưới TXT; legacy/corpus/nhãn nguồn/completed artifacts chỉ đọc. Không ghi TXT/inputs hoặc đè inputs. Index riêng giữ identity snapshot. Không tải model trong prototype.
-
-## 4. Cơ chế và giới hạn
-
-Shared stdlib lexical index/BM25, mặc định VI có cấu hình. Scorer dùng protected phrases neo query, explicit subject/predicate/object, same-sentence/order/polarity rules. Không relations thì lexical-only; chưa general NLP/biomedical semantics.
-
-Fusion BEAR-only không dùng RRF làm score chính. Source rankings xác định union/provenance. Shared engine tránh lặp code, hai search spaces khác. Han tokenization chưa bảo đảm ZH recall parity, giữ ZH baseline khi so VI.
-
-## 5. Inputs theo phần
-
-Index cần corpus; Retriever cần index/queries/evidence input theo config, không baseline pool. Fusion thêm source rankings trước RRF. Inference không cần labels/final predictions; quality cần control/judgments/scorer đúng snapshot.
-
-[Readiness cũ](reports/EXPERIMENT_READINESS_20261020.md) thiếu corpus/queries/artifacts tại paths chuẩn. Có val.jsonl chưa đủ so; bind paths thật, không dựng control/scores giả.
-
-### 5.3. Error codes và thiếu input
-
-Giữ INPUT_MISSING/HASH_MISMATCH/SCHEMA_INVALID/BASELINE_PARITY_FAILED/FEATURE_UNAVAILABLE/LABEL_COVERAGE_INSUFFICIENT/EVALUATOR_UNVERIFIED/OUTPUT_OUTSIDE_TXT theo code. Ghi file/scope thiếu, không giả hashes/annotators/scores/judgments. Dry-run chưa chứng nhận schema/parity/quality đầy đủ.
-
-## 6. IDs/chunks/nhãn
-
-Giữ query/doc namespace, dedup, finite scores, deterministic order, frozen corpus/query/config/index version. Evidence body[start:end] nguyên văn, Unicode end-exclusive, identity/hash kiểm được; diagnostic refs chưa là submission chunks.
-
-Labels chỉ train/dev/evaluation theo protocol, không chọn doc bằng đáp án query. Unknown không negative, chunk-derived not_gold có thể âm giả. Agent không tự gán relevance y khoa. Giữ [evaluator contract](reports/EVALUATOR_CONTRACT.md).
-
-## 7. Legacy riêng
-
-Package 2.0.0/pool/run/export còn fixed200/w045/manual-qrels, không phải BR/BF. Baseline.py/R0 giữ recipe/fingerprints/allocation/calibration8 cũ. Không sửa nguồn/completed artifacts để ép tương thích. Corpus_parts_v1 là version mới riêng.
-
-## 8. Giả thuyết
-
-- H_retrieve: tìm ứng viên tốt hơn baseline cùng budget, kể cả ngoài union cũ.
-- H_fuse: chọn top-k tốt hơn RRF trong cùng union/generators/downstream.
-- H_chunk: hướng sau, chọn native chunks cùng docs/slots/text budget có ích không.
-- H_joint: chỉ ghép sau bằng chứng độc lập, đo tương tác, không cộng gain.
-
-### 8.3. Protected matcher và semantics
-
-Giữ dấu/số/boundaries: BRCA1≠BRCA10, type 1≠type 2, mg≠mcg. Explicit phrases/relations neo query, aliases cần nguồn/mapping. Same-sentence/order/polarity rules chưa là parser y sinh đầy đủ. Evidence là feature, không gold.
-
-## 9. Đối chứng chính
-
-| Run | VI candidate stage | Sau candidate stage |
+| Phần | Cấu hình khởi tạo | Điều cần đo |
 |---|---|---|
-| B0 | Baseline retrieval + RRF | Downstream baseline |
-| BR | BEAR-Retriever corpus/index | Cùng downstream |
-| BF | Baseline retrieval + BEAR-Fusion | Cùng downstream |
+| Query LLM | Qwen/Qwen3.5-9B, dưới 15B, một call/query | JSON/schema/span validity, taxonomy consistency, latency |
+| Taxonomy | 4 tiers `[0.05,0.30,0.70,1.00]` | Hard labels vs actual class-probability expectation nếu có |
+| Enrichment | KB Việt/Trung disease→symptom, provenance | Alias-only/disease-symptom vs original, recall và drift |
+| Calibration | BM25 sigmoid x0/temperature, raw/query_scale | Held-out calibration và retrieval; global vs nhóm khi đủ support |
+| Gate/fusion | Absolute salience-weighted observed matches → bounded alpha | Fixed vs adaptive fusion cùng union/budget |
+| Selection | Global threshold rồi tier-bucket threshold | Chất lượng cùng mean budget, p95/max candidates và cost |
+| Cache | Raw sources/matches/tier labels/probs/identity | Tune không cần LLM/retrieval lại khi inputs không đổi |
 
-Cùng top-k/lang/corpus/query/budget, giữ ZH control. BR thay đầu ra generator+fusion VI, BF chỉ fusion. Độc lập, mỗi phần một config khai báo, không grid/BF prerequisite.
+`x0` là sigmoid midpoint; final threshold là parameter khác. LLM salience hỗ trợ BM25/dense routing, không phải bắt buộc additive LLM relevance.
 
-D1/DC1/R1/C1 later/legacy; giới hạn 3 candidates/1 control cũ chỉ áp selector pilot đó, không chặn BR/BF. Joint optional sau bằng chứng từng phần, threshold-only là operating-point study phụ.
+## 3. Thứ tự vận hành
 
-## 10. Đánh giá
+1. Inspect current inputs/configs. Bind corpus index, queries, raw pre-fusion sources, labels và intended splits. Ghi rõ source nào chưa có complete union scores.
+2. Import normalized KB có provenance; giữ Vietnamese mappings chưa duyệt ở trạng thái đúng. Không coi CMeIE/OpenCMKG là clinical gold mặc định.
+3. Prepare query concepts/tiers/expansions qua endpoint Qwen 9B hoặc trusted saved model outputs. Prompts rõ trong `TXT/prompts/`.
+4. Cache union/raw BM25 original+expanded/dense/missing masks/observed matches và identities. Chọn depth rộng để offline sweep không bị top-K cũ bó hẹp.
+5. Fit sigmoid trên calibration queries có explicit positives/negatives. Không gán unjudged là negative.
+6. Tune tier scores/alpha/enrichment/threshold trên tuning queries, lưu search space và mọi trial. Dùng global trước rồi adaptive buckets nếu đủ support.
+7. Run config đã khóa trên holdout hoặc explicit exploratory split; export candidates tương thích downstream.
+8. Evaluate coverage/selection/cost trên judgments đúng semantics. Chạy cùng Qwen/MaxP/p̂/native chunk control khi đã bind đúng recipes/cache.
+9. Report cả gain/loss, missingness, nguồn KB, confidence availability, splits/candidate budget và việc chưa chạy. Không tổng quát từ demo sang baseline.
 
-Candidate known-positive coverage cùng depth; labels thiếu không true Recall. BR báo docs ngoài union, BF changed top-k/union membership. Ghi build/index size/latency/RAM/availability/lexical-only/Qwen bổ sung.
+## 4. Đối chứng tối thiểu
 
-Giữ Qwen/MaxP/p̂/threshold/chunk policy. Doc mới cache thiếu score đúng recipe, không gán 0/bỏ doc/áp p̂ threshold lên BEAR score. Candidate top-k khác final variable-k; không ép cuối 160/200.
+So B0 RRF+top-K, M0 fixed calibrated fusion+top-K, M1 medical-gated+top-K, M2 medical-gated+global threshold, M3 tier-bucket threshold. Enrichment và expected-tier confidence là ablations sau/cùng recipe được khóa, không được gộp mọi thay đổi rồi quy gain cho taxonomy.
 
-Đủ labels/scorer mới paired Doc/Chunk/FINAL, CI/sensitivity. Không suy FINAL từ ΔDoc hoặc cộng gain. BTC labels offline, 593 query đã dùng không holdout mới. Chưa bằng chứng thì giữ control/chưa rõ.
+Không yêu cầu chứng minh gain trước khi chạy biến thể mới. Có thể chạy experiment đã được ủy quyền ngay khi inputs cần cho chính experiment đó có đủ. Budget matching để so chất lượng cần số docs trung bình/tổng gần nhau; một experiment chủ động đổi budget phải báo cost curve.
 
-## 11. Trạng thái và việc còn lại
+## 5. BR/BF và downstream
 
-| Phần | Trạng thái kỹ thuật | Cần trước quality |
-|---|---|---|
-| Shared index/scorer | Corpus_parts_v1 lexical + explicit relation rules | Kiểm scope/rules dữ liệu thật |
-| Retriever | Corpus/index → candidates, không baseline pool | Inputs thật/B0 cùng budget/downstream |
-| Fusion | Source union → candidates thay RRF | Rankings trước fusion/RRF recipe thật |
-| CLI/templates/manifests | Ba lệnh nối runner | Bind snapshot/integrity |
-| Native chunk selector/exporter | Chưa hoàn tất selected_chunks | Budget/export policy/scorer thật |
-| Quality evaluation | Chưa chạy BR/BF trên 0,391 | Judgments/scorer/cache/downstream linkage |
+BR tìm corpus/index độc lập, có thể ngoài union baseline. BF chỉ chọn union nguồn; model-gated fusion cập nhật BF. Không buộc BR chờ BF hoặc ngược lại. Joint là experiment riêng, không cộng gain hai phần.
 
-Engineering checks: outside-union doc chỉ Retriever tìm được; Fusion subset union; RRF không lén làm score; protected relations/polarity/IDs/refs/output bounds/corpus readonly/artifact identity đúng. [Demo](tools/demo_bear_parts.py) chỉ minh họa kỹ thuật.
+Giữ language/corpus/query snapshots; nếu thí nghiệm VI thì giữ nhánh ZH control. Đưa KB Trung vào enrichment không đồng nghĩa ZH retrieval đã parity. Han tokenization prototype vẫn cần kiểm riêng.
 
-## 12. Vận hành
+Downstream Qwen checkpoint/prompt/preprocessing, MaxP/p̂/calibration/threshold/chunk policy giữ control. Document mới thiếu Qwen score cần inference đúng recipe, không gán 0/bỏ doc/đổi score fusion thành Qwen. Diagnostic evidence windows chưa native chunks.
 
-Prototype không tải model/không cần GPU. Downstream Qwen mới có thể cần GPU; model-free candidate stage không bảo đảm end-to-end CPU. Chưa ETA toàn hệ thống; benchmark kernel CPU cũ không đại diện runtime mới.
+## 6. Dữ liệu, splits và identity
 
-Chưa input/parity linkage 0,391, chưa rerun/gain. [Runbook](reports/RUNBOOK.md) dùng lệnh runner thật.
+Chia theo query: calibration/tuning/holdout. Nếu val đã khai thác thì ghi exploratory/development, không gọi pristine holdout. Qrels unknown/chunk-derived not_gold không tự là negative. Calibration probability cần explicit negatives và population/sampling rõ; positive-only vẫn đo known-positive coverage được.
 
-## 13. Bước tiếp
+Lưu query/doc namespace, hashes corpus/index/KB/model/prompt/config và deterministic order. Source absence trong truncated lists khác score 0. Đổi expansion/depth/matcher/model có invalidation rõ; cache cũ không đánh giá docs ngoài union.
 
-Bind corpus/query/source rankings, build index, dry-run rồi execute BR/BF độc lập. Kiểm candidates/docs mới/union, nối cùng downstream, ghi metrics/limitations vào results/log. Joint sau bằng chứng từng phần.
+## 7. Giới hạn ghi và lịch sử
 
-## 14. Lịch sử
+Outputs mới dưới TXT, không đè source corpus/labels hoặc completed artifacts. Không ghi vào `TXT/inputs`. Model server/download được vận hành rõ riêng, không tự tải trong import package/demo.
 
-v3.5 bỏ F1-first/S1-deferred, tách hai module theo người dùng. v3.3/v3.4 khôi phục doc/chunk goal, v3.2 threshold-only đã thay. [Archive](archive/PLAN_v3_2_before_doc_chunk_restore_20261020.md), [log](improvement_log.md) giữ lịch sử/kết quả cũ.
+0,391 là control người dùng báo; counts khoảng 300 VI + 40 ZH và mean cuối khoảng 160 từ sơ đồ chưa phải runtime xác minh. L1/L4 scope 0,4076 và N0/N1 giữ kết quả cũ, không làm lại prerequisite bằng tên mới.
+
+Code/tests/demo mới chỉ xác nhận engineering behavior; quality/end-to-end cần input linkage và scorer thật. Xem results/log để biết checks đã thực sự chạy, không lấy danh sách việc ở PLAN làm bằng chứng hoàn tất.
+
+[Archive v3.5](archive/PLAN_v3_5_20261020.md) giữ phiên bản trước.

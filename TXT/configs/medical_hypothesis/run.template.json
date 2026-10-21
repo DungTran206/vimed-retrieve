@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "cache": "TXT/runtime/medical_hypothesis/cache/cache.jsonl",
+  "model": "TXT/runtime/medical_hypothesis/tune/best_config.json",
+  "mode": "medical",
+  "output_dir": "TXT/runtime/medical_hypothesis/run"
+}

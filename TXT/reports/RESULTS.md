@@ -1,6 +1,14 @@
 # Kết quả và quyết định hiện hành
 
-**Triển khai hiện hành — PLAN3.5:** BEAR có hai phần độc lập: corpus retrieval và fusion thay RRF, dùng chung index/scorer. [Báo cáo triển khai](BEAR_PARTS_20261020.md) ghi 98 BEAR +10 legacy tests qua và demo tổng hợp chạy thật. Đây là prototype lexical/explicit-relation, chưa có quality gain hoặc baseline0,391 parity mới. Các đoạn v3.3/v3.4 bên dưới mô tả lịch sử trước triển khai hai phần.
+## 21/10/2026 — medical importance hypothesis v4
+
+Đã triển khai taxonomy query terms, source-backed enrichment, Qwen3.5-9B client/prompts, original-concept matching, sigmoid calibration, BM25/dense medical gate, global/tier thresholds và cache replay. Có nhánh document-term extraction tùy chọn. Báo cáo [MEDICAL_HYPOTHESIS_20261021](MEDICAL_HYPOTHESIS_20261021.md) ghi phạm vi và readiness cụ thể.
+
+Kiểm chứng thực hiện: **136/136 TXT tests + 10/10 legacy tests đạt**; gồm 38 tests cho phần medical mới. Demo offline 12 query synthetic đã chạy qua đủ bảy stages, chạy control RRF và kiểm reuse; không gọi model thật, không dùng KB y khoa thật, không suy gain từ fixture. CLI templates đã kiểm schema/preflight. Một số ResourceWarning đến từ legacy test helpers; không có test failure.
+
+Val thật chỉ được đọc inventory/schema: 593 queries, 22.091 gold, 66.547 not_gold và 20.186 gold_unseen. Chưa fit/calibrate trên ứng viên thật vì KB, prepared queries, index và source scores ở paths template chưa có. Endpoint Qwen chưa được gọi. Không có baseline 0,391 rerun, quality gain hoặc submission mới.
+
+**Triển khai lịch sử 20/10 — PLAN3.5:** BEAR có hai phần độc lập: corpus retrieval và fusion thay RRF, dùng chung index/scorer. [Báo cáo triển khai](BEAR_PARTS_20261020.md) ghi 98 BEAR +10 legacy tests qua và demo tổng hợp chạy thật. Đây là prototype lexical/explicit-relation, chưa có quality gain hoặc baseline0,391 parity mới. Các đoạn v3.3/v3.4 bên dưới mô tả lịch sử trước triển khai hai phần.
 
 Cập nhật **20/10/2026**. Người dùng đã chọn **baseline mới 0,391** và xác nhận tiếp tục ý tưởng BEAR trong proposal. [PIPELINE_0391.md](../PIPELINE_0391.md) ghi kiến trúc đọc từ hai ảnh; [spec tham chiếu](../specs/pipeline_0391.json) không phải config thực thi. Điểm có mức bằng chứng `REPORTED`, baseline là `USER_SELECTED`; chưa liên kết metric/run/cache. Xem [hồ sơ baseline](BASELINE_0391_20261020.md), [PLAN v3.4](../PLAN.md) và [lịch sử cải tiến](../improvement_log.md).
 

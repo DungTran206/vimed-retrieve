@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "source_path": "TXT/inputs/medical_hypothesis/kb_canonical.jsonl",
+  "format": "canonical",
+  "output_dir": "TXT/runtime/medical_hypothesis/kb"
+}

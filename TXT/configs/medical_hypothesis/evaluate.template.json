@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "predictions": "TXT/runtime/medical_hypothesis/run/scores.jsonl",
+  "validation": "val.jsonl",
+  "split_path": "TXT/runtime/medical_hypothesis/fit/splits.json",
+  "split": "holdout",
+  "allow_incomplete_f2": false,
+  "output_dir": "TXT/runtime/medical_hypothesis/evaluate"
+}

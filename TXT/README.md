@@ -1,27 +1,39 @@
-# BEAR — Hai phần retrieval riêng biệt
+# BEAR — Medical-gated fusion hypothesis
 
-**BEAR-Retriever tìm trên corpus/index. BEAR-Fusion thay RRF trên union các nguồn.** Hai phần dùng chung index/evidence scorer, giải quyết hai bài toán khác nhau nên giữ cả hai.
+**Ý tưởng hiện hành:** LLM nhỏ phân tầng độ quan trọng concept trong query; mức khớp concept quan trọng ở document điều khiển BM25/dense. Score được chuẩn hóa, fusion thay RRF, threshold thích ứng thay top-K cố định. Query enrichment dùng KB bệnh → triệu chứng có nguồn Việt/Trung; raw features được cache để tune offline.
+
+Đây là hypothesis người dùng muốn thử, chưa có kết luận tăng điểm baseline 0,391. Agent cần giúp chạy thử và lưu kết quả; phản biện được ghi nhưng không thay cho thực nghiệm được ủy quyền.
 
 ```text
-B0: retrieval baseline → RRF          → downstream control
-BR: BEAR-Retriever                    → downstream control
-BF: retrieval baseline → BEAR-Fusion → downstream control
+KB + Qwen3.5-9B → query taxonomy/enrichment cache
+BM25 original/enriched + dense → union/raw score/match cache
+fit sigmoid → tune medical gate/fusion/threshold → run → evaluate
 ```
-
-Scope VI: BR thay đầu ra generator + fusion VI; BF chỉ thay fusion. Giữ cùng corpus/query/lang/top-k/downstream và nhánh ZH control. Retriever có thể tìm doc ngoài union baseline; Fusion không thể.
-
-**20/10/2026:** [PLAN v3.5](PLAN.md) có prototype corpus_parts_v1 dùng stdlib lexical BM25/scorer chung. Explicit relations subject/predicate/object phải neo trong query; rules cùng-câu/thứ-tự/polarity chưa là NLP y sinh tổng quát. Không relations thì lexical-only. Chưa quality gain hoặc parity baseline 0,391.
 
 | Đọc | Nội dung |
 |---|---|
-| **[Handover](TXT_handover.md)** | Hai phần, code/output/gaps hiện hành |
-| [Algorithm](BEAR_ALGORITHM.md) | Contracts và evidence prototype |
-| [Study](BEAR_REPLACEMENT_STUDY.md) | B0/BR/BF và cách đo |
-| [Runbook](reports/RUNBOOK.md) | corpus-index/retrieve/evidence-fuse và demo |
-| [Proposal](TXT_Proposal.md), [PLAN](PLAN.md) | Giả thuyết và việc tiếp |
-| [Pipeline](PIPELINE_0391.md), [JSON](specs/pipeline_0391.json) | Baseline từ ảnh, chưa đủ linkage runtime |
-| [Log](improvement_log.md), [Results](reports/RESULTS.md) | Lịch sử/bằng chứng kiểm tra |
+| **[Handover](TXT_handover.md)** | Chỉ dẫn agent, commands/configs, inputs/outputs, cách tiếp tục khi thiếu input |
+| **[Proposal](TXT_Proposal.md)** | Giải thích chi tiết ý tưởng, mục đích, taxonomy/enrichment/calibration/cache |
+| [Algorithm](BEAR_ALGORITHM.md) | Công thức, semantics và invariants |
+| [Study](BEAR_REPLACEMENT_STUDY.md) | Đối chứng, splits, metric/budget, phạm vi kết luận |
+| [PLAN](PLAN.md) | Trình tự thực nghiệm và điều kiện từng stage |
+| [Runbook](reports/RUNBOOK.md) | Lệnh hiện hành và legacy controls |
+| [Prompts](prompts/) | Hợp đồng query analysis/enrichment có cấu trúc |
+| [Configs](configs/medical_hypothesis/) | Templates cho workflow mới |
+| [Pipeline 0,391](PIPELINE_0391.md) | Control từ sơ đồ, chưa đủ runtime linkage |
+| [Results](reports/RESULTS.md), [log](improvement_log.md) | Kết quả và lịch sử thực tế |
 
-[Templates](configs/bear_parts/) riêng; [demo synthetic](tools/demo_bear_parts.py) chạy bằng `python -B -m TXT.tools.demo_bear_parts`. Candidates tương thích reranker; evidence chunk refs diagnostic chưa là selected_chunks submission.
+Từ repository root, kiểm tra CLI và chạy demo kỹ thuật:
 
-Legacy 2.0.0 fixed200/w045 giữ riêng. D1/DC1/R1/C1 là later/legacy, không chặn BR/BF. Không tải model/rerun baseline hoặc claim gain. Mặc định VI, không claim ZH parity; model-free prototype chưa bảo đảm downstream CPU. BTC labels offline, unknown không tự âm.
+```powershell
+python -B -m TXT.bear.medical_cli --help
+python -B -m TXT.bear.medical_cli demo --output-dir TXT/runtime/medical_hypothesis_demo
+```
+
+Workflow mới dùng `python -B -m TXT.bear.medical_cli <stage> --config <path>` để inspect; thêm `--execute` để thực hiện. Không tự tải model/dataset. Các templates cần bind paths thật trước quality experiment.
+
+**BR vẫn độc lập:** BEAR-Retriever tìm corpus/index và có thể ngoài baseline union; BEAR-Fusion mới chỉ chọn từ union. CLI prototype cũ `TXT.bear.cli corpus-index|retrieve|evidence-fuse` giữ riêng làm control. Source union, missing scores và corpus identity phải được giữ nguyên khi so fusion.
+
+Native chunk selector/downstream control chưa đổi. Evidence refs không phải submission chunks. Legacy 2.0.0 fixed200/w045 và kết quả L1/L4/N0/N1 giữ lịch sử riêng. Unknown không tự là negative; query đã khai thác không pristine holdout. Không suy gain từ tests/demo hoặc từ việc có code.
+
+Bản trước ở [archive v3.5](archive/README_v3_5_20261020.md).

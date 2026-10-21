@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "index": "TXT/inputs/medical_hypothesis/index.sqlite",
+  "doc_ids_path": "TXT/inputs/medical_hypothesis/document_ids.json",
+  "llm": {
+    "model": "Qwen/Qwen3.5-9B",
+    "num_parameters_b": 9,
+    "base_url": "http://127.0.0.1:8000/v1",
+    "enable_thinking": false,
+    "document_max_chars": 24000,
+    "document_overflow": "error"
+  },
+  "output_dir": "TXT/runtime/medical_hypothesis/document_terms"
+}

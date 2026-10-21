@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "cache": "TXT/runtime/medical_hypothesis/cache/cache.jsonl",
+  "validation": "val.jsonl",
+  "model": "TXT/runtime/medical_hypothesis/fit/model.json",
+  "split_path": "TXT/runtime/medical_hypothesis/fit/splits.json",
+  "grid": {
+    "selection.threshold": [
+      0.4,
+      0.5,
+      0.6
+    ],
+    "alpha_max": [
+      0.65,
+      0.85
+    ],
+    "bm25.enrichment_weight": [
+      0,
+      0.25,
+      0.5
+    ]
+  },
+  "objective": "known_positive_recall",
+  "max_mean_docs": 300,
+  "allow_incomplete_f2": false,
+  "max_trials": 64,
+  "output_dir": "TXT/runtime/medical_hypothesis/tune"
+}

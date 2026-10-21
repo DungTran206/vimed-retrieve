@@ -1,5 +1,7 @@
 # IMPLEMENTATION STATUS — 19/10/2026
 
+> **Hiện hành 21/10/2026:** medical importance hypothesis v4 đã có code riêng, prompts, templates và demo end-to-end; xem [báo cáo mới](MEDICAL_HYPOTHESIS_20261021.md) và [handover](../TXT_handover.md). Những trạng thái bên dưới thuộc snapshot lịch sử, không chặn thí nghiệm mới.
+
 > **Báo cáo kỹ thuật lịch sử.** Cập nhật hướng đi 20/10: [PLAN v3.3](../PLAN.md), [baseline 0.391](BASELINE_0391_20261020.md), [L1/L4 lịch sử trên 0.4076](L1_L4_20261020.md). N0/N1 và trials remote đã được người dùng báo; bảng dưới chỉ ghi code/fixtures và inputs checkout khi triển khai. Không dùng cột “thiếu reviewed labels” để cấm nhãn BTC hoặc bắt chạy lại N0/N1. Kiến trúc từ ảnh đã có [Markdown](../PIPELINE_0391.md) và [spec tham chiếu không thực thi](../specs/pipeline_0391.json), chưa liên kết recipe runtime. Lượt docs/spec không thay code 2.0.0, manifests hoặc tests.
 
 **Phạm vi hiện tại:** [BEAR_ALGORITHM](../BEAR_ALGORITHM.md) yêu cầu structured evidence + doc selector + chunk selector. Code2.0 chỉ có nền matcher/features/fusion/chunk scaffolding; chưa triển khai đầy đủ parser/structured conflict/adapter0,391/joint mới. Threshold-only không còn là mục tiêu chính. Các bảng dưới là lịch sử kỹ thuật, không bị sửa thành completed mới.

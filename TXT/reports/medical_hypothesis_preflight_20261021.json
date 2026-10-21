@@ -1,0 +1,147 @@
+{
+  "baseline_0391_reproduced": false,
+  "demo": "TXT/runtime/medical_hypothesis_demo/demo_summary.json",
+  "execution_date": "2026-10-21",
+  "implementation_version": "medical_gate_hypothesis_v1",
+  "python": "3.13.1",
+  "quality_gain_established": false,
+  "real_model_called": false,
+  "real_validation_inventory": {
+    "complete_query_count": 0,
+    "gold_unseen": 20186,
+    "positive_pairs": 22091,
+    "queries": 593,
+    "supplied_not_gold_pairs": 66547
+  },
+  "stages": [
+    {
+      "baseline_0391_reproduced": false,
+      "command": "cache",
+      "config": "TXT/configs/medical_hypothesis/cache.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "prepared",
+        "index",
+        "source:bm25",
+        "source:dense_head",
+        "source:dense_chunk"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/cache",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "document-terms",
+      "config": "TXT/configs/medical_hypothesis/document_terms.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "index",
+        "doc_ids_path"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/document_terms",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "evaluate",
+      "config": "TXT/configs/medical_hypothesis/evaluate.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "predictions",
+        "split_path"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/evaluate",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "fit",
+      "config": "TXT/configs/medical_hypothesis/fit.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "cache"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/fit",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "kb-import",
+      "config": "TXT/configs/medical_hypothesis/kb.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "source_path"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/kb",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "prepare",
+      "config": "TXT/configs/medical_hypothesis/prepare.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "queries",
+        "kb"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/prepare",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "run",
+      "config": "TXT/configs/medical_hypothesis/run.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "cache",
+        "model"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/run",
+      "status": "blocked_input"
+    },
+    {
+      "baseline_0391_reproduced": false,
+      "command": "tune",
+      "config": "TXT/configs/medical_hypothesis/tune.template.json",
+      "dry_run": true,
+      "hypothesis_only": true,
+      "implementation_version": "medical_gate_hypothesis_v1",
+      "missing_roles": [
+        "cache",
+        "model",
+        "split_path"
+      ],
+      "model_contacted": false,
+      "output_dir": "TXT/runtime/medical_hypothesis/tune",
+      "status": "blocked_input"
+    }
+  ],
+  "tests": {
+    "TXT": 136,
+    "all_passed": true,
+    "legacy": 10,
+    "medical_subset_of_TXT": 38
+  },
+  "timezone": "Asia/Bangkok"
+}

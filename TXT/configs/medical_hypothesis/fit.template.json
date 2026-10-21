@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "cache": "TXT/runtime/medical_hypothesis/cache/cache.jsonl",
+  "validation": "val.jsonl",
+  "scoring": {
+    "tier_scores": [
+      0.05,
+      0.3,
+      0.7,
+      1
+    ],
+    "tier_mode": "hard",
+    "required_cap": true,
+    "alpha_min": 0.1,
+    "alpha_max": 0.85,
+    "dense_floor": 0.1,
+    "bm25": {
+      "pretransform": "query_scale",
+      "x0": 0.3,
+      "temperature": 0.15,
+      "enrichment_weight": 0.25,
+      "missing_expanded": "error"
+    },
+    "dense": {
+      "head_weight": 0.5,
+      "chunk_weight": 0.5,
+      "head": {
+        "method": "affine",
+        "low": -1,
+        "high": 1
+      },
+      "chunk": {
+        "method": "affine",
+        "low": -1,
+        "high": 1
+      }
+    },
+    "missing_scores": "available",
+    "allow_bm25_only": false,
+    "selection": {
+      "mode": "threshold",
+      "threshold": 0.5,
+      "thresholds_by_tier": {},
+      "min_docs": 40,
+      "max_docs": 400,
+      "top_k": 300
+    }
+  },
+  "split": {
+    "seed": 391,
+    "calibration_fraction": 0.4,
+    "tune_fraction": 0.4,
+    "previously_observed_ids": "all",
+    "exposure_status": "recorded"
+  },
+  "fit_options": {
+    "l2": 0.0001,
+    "max_iter": 200,
+    "tolerance": 1e-8
+  },
+  "output_dir": "TXT/runtime/medical_hypothesis/fit"
+}

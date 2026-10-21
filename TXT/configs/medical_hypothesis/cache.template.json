@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "prepared": "TXT/runtime/medical_hypothesis/prepare/prepared.jsonl",
+  "index": "TXT/inputs/medical_hypothesis/index.sqlite",
+  "sources": {
+    "bm25": "TXT/inputs/medical_hypothesis/bm25_rank.jsonl",
+    "dense_head": "TXT/inputs/medical_hypothesis/dense_head_rank.jsonl",
+    "dense_chunk": "TXT/inputs/medical_hypothesis/dense_chunk_rank.jsonl"
+  },
+  "score_tables": {},
+  "bm25_source": null,
+  "bm25_expanded_source": null,
+  "dense_head_source": "dense_head",
+  "dense_chunk_source": "dense_chunk",
+  "languages": [
+    "vi"
+  ],
+  "include_index_candidates": false,
+  "lookup_top_k": 1000,
+  "expanded_top_k": 1000,
+  "rrf_k": 60,
+  "rrf_weights": {
+    "bm25": 1,
+    "dense_head": 1,
+    "dense_chunk": 1
+  },
+  "output_dir": "TXT/runtime/medical_hypothesis/cache"
+}

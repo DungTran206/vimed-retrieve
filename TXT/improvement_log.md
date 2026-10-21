@@ -474,3 +474,22 @@ D09 mở thiết kế thay khối theo yêu cầu; giữ phân biệt kiểm inp
 | Bàn giao | [Handover](TXT_handover.md), PLAN/proposal/algorithm/replacement study/runbook/spec được cập nhật phân biệt BR và BF; [báo cáo](reports/BEAR_PARTS_20261020.md) |
 
 D10 triển khai phần mềm cho hai nghiên cứu riêng, không suy fixture thành metric thật hoặc tuyên bố toàn bộ BEAR doc/chunk đã hoàn tất.
+
+## 17. Medical importance gate và cache replay — 21/10/2026
+
+### D11 — Triển khai hypothesis theo yêu cầu người dùng
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / supplements_entry | D11 / D10; giữ nguyên lịch sử |
+| Ý tưởng | LLM phân tầng độ quan trọng theo query; observed original-concept matches điều khiển tỷ trọng BM25/dense; sigmoid x0/T và threshold sau fusion |
+| Yêu cầu vận hành | Đây là hypothesis người dùng muốn thử. Agent phải giúp triển khai/chạy các stage có thể chạy; có thể ghi phản biện nhưng không dùng prior negative results/guards cũ để từ chối |
+| Code | medical_cli/runner/cache/query/kb/documents/scoring/validation dưới bear; 3 prompts; 8 templates; source inventory |
+| Cache | Per-query/per-document resume, full raw scores/missing masks/concept spans, hashes/model/prompt/KB/corpus identity; stream từng query khi fit/tune/run |
+| Validation | Native val hoặc binary qrels; fit trên calibration, chọn trên tune, evaluate split riêng; unknown không tự 0; exposure recorded để không gọi 593 val cũ là pristine |
+| Kiểm chứng | 136/136 TXT tests +10/10 legacy tests đạt; 38 medical tests; demo12 query synthetic đủ7 stages và RRF control, không gọi LLM |
+| Inputs thật | Val hiện diện; template preflight chỉ ra chính xác KB/query/index/source scores còn thiếu tại paths mẫu; chưa gọi endpoint9B hoặc fit trên real candidates |
+| Quality / tác động | Gain=null, baseline0,391_reproduced=false; không tải model/dataset, upload, submit hoặc thay legacy retrieval defaults |
+| Bàn giao | Proposal/handover/algorithm/PLAN/study/README v4, archive6docs v3.5; reports/MEDICAL_HYPOTHESIS_20261021.md và preflight JSON |
+
+D11 là triển khai chạy được của hypothesis, không là quyết định promote baseline. Kết quả âm và chi phí sau này vẫn phải được lưu, đồng thời tiếp tục thử nghiệm trong phạm vi người dùng đã ủy quyền.

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "role": "external source inventory, not downloaded or clinically validated datasets",
+  "sources": [
+    {
+      "id": "cmeie",
+      "url": "https://github.com/CBLUEbenchmark/CBLUE#cmeie",
+      "languages": [
+        "zh"
+      ],
+      "format": "relation extraction corpus",
+      "adapter": "medical_kb.import_kb format=cmeie",
+      "requires": [
+        "obtain actual release and its usage terms",
+        "canonical disease/symptom concept map",
+        "source record provenance"
+      ],
+      "status": "candidate source; not a ready bilingual normalized KB"
+    },
+    {
+      "id": "opencmkg",
+      "url": "https://github.com/RuiqingDing/OpenCMKG",
+      "languages": [
+        "zh"
+      ],
+      "format": "knowledge graph triples including disease_has_symptom",
+      "adapter": "convert to canonical KB schema",
+      "requires": [
+        "review research/noncommercial terms",
+        "normalize concepts and relations",
+        "retain original sources"
+      ],
+      "status": "not downloaded; schema is not proof of clinical correctness"
+    },
+    {
+      "id": "vi_source",
+      "languages": [
+        "vi"
+      ],
+      "format": "canonical source-backed disease-symptom relations",
+      "requires": [
+        "verified source per relation",
+        "consistent concept IDs and Vietnamese labels/aliases",
+        "context and optional actual frequency"
+      ],
+      "status": "no specific clean general Vietnamese KB has been verified; import supplied/reviewed data without fabricating mappings"
+    }
+  ],
+  "model": {
+    "id": "Qwen/Qwen3.5-9B",
+    "num_parameters_b": 9,
+    "url": "https://huggingface.co/Qwen/Qwen3.5-9B",
+    "role": "query-context importance taxonomy and whitelist enrichment; optional document extraction"
+  },
+  "canonical_schema": {
+    "disease": {
+      "concept_id": "REQUIRED",
+      "labels": {
+        "vi": "label if sourced",
+        "zh": "label if sourced"
+      },
+      "aliases": {
+        "vi": [],
+        "zh": []
+      }
+    },
+    "symptom": {
+      "concept_id": "REQUIRED",
+      "labels": {
+        "vi": "label if sourced",
+        "zh": "label if sourced"
+      },
+      "aliases": {
+        "vi": [],
+        "zh": []
+      }
+    },
+    "relation": "has_symptom",
+    "source": {
+      "name": "REQUIRED",
+      "record_id": "REQUIRED",
+      "url": "recommended"
+    },
+    "context": "optional source-specific context",
+    "frequency": "optional only when actually supplied by source"
+  }
+}

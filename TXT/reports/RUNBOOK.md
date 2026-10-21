@@ -1,5 +1,18 @@
 # Runbook — BEAR-Retriever và BEAR-Fusion
 
+## Hiện hành 21/10/2026 — hypothesis medical gate v4
+
+Điểm bắt đầu là [handover v4](../TXT_handover.md) và [proposal](../TXT_Proposal.md). Workflow mới `python -B -m TXT.bear.medical_cli` đã có code chạy, không dùng guard adaptive legacy để trì hoãn hypothesis người dùng đã ủy quyền.
+
+```powershell
+python -B -m TXT.bear.medical_cli demo --output-dir TXT/runtime/medical_hypothesis_demo
+python -B -m TXT.bear.medical_cli prepare --config TXT/configs/medical_hypothesis/prepare.template.json
+```
+
+Stage thật: `kb-import → prepare → cache → fit → tune → run → evaluate`; thêm `--execute` sau khi bind input paths. Nhánh tùy chọn `document-terms` trích terms có offsets trong tài liệu. Templates: [medical_hypothesis](../configs/medical_hypothesis/README.md). LLM Qwen3.5-9B qua endpoint; demo và sweep từ cache không gọi model. `fit` chỉ fit BM25 sigmoid trên calibration queries; `tune` không đọc holdout labels để chọn config.
+
+Run mới stream cache theo query, không nạp mọi spans/candidate của toàn bộ tập vào RAM. Tune giữ IDs/selection metrics thay vì toàn bộ ranking diagnostics của mọi trial. Khi code/input thay đổi, dùng output_dir mới; không sửa hash để ép reuse. Những lệnh bên dưới là workflow corpus_parts_v1/control lịch sử, vẫn dùng được riêng.
+
 Theo [PLAN v3.5](../PLAN.md), [handover](../TXT_handover.md), [algorithm](../BEAR_ALGORITHM.md). Prototype corpus_parts_v1 có hai paths dùng chung index/scorer; chưa quality evaluation 0,391.
 
 ## 1. Demo chạy ngay
