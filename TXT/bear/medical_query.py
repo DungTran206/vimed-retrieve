@@ -126,6 +126,9 @@ def validate_llm_config(config: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(count, bool) or not isinstance(count, (int, float)) or not math.isfinite(count) or not 0 < count < 15:
         raise SchemaInvalidError("LLM num_parameters_b must explicitly be >0 and <15 (model overrides require this metadata)")
     result.update(model=model, num_parameters_b=count)
+    for name, default, minimum in (("max_kb_candidates", 256, 1), ("max_expansion_terms", 8, 0)):
+        if type(result.get(name, default)) is not int or result.get(name, default) < minimum:
+            raise SchemaInvalidError(f"LLM {name} must be an integer >= {minimum}")
     return result
 
 
@@ -189,7 +192,7 @@ def validate_prepared(record: Mapping[str, Any], kb_rows: Sequence[Mapping[str, 
     if not isinstance(query, str) or not query.strip():
         raise SchemaInvalidError("Prepared query must contain nonempty query text")
     if result.get("lang") not in LANGUAGES:
-        raise SchemaInvalidError("Prepared query lang must be vi or zh")
+        raise SchemaInvalidError("Prepared query lang must be vi, zh or en")
     intents = result.get("intent")
     if not isinstance(intents, list) or not intents or any(not isinstance(intent, str) or intent not in INTENTS for intent in intents):
         raise SchemaInvalidError("Prepared query intent must use the defined retrieval intent labels")
@@ -219,7 +222,7 @@ def validate_prepared(record: Mapping[str, Any], kb_rows: Sequence[Mapping[str, 
             raise SchemaInvalidError(f"Concept {cid} required must be boolean")
         aliases = concept.get("aliases", {})
         if not isinstance(aliases, dict) or set(aliases) - set(LANGUAGES):
-            raise SchemaInvalidError(f"Concept {cid} aliases must be grouped by vi/zh")
+            raise SchemaInvalidError(f"Concept {cid} aliases must be grouped by vi/zh/en")
         for terms in aliases.values():
             if not isinstance(terms, list) or any(not isinstance(term, str) or not term.strip() for term in terms):
                 raise SchemaInvalidError(f"Concept {cid} aliases must be lists of nonempty strings")
@@ -243,6 +246,9 @@ def validate_prepared(record: Mapping[str, Any], kb_rows: Sequence[Mapping[str, 
             if not isinstance(probs, list) or len(probs) != 4 or any(isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p) or not 0 <= p <= 1 for p in probs) or not math.isclose(sum(probs), 1, abs_tol=1e-6):
                 raise SchemaInvalidError(f"Concept {cid}: probabilities must be four finite values summing to 1")
     expansion_ids = set()
+    if expansions and (not set(intents) & {"symptoms", "general"} or
+                       set(intents) & {"dosage", "treatment", "contraindications", "interactions"}):
+        raise SchemaInvalidError("Symptom expansion is not allowed for this query intent")
     for expansion in expansions:
         if not isinstance(expansion, dict):
             raise SchemaInvalidError("Every expansion must be an object")
@@ -271,13 +277,13 @@ def prepare_query(query_record: Mapping[str, Any], kb_rows: Sequence[Mapping[str
                   llm_config: Mapping[str, Any]) -> dict[str, Any]:
     """Call configured <15B model once; build a validated, cacheable query record.
 
-    Required query fields: id (int), query (str), lang (vi|zh). No model is loaded or
+    Required query fields: id (int), query (str), lang (vi|zh|en). No model is loaded or
     downloaded automatically. Caller owns caching/resume and endpoint lifecycle.
     """
     query = query_record.get("query")
     lang = query_record.get("lang", "vi")
     if not isinstance(query, str) or not query.strip() or lang not in LANGUAGES:
-        raise SchemaInvalidError("Query preparation requires nonempty query and vi/zh lang")
+        raise SchemaInvalidError("Query preparation requires nonempty query and vi/zh/en lang")
     config = validate_llm_config(llm_config)
     rows = validate_kb(kb_rows)
     max_candidates = config.get("max_kb_candidates", 256)
@@ -288,7 +294,8 @@ def prepare_query(query_record: Mapping[str, Any], kb_rows: Sequence[Mapping[str
     user_path = resolve_repo_path(config["user_prompt_path"]) if config.get("user_prompt_path") else _PROMPTS / "medical_query_user.txt"
     system = system_path.read_text(encoding="utf-8")
     template = user_path.read_text(encoding="utf-8")
-    payload = {"original_query": query, "lang": lang, "named_kb_diseases": list(diseases.values()),
+    payload = {"original_query": query, "lang": lang, "max_expansion_terms": config.get("max_expansion_terms", 8),
+               "named_kb_diseases": list(diseases.values()),
                "kb_expansion_whitelist": candidates}
     user = template.replace("{payload}", json.dumps(payload, ensure_ascii=False))
     raw, response_metadata = _chat([{"role": "system", "content": system},
@@ -328,6 +335,8 @@ def prepare_query(query_record: Mapping[str, Any], kb_rows: Sequence[Mapping[str
     selected = parsed.get("selected_expansion_ids", [])
     if not isinstance(selected, list) or any(not isinstance(eid, str) for eid in selected) or len(set(selected)) != len(selected):
         raise SchemaInvalidError("selected_expansion_ids must be a list of unique whitelist IDs")
+    if len(selected) > config.get("max_expansion_terms", 8):
+        raise SchemaInvalidError("LLM selected more than max_expansion_terms; narrow the prompt or set an explicit budget")
     whitelist = {candidate["expansion_id"]: candidate for candidate in candidates}
     if any(eid not in whitelist for eid in selected):
         raise SchemaInvalidError("LLM selected a nonwhitelisted expansion ID")

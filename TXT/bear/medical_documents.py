@@ -1,6 +1,7 @@
 """Optional, cacheable extraction of literally anchored document term candidates.
 
-This diagnostic stage never changes indexes, query gates, rankings or recall.
+This stage supplies literal terms to sapbert-cache without changing the index
+or lexical gate. Extraction alone does not change rankings or recall.
 Assertion labels are model annotations for inspection, not validated diagnoses.
 """
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Any, Mapping
 from .contracts import SchemaInvalidError, reject_duplicate_keys, validate_doc_id
 from .io import canonical_sha256, resolve_repo_path
 from .medical_query import KINDS, _chat, validate_llm_config
+from .medical_kb import LANGUAGES
 
 ASSERTIONS = {"affirmed", "negated", "uncertain", "historical"}
 
@@ -44,7 +46,7 @@ def _windows(document: Mapping[str, Any], config: Mapping[str, Any]) -> tuple[li
 def extract_document(document: Mapping[str, Any], llm_config: Mapping[str, Any]) -> dict[str, Any]:
     """One <15B LLM call/document, anchored terms and a complete cache identity.
 
-    Input: doc_id, title/body strings, lang=vi|zh. The default sends full text up
+    Input: doc_id, title/body strings, lang=vi|zh|en. The default sends full text up
     to 24,000 characters, rejecting larger inputs. Opt-in prefix truncation saves
     explicit source windows and cannot be interpreted as whole-document coverage.
     """
@@ -54,8 +56,8 @@ def extract_document(document: Mapping[str, Any], llm_config: Mapping[str, Any])
     lang = document.get("lang")
     if not isinstance(title, str) or not isinstance(body, str) or not (title.strip() or body.strip()):
         raise SchemaInvalidError("Document extraction requires nonempty title/body strings")
-    if lang not in {"vi", "zh"}:
-        raise SchemaInvalidError("Document extraction lang must be vi or zh")
+    if lang not in LANGUAGES:
+        raise SchemaInvalidError("Document extraction lang must be vi, zh or en")
     original = {"title": title, "body": body}
     windows, truncated = _windows(original, config)
     prompt_path = (resolve_repo_path(config["document_prompt_path"]) if config.get("document_prompt_path")

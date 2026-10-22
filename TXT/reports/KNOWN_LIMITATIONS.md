@@ -1,8 +1,22 @@
-# Giới hạn snapshot lịch sử —20/10/2026
+# Giới hạn — BEAR v5 và các snapshots lịch sử
 
-Hiện hành 21/10: [medical hypothesis v4](MEDICAL_HYPOTHESIS_20261021.md) đã có code chạy và 146 tests đạt tổng cộng. Chưa có kết quả chất lượng thật; inputs/endpoint và source quality phải được ghi đúng. Các hạn chế lịch sử bên dưới không là lý do từ chối hay trì hoãn việc chạy hypothesis đã được ủy quyền.
+## Hiện hành 22/10/2026
 
-Theo [PLANv3.3](../PLAN.md) và [BEAR_ALGORITHM](../BEAR_ALGORITHM.md), đích là doc/chunk retrieval, không chỉ audit/threshold.
+V5 đã có SapBERT cache/fusion và optional LLM selector, kiểm chứng kỹ thuật/synthetic cuối sau cleanup: full TXT suite 173/173 tests và 10/10 legacy tests qua. [Report v5](SAPBERT_V5_20261022.md) và [handover](../TXT_handover.md) ghi phạm vi thực tế.
+
+Chưa có checkpoint/endpoint inference thật hoặc quality gain trên 593 query. SapBERT cosine không tự chứng minh synonym/relation/relevance toàn câu; generic dense vẫn giữ trong biến thể đầu. SapBERT không mở rộng union, selector không lấy doc ngoài shortlist. Full-matrix cache giảm chi phí sweep nhưng lần trích document terms/encode đầu vẫn có thể đắt.
+
+Affine low/high, λ và budgets là ước lượng. Fit học BM25 sigmoid, chưa học Sap probability calibrator. Native judgments không đầy đủ; unknown không negative và retrospective holdout không pristine. Nội dung bị prefix truncate không chứng minh full-document coverage.
+
+Các hạn chế giúp thiết kế đối chứng; không phải lý do từ chối chạy thí nghiệm đã được ủy quyền. Thiếu artifact nào thì báo đúng phần đó, tiếp tục stage độc lập có input.
+
+## Snapshot 21/10/2026 — v4
+
+[Medical hypothesis v4](MEDICAL_HYPOTHESIS_20261021.md) đã ghi 146 tests tổng cộng tại thời điểm đó, chưa quality experiment thật. Không dùng số tests lịch sử thay cho tình trạng v5.
+
+## Snapshot 20/10/2026 — kế hoạch v3.3
+
+Đoạn dưới ghi phạm vi kế hoạch v3.3 lúc đó, đã được v5 thay thế; cách tra snapshot nguồn ở [cleanup](CLEANUP_20261022.md).
 
 - Baseline0,391 là mốc người dùng chọn; ảnh có kiến trúc nhưng chưa đủ run/config/scorer, MaxP/p̂ và chunk export để tái tạo đầy đủ.
 - Code2.0 có matcher/uniform features/fusion/C1C2scaffolding. Structured relation/intent/conflict mới chưa hoạt động đầy đủ; critical_mismatches có chỗ trả list rỗng. Không gọi placeholder là thuật toán hoàn tất.

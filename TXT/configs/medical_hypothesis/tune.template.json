@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "cache": "TXT/runtime/medical_hypothesis/cache/cache.jsonl",
+  "cache": "TXT/runtime/medical_v5/sapbert_cache/cache.jsonl",
   "validation": "val.jsonl",
-  "model": "TXT/runtime/medical_hypothesis/fit/model.json",
-  "split_path": "TXT/runtime/medical_hypothesis/fit/splits.json",
+  "model": "TXT/runtime/medical_v5/fit/model.json",
+  "split_path": "TXT/runtime/medical_v5/fit/splits.json",
   "grid": {
     "selection.threshold": [
       0.4,
@@ -18,11 +18,17 @@
       0,
       0.25,
       0.5
+    ],
+    "sapbert.weight": [
+      0.0,
+      0.3,
+      0.6,
+      1.0
     ]
   },
   "objective": "known_positive_recall",
   "max_mean_docs": 300,
   "allow_incomplete_f2": false,
-  "max_trials": 64,
-  "output_dir": "TXT/runtime/medical_hypothesis/tune"
+  "max_trials": 96,
+  "output_dir": "TXT/runtime/medical_v5/tune"
 }

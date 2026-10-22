@@ -29,7 +29,14 @@ def validate_scoring_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
     """
     _config_fields(config, {"tier_scores", "tier_mode", "required_cap", "alpha_min", "alpha_max",
                            "dense_floor", "bm25", "dense", "missing_scores", "allow_bm25_only",
-                           "selection"}, "scoring")
+                           "selection", "sapbert", "score_schema"}, "scoring")
+    if config.get("score_schema", "medical-gate-v2") not in {"medical-gate-v1", "medical-gate-v2"}:
+        raise ValueError("score_schema must be medical-gate-v1 or medical-gate-v2")
+    sapbert = config.get("sapbert", {})
+    _config_fields(sapbert, {"weight", "method", "low", "high", "x0", "temperature"}, "scoring.sapbert")
+    sapbert_weight = unit(sapbert.get("weight", 0.0), "sapbert.weight")
+    _validate_normalizer({key: value for key, value in sapbert.items() if key != "weight"},
+                         "scoring.sapbert", default_low=0.2, default_high=0.9)
     tiers = config.get("tier_scores", DEFAULT_TIER_SCORES)
     if not isinstance(tiers, (list, tuple)) or len(tiers) != 4:
         raise ValueError("tier_scores must contain four numbers")
@@ -57,7 +64,7 @@ def validate_scoring_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
     dense = config.get("dense", {})
     _config_fields(dense, {"head_weight", "chunk_weight", "head", "chunk"}, "scoring.dense")
     weights = [unit(dense.get(f"{part}_weight", 0.5), f"dense.{part}_weight") for part in ("head", "chunk")]
-    if sum(weights) == 0:
+    if sum(weights) == 0 and sapbert_weight < 1:
         raise ValueError("at least one dense source needs positive weight")
     for part in ("head", "chunk"):
         normalizer = dense.get(part, {})
@@ -97,6 +104,23 @@ def validate_scoring_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
     if selection.get("min_docs", 0) > selection.get("max_docs", 300):
         raise ValueError("selection.min_docs cannot exceed max_docs")
     return config
+
+
+def _validate_normalizer(config: Mapping[str, Any], name: str, *,
+                         default_low: float = -1.0, default_high: float = 1.0) -> None:
+    method = config.get("method", "affine")
+    if method == "affine":
+        _config_fields(config, {"method", "low", "high"}, name)
+        low, high = finite(config.get("low", default_low), name + ".low"), finite(config.get("high", default_high), name + ".high")
+        if high <= low:
+            raise ValueError(f"{name}.high must exceed low")
+    elif method == "sigmoid":
+        _config_fields(config, {"method", "x0", "temperature"}, name)
+        finite(config.get("x0", 0.0), name + ".x0")
+        if finite(config.get("temperature", 1.0), name + ".temperature") <= 0:
+            raise ValueError(f"{name}.temperature must be positive")
+    else:
+        raise ValueError(f"{name}.method must be affine or sigmoid")
 
 
 def finite(value: Any, name: str) -> float:
@@ -271,6 +295,117 @@ def _alpha_limits(config: Mapping[str, Any]) -> tuple[float, float]:
     return lower, upper
 
 
+def sapbert_score(record: Mapping[str, Any], candidate: Mapping[str, Any],
+                  config: Mapping[str, Any]) -> tuple[float | None, dict[str, Any]]:
+    """Aggregate cached concept/term cosines, independently of lexical matches.
+
+    Each original query concept receives its best normalized term similarity.
+    An absent concept contributes zero once at least one original-concept term
+    comparison is available. Expansions never increase coverage or salience.
+    Empty matrices are missing evidence, rather than a measured zero score.
+    """
+    normalizer = {key: value for key, value in config.get("sapbert", {}).items() if key != "weight"}
+    if normalizer.get("method", "affine") == "affine":
+        normalizer = {"low": 0.2, "high": 0.9, **normalizer}
+    imported = candidate.get("scores", {}).get("sapbert")
+    matrix = candidate.get("sapbert_matches")
+    if imported is not None and matrix is not None:
+        raise ValueError("provide sapbert_matches or scores.sapbert, not both")
+    if matrix is None:
+        if imported is None:
+            return None, {"source": "missing", "concepts": []}
+        cosine = finite(imported, "sapbert score")
+        if not -1 <= cosine <= 1:
+            raise ValueError("sapbert score must be a cosine in [-1, 1]")
+        return normalize_dense(cosine, normalizer), {"source": "imported_cosine", "raw": cosine, "concepts": []}
+    if not isinstance(matrix, list):
+        raise ValueError("sapbert_matches must be a list")
+    originals = [concept for concept in record.get("concepts", [])
+                 if concept.get("origin") == "query" and concept.get("kind") != "intent"]
+    by_id = {concept["concept_id"]: concept for concept in originals}
+    best: dict[str, tuple[float, Mapping[str, Any]]] = {}
+    seen_concepts = set()
+    ignored = []
+    for row in matrix:
+        _config_fields(row, {"concept_id", "similarities"}, "sapbert match")
+        identity = row.get("concept_id")
+        if not isinstance(identity, str) or not identity or identity in seen_concepts:
+            raise ValueError("sapbert match concept_id must be nonempty and unique")
+        seen_concepts.add(identity)
+        similarities = row.get("similarities")
+        if not isinstance(similarities, list):
+            raise ValueError("sapbert similarities must be a list")
+        seen_terms = set()
+        for term in similarities:
+            _config_fields(term, {"text", "cosine", "field", "anchor", "anchors", "kind", "assertion"}, "sapbert similarity")
+            text = term.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError("sapbert similarity text must be nonempty")
+            cosine = finite(term.get("cosine"), "sapbert cosine")
+            if not -1 <= cosine <= 1:
+                raise ValueError("sapbert cosine must be in [-1, 1]")
+            anchor = term.get("anchor")
+            if anchor is not None:
+                if (not isinstance(anchor, Mapping) or set(anchor) != {"start", "end"}
+                        or type(anchor.get("start")) is not int or type(anchor.get("end")) is not int
+                        or not 0 <= anchor["start"] < anchor["end"]):
+                    raise ValueError("sapbert term anchor needs nonnegative start < end")
+                anchor_key = (anchor["start"], anchor["end"])
+            else:
+                anchor_key = None
+            field = term.get("field")
+            if field is not None and (not isinstance(field, str) or field not in {"title", "body"}):
+                raise ValueError("sapbert term field must be title or body")
+            if "anchors" in term:
+                anchors = term["anchors"]
+                if not isinstance(anchors, list) or not anchors or anchor_key is None or field is None:
+                    raise ValueError("sapbert repeated anchors require a nonempty list, field and primary anchor")
+                seen_anchors = set()
+                for occurrence in anchors:
+                    if (not isinstance(occurrence, Mapping) or set(occurrence) - {"start", "end", "field"}
+                            or type(occurrence.get("start")) is not int or type(occurrence.get("end")) is not int
+                            or not 0 <= occurrence["start"] < occurrence["end"]
+                            or occurrence.get("field", field) != field):
+                        raise ValueError("sapbert repeated anchors must have valid spans in the term field")
+                    occurrence_key = (occurrence["start"], occurrence["end"])
+                    if occurrence_key in seen_anchors:
+                        raise ValueError("duplicate sapbert repeated anchor")
+                    seen_anchors.add(occurrence_key)
+                if anchor_key not in seen_anchors:
+                    raise ValueError("sapbert primary anchor must occur in repeated anchors")
+            if "kind" in term and (not isinstance(term["kind"], str) or term["kind"] not in {
+                    "disease", "symptom", "drug", "population", "subtype", "constraint", "other"}):
+                raise ValueError("sapbert term kind must be a document medical concept kind")
+            if "assertion" in term and (not isinstance(term["assertion"], str) or term["assertion"] not in {
+                    "affirmed", "negated", "uncertain", "historical"}):
+                raise ValueError("sapbert term assertion is invalid")
+            key = (text, field, anchor_key)
+            if key in seen_terms:
+                raise ValueError("duplicate sapbert term comparison")
+            seen_terms.add(key)
+            normalized = normalize_dense(cosine, normalizer)
+            if identity in by_id and (identity not in best or normalized > best[identity][0]):
+                best[identity] = (normalized, term)
+        if identity not in by_id:
+            ignored.append(identity)
+    details = []
+    weighted, total = 0.0, 0.0
+    for concept in originals:
+        identity = concept["concept_id"]
+        weight = importance(concept, config)
+        normalized, term = best.get(identity, (0.0, None))
+        total += weight
+        weighted += weight * normalized
+        details.append({"concept_id": identity, "importance": weight,
+                        "normalized": normalized, "best_term": dict(term) if term is not None else None,
+                        "observed": identity in best})
+    available = bool(best) and total > 0
+    return (weighted / total if available else None), {
+        "source": "concept_term_matrix", "concepts": details,
+        "observed_original_concept_count": len(best), "ignored_concept_ids": ignored,
+        "importance_sum": total}
+
+
 def score_candidate(record: Mapping[str, Any], candidate: Mapping[str, Any],
                     config: Mapping[str, Any]) -> dict[str, Any]:
     missing_policy = config.get("missing_scores", "available")
@@ -286,6 +421,7 @@ def score_candidate(record: Mapping[str, Any], candidate: Mapping[str, Any],
     gate = medical_gate(record.get("concepts", []), candidate.get("concept_matches", []), config)
     alpha = lower + (upper - lower) * gate["gate"]
     dense_config = config.get("dense", {})
+    sapbert_weight = unit(config.get("sapbert", {}).get("weight", 0.0), "sapbert.weight")
     dense_sum = 0.0
     dense_weight = 0.0
     dense_components: dict[str, Any] = {}
@@ -293,6 +429,8 @@ def score_candidate(record: Mapping[str, Any], candidate: Mapping[str, Any],
     if normalized_bm25 is None:
         missing.append("bm25")
     for short, source in (("head", "dense_head"), ("chunk", "dense_chunk")):
+        if sapbert_weight == 1:
+            break
         weight = unit(dense_config.get(f"{short}_weight", 0.5), f"dense.{short}_weight")
         if not weight:
             continue
@@ -305,11 +443,22 @@ def score_candidate(record: Mapping[str, Any], candidate: Mapping[str, Any],
         dense_components[source] = normalized
         dense_sum += weight * normalized
         dense_weight += weight
-    if dense_config.get("head_weight", 0.5) == 0 and dense_config.get("chunk_weight", 0.5) == 0:
+    if sapbert_weight < 1 and dense_config.get("head_weight", 0.5) == 0 and dense_config.get("chunk_weight", 0.5) == 0:
         raise ValueError("at least one dense source needs positive weight")
+    generic_dense = dense_sum / dense_weight if dense_weight else None
+    sapbert, sapbert_details = (sapbert_score(record, candidate, config) if sapbert_weight > 0
+                                else (None, {"source": "disabled", "concepts": []}))
+    if sapbert_weight > 0 and sapbert is None:
+        missing.append("sapbert")
     if missing and missing_policy == "error":
         raise ValueError(f"missing enabled scores for {candidate.get('doc_id')}: {missing}")
-    dense = dense_sum / dense_weight if dense_weight else None
+    branches = {"generic_dense": 1 - sapbert_weight if generic_dense is not None else 0.0,
+                "sapbert": sapbert_weight if sapbert is not None else 0.0}
+    branch_total = sum(branches.values())
+    branch_weights = {key: value / branch_total if branch_total else 0.0 for key, value in branches.items()}
+    dense = (sum(branch_weights[key] * value for key, value in
+                 (("generic_dense", generic_dense), ("sapbert", sapbert)) if value is not None)
+             if branch_total else None)
     if dense is None:
         if normalized_bm25 is None:
             raise ValueError(f"no retrieval scores for {candidate.get('doc_id')}")
@@ -333,6 +482,8 @@ def score_candidate(record: Mapping[str, Any], candidate: Mapping[str, Any],
     return {"doc_id": identity, "lang": candidate.get("lang"), "score": fused,
             "fused_score": fused, "bm25_raw_blend": raw_bm25,
             "bm25_normalized": normalized_bm25, "dense_normalized": dense,
+            "generic_dense_normalized": generic_dense, "sapbert_normalized": sapbert,
+            "dense_branch_weights": branch_weights, "sapbert_diagnostics": sapbert_details,
             "dense_components": dense_components, "alpha_requested": alpha,
             "alpha_effective": effective_alpha, "medical_gate": gate,
             "missing_scores": missing, "flags": flags,
@@ -399,4 +550,5 @@ def score_record(record: Mapping[str, Any], config: Mapping[str, Any]) -> dict[s
     selection = select_ranked(ranking, record.get("concepts", []), config.get("selection", {}))
     return {"id": record["id"], "query": record.get("query", ""), "lang": record.get("lang"),
             "ranking": ranking, "selection": selection,
-            "doc_ids": selection["doc_ids"], "score_schema": "medical-gate-v1"}
+            "doc_ids": selection["doc_ids"], "score_schema": config.get("score_schema",
+                "medical-gate-v2" if config.get("sapbert", {}).get("weight", 0.0) else "medical-gate-v1")}

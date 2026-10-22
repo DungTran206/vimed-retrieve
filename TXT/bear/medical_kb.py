@@ -15,7 +15,7 @@ from typing import Any, Mapping, Sequence
 from .contracts import SchemaInvalidError
 from .io import read_json, read_jsonl, resolve_repo_path, write_jsonl
 
-LANGUAGES = ("vi", "zh")
+LANGUAGES = ("vi", "zh", "en")
 
 
 def _text(value: Any, field: str) -> str:
@@ -31,9 +31,9 @@ def validate_concept(value: Any, field: str = "concept") -> dict[str, Any]:
     labels = value.get("labels")
     aliases = value.get("aliases", {})
     if not isinstance(labels, Mapping) or not labels or set(labels) - set(LANGUAGES):
-        raise SchemaInvalidError(f"{field}.labels needs vi and/or zh labels")
+        raise SchemaInvalidError(f"{field}.labels needs supported vi/zh/en labels")
     if not isinstance(aliases, Mapping) or set(aliases) - set(LANGUAGES):
-        raise SchemaInvalidError(f"{field}.aliases supports only vi and zh")
+        raise SchemaInvalidError(f"{field}.aliases supports vi, zh and en")
     clean_labels = {lang: _text(text, f"{field}.labels.{lang}") for lang, text in labels.items()}
     clean_aliases = {}
     for lang in LANGUAGES:

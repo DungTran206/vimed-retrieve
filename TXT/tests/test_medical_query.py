@@ -35,6 +35,24 @@ def model_json(intent="symptoms", text="bệnh thử A", concept_id="test:diseas
 
 
 class MedicalQueryTests(unittest.TestCase):
+    def test_english_source_labels_and_zero_expansion_budget(self):
+        kb = fixture_kb()
+        kb[0]["disease"]["labels"]["en"] = "test disease A"
+        kb[0]["symptom"]["labels"]["en"] = "test manifestation"
+        def response(messages, config):
+            content = messages[-1]["content"]
+            payload, _ = json.JSONDecoder().raw_decode(content[content.index("{"):])
+            result = model_json(text="test disease A")
+            result["selected_expansion_ids"] = [payload["kb_expansion_whitelist"][0]["expansion_id"]]
+            return json.dumps(result), {}
+        query = {"id": 1, "query": "Symptoms of test disease A?", "lang": "en"}
+        with patch("TXT.bear.medical_query._chat", side_effect=response):
+            prepared = prepare_query(query, kb, {})
+            self.assertEqual("test manifestation", prepared["expansion_terms"][0]["text"])
+            self.assertEqual("en", prepared["expansion_terms"][0]["lang"])
+            with self.assertRaisesRegex(SchemaInvalidError, "max_expansion_terms"):
+                prepare_query(query, kb, {"max_expansion_terms": 0})
+
     def test_document_candidates_preserve_negation_exact_offsets_and_http_scope(self):
         body = "Không có triệu chứng thử. Có biểu hiện khác."
         start = body.index("triệu chứng thử")

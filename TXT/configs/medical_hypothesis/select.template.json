@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "predictions": "TXT/runtime/medical_v5/run/scores.jsonl",
+  "index": "TXT/inputs/medical_hypothesis/index.sqlite",
+  "llm": {
+    "model": "Qwen/Qwen3.5-9B",
+    "num_parameters_b": 9,
+    "base_url": "http://127.0.0.1:8000/v1",
+    "max_tokens": 2048,
+    "enable_thinking": false
+  },
+  "selection": {
+    "max_candidates": 40,
+    "document_max_chars": 2000,
+    "min_docs": 0,
+    "max_docs": 40,
+    "prompt_path": "TXT/prompts/medical_selection.txt"
+  },
+  "output_dir": "TXT/runtime/medical_v5/select"
+}

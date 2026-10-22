@@ -7,13 +7,14 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 import copy
+import hashlib
 import itertools
 import unicodedata
 import time
 from statistics import median
 from pathlib import Path
 
-from .contracts import SchemaInvalidError, validate_doc_id
+from .contracts import HashMismatchError, SchemaInvalidError, validate_doc_id
 from .io import (assert_valid_output_path, atomic_write_json, canonical_sha256,
                  read_json, read_jsonl, resolve_repo_path, write_jsonl)
 from .medical_cache import (begin_stage, checked_records, finite, finish_stage,
@@ -22,14 +23,18 @@ from .medical_cache import (begin_stage, checked_records, finite, finish_stage,
 SCHEMAS = {
     "kb-import": ({"source_path", "format", "concept_map_path", "source", "allow_empty", "symptom_predicates"}, {"source_path"}),
     "prepare": ({"queries", "kb", "llm", "prepared_input"}, {"queries", "kb", "llm"}),
-    "document-terms": ({"index", "doc_ids_path", "llm"}, {"index", "doc_ids_path", "llm"}),
+    "document-terms": ({"index", "doc_ids_path", "cache", "llm"}, {"index", "llm"}),
     "cache": ({"prepared", "index", "sources", "score_tables", "bm25_source", "bm25_expanded_source",
-               "dense_head_source", "dense_chunk_source", "languages", "include_index_candidates",
-               "lookup_top_k", "expanded_top_k", "rrf_k", "rrf_weights"}, {"prepared", "index", "sources"}),
+               "dense_head_source", "dense_chunk_source", "sapbert_source", "source_recipes",
+               "languages", "include_index_candidates", "lookup_top_k", "expanded_top_k",
+               "rrf_k", "rrf_weights"}, {"prepared", "index", "sources"}),
+    "sapbert-cache": ({"cache", "index", "document_terms", "encoder", "embeddings_input"},
+                      {"cache", "index", "document_terms", "encoder"}),
     "fit": ({"cache", "validation", "scoring", "split", "split_path", "fit_options"}, {"cache", "validation", "scoring"}),
     "tune": ({"cache", "validation", "model", "split_path", "trials", "grid", "objective",
               "max_mean_docs", "allow_incomplete_f2", "max_trials"}, {"cache", "validation", "model"}),
     "run": ({"cache", "model", "scoring", "mode", "query_ids"}, {"cache"}),
+    "select": ({"predictions", "index", "llm", "selection"}, {"predictions", "index", "llm"}),
     "evaluate": ({"predictions", "validation", "split_path", "split", "query_ids", "allow_incomplete_f2"},
                  {"predictions", "validation"}),
 }
@@ -46,9 +51,11 @@ def validate_stage(command, config):
     if not isinstance(config["output_dir"], str):
         raise SchemaInvalidError("output_dir must be a path string")
     assert_valid_output_path(resolve_repo_path(config["output_dir"]))
-    if command in {"prepare", "document-terms"}:
+    if command in {"prepare", "document-terms", "select"}:
         from .medical_query import validate_llm_config
         validate_llm_config(config["llm"])
+    if command == "document-terms" and bool(config.get("doc_ids_path")) == bool(config.get("cache")):
+        raise SchemaInvalidError("document-terms needs exactly one of doc_ids_path or cache")
     if command == "cache":
         if not isinstance(config["sources"], dict) or not config["sources"] and not config.get("include_index_candidates", False):
             raise SchemaInvalidError("cache requires source rankings or include_index_candidates=true")
@@ -57,6 +64,14 @@ def validate_stage(command, config):
                 raise SchemaInvalidError(f"{field} must be a positive integer")
         if not isinstance(config.get("languages", ["vi"]), list) or not config.get("languages", ["vi"]):
             raise SchemaInvalidError("languages must be a nonempty list")
+        if not isinstance(config.get("source_recipes", {}), dict):
+            raise SchemaInvalidError("source_recipes must map source names to encoder/retriever recipes")
+    if command == "sapbert-cache":
+        from .medical_semantic import validate_encoder_config
+        validate_encoder_config(config["encoder"])
+    if command == "select":
+        from .medical_selection import validate_selection_config
+        validate_selection_config(config.get("selection", {}))
     if command == "run" and config.get("mode", "medical") not in {"medical", "rrf"}:
         raise SchemaInvalidError("run.mode must be medical or rrf")
     return config
@@ -65,8 +80,10 @@ def validate_stage(command, config):
 def _input_paths(command, config):
     single = {"kb-import": ("source_path", "concept_map_path"),
               "prepare": ("queries", "kb", "prepared_input"),
-              "document-terms": ("index", "doc_ids_path"),
-              "cache": ("prepared", "index"), "fit": ("cache", "validation", "split_path"),
+              "document-terms": ("index", "doc_ids_path", "cache"),
+              "cache": ("prepared", "index"),
+              "sapbert-cache": ("cache", "index", "document_terms", "embeddings_input"),
+              "select": ("predictions", "index"), "fit": ("cache", "validation", "split_path"),
               "tune": ("cache", "validation", "model", "split_path"),
               "run": ("cache", "model"), "evaluate": ("predictions", "validation", "split_path")}
     inputs = {key: config[key] for key in single[command] if config.get(key)}
@@ -75,6 +92,18 @@ def _input_paths(command, config):
         inputs["user_prompt"] = config["llm"].get("user_prompt_path", "TXT/prompts/medical_query_user.txt")
     if command == "document-terms":
         inputs["document_prompt"] = config["llm"].get("document_prompt_path", "TXT/prompts/medical_document_terms.txt")
+    if command == "select":
+        inputs["selection_prompt"] = (config.get("selection", {}).get("prompt_path") or
+                                      config["llm"].get("selection_prompt_path") or
+                                      "TXT/prompts/medical_selection.txt")
+    if command == "sapbert-cache":
+        local_path = config["encoder"].get("local_path")
+        if local_path:
+            checkpoint = resolve_repo_path(local_path)
+            inputs["encoder_config"] = str(checkpoint / "config.json")
+            if checkpoint.is_dir():
+                inputs.update({"encoder:" + str(path.relative_to(checkpoint)): str(path)
+                               for path in sorted(checkpoint.rglob("*")) if path.is_file()})
     if command == "cache":
         inputs.update({"source:" + key: path for key, path in config["sources"].items()})
         inputs.update({"score_table:" + key: path for key, path in config.get("score_tables", {}).items()})
@@ -133,6 +162,8 @@ def _prepare(config, root):
             model_calls += 1
         if record["id"] != qid or record["query"] != query["query"] or record["lang"] != query["lang"]:
             raise SchemaInvalidError(f"Cached/imported query differs from original: {qid}")
+        if len(record.get("expansion_terms", [])) > config["llm"].get("max_expansion_terms", 8):
+            raise SchemaInvalidError("Prepared query exceeds configured max_expansion_terms")
         atomic_write_json(response_path, record)
         records.append(record)
     output = write_jsonl(root / "prepared.jsonl", records)
@@ -165,7 +196,9 @@ def _rankings(path, universe):
 def _document_terms(config, root):
     from .corpus_index import CorpusIndex
     from .medical_documents import extract_document
-    raw_ids = read_json(resolve_repo_path(config["doc_ids_path"]))
+    raw_ids = (read_json(resolve_repo_path(config["doc_ids_path"])) if config.get("doc_ids_path") else
+               sorted({candidate["doc_id"] for row in iter_checked_records(config["cache"])
+                       for candidate in row["candidates"]}))
     if not isinstance(raw_ids, list):
         raise SchemaInvalidError("doc_ids_path must contain a JSON list of document IDs")
     ids = [validate_doc_id(value) for value in raw_ids]
@@ -190,13 +223,13 @@ def _document_terms(config, root):
             paths.append(output)
     combined = write_jsonl(root / "document_terms.jsonl", (read_json(path) for path in paths))
     return [combined, *paths], {"document_count": len(paths), "model_calls": model_calls,
-                               "index_modified": False, "scope": "diagnostic_term_candidates_only"}
+                               "index_modified": False, "scope": "literal_terms_for_semantic_cache"}
 
 
 def _score_tables(tables, universe):
     result = {}
     for name, path in tables.items():
-        if name not in {"bm25", "bm25_expanded", "dense_head", "dense_chunk"}:
+        if name not in {"bm25", "bm25_expanded", "dense_head", "dense_chunk", "sapbert"}:
             raise SchemaInvalidError(f"Unsupported score table: {name}")
         scores = {}
         for row in read_jsonl(resolve_repo_path(path)):
@@ -220,7 +253,7 @@ def _cache(config, root):
     tables = _score_tables(config.get("score_tables", {}), universe)
     allowed = set(config.get("languages", ["vi"]))
     source_keys = {name: config.get(name + "_source", name if name in sources else None)
-                   for name in ("bm25", "bm25_expanded", "dense_head", "dense_chunk")}
+                   for name in ("bm25", "bm25_expanded", "dense_head", "dense_chunk", "sapbert")}
     if any(name is not None and name not in sources for name in source_keys.values()):
         raise SchemaInvalidError("*_source must name an available ranking source")
     external_bm25 = source_keys["bm25"] is not None or "bm25" in tables
@@ -229,6 +262,8 @@ def _cache(config, root):
         raise SchemaInvalidError("rrf_k must be nonnegative")
     counts, missing = {}, Counter()
     paths = []
+    from .medical_cache import identity
+    index_identity = identity(config["index"])
     with CorpusIndex(resolve_repo_path(config["index"])) as index:
         for query in sorted(prepared, key=lambda row: row["id"]):
             qid = query["id"]
@@ -278,12 +313,16 @@ def _cache(config, root):
                                    "concept_matches": match_concepts(query, document),
                                    "index_bm25_original": original_scores.get(did, 0.0),
                                    "index_bm25_expanded": expanded_scores.get(did, 0.0),
-                                   "body_sha256": document["body_sha256"]})
+                                   "body_sha256": document["body_sha256"],
+                                   "title_sha256": hashlib.sha256((document.get("title") or "").encode("utf-8")).hexdigest()})
             cached = {**query, "candidates": candidates, "query_scale": original_scale or 1.0,
                       "expanded_query_scale": expanded_scale or 1.0,
                       "bm25_recipe": "source_artifact" if external_bm25 else "bear_corpus_lexical_v1",
                       "query_scale_compatible": not external_bm25,
-                      "candidate_scope": "source_union_plus_lexical" if config.get("include_index_candidates") else "source_union"}
+                      "candidate_scope": "source_union_plus_lexical" if config.get("include_index_candidates") else "source_union",
+                      "index_sha256": index_identity["sha256"],
+                      "source_score_recipe": source_keys,
+                      "source_recipes": config.get("source_recipes", {})}
             atomic_write_json(query_path, cached)
             counts[qid] = len(candidates)
             paths.append(query_path)
@@ -297,6 +336,59 @@ def _load_scoring(config):
     model = read_json(resolve_repo_path(config["model"])) if config.get("model") else {}
     base = model.get("scoring", model.get("best_config", {}))
     return merge_config(base, config.get("scoring", {})), model
+
+
+def _select(config, root):
+    """Optional bounded LLM selection; frozen fusion scores are never rewritten."""
+    from .corpus_index import CorpusIndex
+    from .medical_selection import cherry_pick
+    from .medical_cache import identity
+    paths, counts, seen = [], [], set()
+    model_calls = 0
+    options = config.get("selection", {})
+    index_sha256 = identity(config["index"])["sha256"]
+    with CorpusIndex(resolve_repo_path(config["index"])) as index:
+        for record in iter_checked_records(config["predictions"]):
+            qid = record.get("id")
+            if type(qid) is not int or qid < 0 or qid in seen:
+                raise SchemaInvalidError("Selection query IDs must be unique nonnegative integers")
+            seen.add(qid)
+            if record.get("index_sha256") != index_sha256:
+                raise HashMismatchError("Selection corpus differs from scored-row index_sha256; regenerate scores with the bound corpus")
+            path = root / "responses" / f"{qid}.json"
+            if path.is_file():
+                selected = read_json(path)
+            else:
+                eligible = set(record.get("selection", {}).get("doc_ids", record.get("doc_ids", [])))
+                ranking = sorted(record.get("ranking", []), key=lambda item: (-item["score"], item["doc_id"]))
+                shortlist = [item["doc_id"] for item in ranking if item["doc_id"] in eligible][:options.get("max_candidates", 40)]
+                documents = []
+                for did in shortlist:
+                    document = index.get_document(did)
+                    if document is None:
+                        raise SchemaInvalidError(f"Selection document {did} absent from corpus snapshot")
+                    documents.append(document)
+                selection = cherry_pick(record, documents, config["llm"], options)
+                selected = {**record, "selection": selection, "doc_ids": selection["doc_ids"],
+                            "selection_source": "llm_cherry_pick"}
+                atomic_write_json(path, selected)
+                model_calls += int(bool(shortlist))
+            if selected.get("id") != qid or selected.get("query") != record.get("query"):
+                raise SchemaInvalidError("Resumed LLM selection differs from inference query")
+            if not set(selected["doc_ids"]).issubset(set(record.get("doc_ids", []))):
+                raise SchemaInvalidError("LLM selection must remain within the supplied fusion selection")
+            paths.append(path)
+            counts.append(len(selected["doc_ids"]))
+    scores_path = write_jsonl(root / "scores.jsonl", (read_json(path) for path in paths))
+    def adapter_rows():
+        for path in paths:
+            record = read_json(path)
+            scores = {item["doc_id"]: item["score"] for item in record["ranking"]}
+            yield {"id": record["id"], "candidates": [{"doc_id": did, "score": scores[did]} for did in record["doc_ids"]]}
+    candidates_path = write_jsonl(root / "candidates.jsonl", adapter_rows())
+    return [scores_path, candidates_path, *paths], {"query_count": len(paths), "model_calls": model_calls,
+            "labels_read": False, "scores_preserved": True, "resume_unit": "query",
+            "mean_docs": sum(counts) / len(counts) if counts else 0}
 
 
 def _bm25_recipe(scoring):
@@ -313,14 +405,19 @@ def _feature_recipe(cache_path, records):
     return {"bm25_recipes": sorted({row.get("bm25_recipe", "imported_unspecified") for row in records}),
             "query_scale_compatible": sorted({row.get("query_scale_compatible", True) for row in records}),
             "index_sha256": index.get("sha256"),
+            "index_snapshots": sorted({row.get("index_sha256", "unspecified") for row in records}),
+            "sapbert_recipes": sorted({canonical_sha256(row["sapbert_recipe"]) for row in records if row.get("sapbert_recipe")}),
+            "source_recipes": sorted({canonical_sha256(row.get("source_recipes", {})) for row in records}),
             "languages": sorted({row.get("lang", "vi") for row in records}),
             "source_score_recipe": {key: manifest.get("config", {}).get(key) for key in
-                                    ("bm25_source", "bm25_expanded_source", "dense_head_source", "dense_chunk_source")}}
+                                    ("bm25_source", "bm25_expanded_source", "dense_head_source", "dense_chunk_source", "sapbert_source")},
+            "cached_source_mappings": sorted({canonical_sha256(row.get("source_score_recipe", {})) for row in records})}
 
 
 def _cache_headers(path):
     """Retain query metadata only, never every document's cached spans in RAM."""
-    keys = {"id", "query", "lang", "bm25_recipe", "query_scale_compatible"}
+    keys = {"id", "query", "lang", "bm25_recipe", "query_scale_compatible", "index_sha256",
+            "source_score_recipe", "source_recipes", "sapbert_recipe"}
     headers, seen = [], set()
     for record in iter_checked_records(path):
         qid = record.get("id")
@@ -528,6 +625,7 @@ def _run(config, root):
                           "selection": selection, "doc_ids": selection["doc_ids"], "score_schema": "rrf_control"}
             else:
                 result = score_record(record, scoring)
+            result["index_sha256"] = record.get("index_sha256")
             counts.append(len(result["doc_ids"]))
             yield result
     scores_path = write_jsonl(root / "scores.jsonl", scored_rows())
@@ -558,6 +656,8 @@ def run_experiment(command, config):
                      "prepare": ["TXT/bear/medical_kb.py", "TXT/bear/medical_query.py"],
                      "document-terms": ["TXT/bear/medical_documents.py", "TXT/bear/medical_query.py"],
                      "cache": ["TXT/bear/medical_query.py", "TXT/bear/corpus_index.py", "TXT/bear/structured_evidence.py"],
+                     "sapbert-cache": ["TXT/bear/medical_semantic.py", "TXT/bear/medical_query.py", "TXT/bear/corpus_index.py"],
+                     "select": ["TXT/bear/medical_selection.py", "TXT/bear/medical_query.py", "TXT/bear/corpus_index.py"],
                      "fit": ["TXT/bear/medical_scoring.py", "TXT/bear/medical_validation.py"],
                      "tune": ["TXT/bear/medical_scoring.py", "TXT/bear/medical_validation.py"],
                      "run": ["TXT/bear/medical_scoring.py"],
@@ -571,7 +671,9 @@ def run_experiment(command, config):
         output = write_jsonl(root / "kb.jsonl", rows)
         artifacts, details = [output], {"relation_count": len(rows), "clinical_cleanliness_verified": False}
     else:
+        from .medical_semantic import build_semantic_cache
         runner = {"prepare": _prepare, "cache": _cache, "run": _run,
+                  "sapbert-cache": build_semantic_cache, "select": _select,
                   "document-terms": _document_terms,
                   "fit": _fit, "tune": _tune, "evaluate": _evaluate}[command]
         artifacts, details = runner(config, root)

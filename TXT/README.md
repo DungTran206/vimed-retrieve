@@ -1,39 +1,39 @@
-# BEAR — Medical-gated fusion hypothesis
+# BEAR v5 — BM25 + dense tổng quát + SapBERT-XLMR
 
-**Ý tưởng hiện hành:** LLM nhỏ phân tầng độ quan trọng concept trong query; mức khớp concept quan trọng ở document điều khiển BM25/dense. Score được chuẩn hóa, fusion thay RRF, threshold thích ứng thay top-K cố định. Query enrichment dùng KB bệnh → triệu chứng có nguồn Việt/Trung; raw features được cache để tune offline.
-
-Đây là hypothesis người dùng muốn thử, chưa có kết luận tăng điểm baseline 0,391. Agent cần giúp chạy thử và lưu kết quả; phản biện được ghi nhưng không thay cho thực nghiệm được ủy quyền.
+Cập nhật 22/10/2026. Nhánh thử nghiệm hiện hành giữ fusion BM25/dense và medical gate từ khớp lexical có nguồn. Dense mới kết hợp dense tổng quát với SapBERT-XLMR để bổ sung tương đồng giữa concept y sinh và term xuất hiện thật trong tài liệu.
 
 ```text
-KB + Qwen3.5-9B → query taxonomy/enrichment cache
-BM25 original/enriched + dense → union/raw score/match cache
-fit sigmoid → tune medical gate/fusion/threshold → run → evaluate
+KB có nguồn → prepare(query LLM)
+corpus + raw BM25/dense → cache → document-terms(document LLM)
+                                     ↓
+                              sapbert-cache
+                                     ↓
+                    fit → tune → run → [select] → evaluate
 ```
 
-| Đọc | Nội dung |
-|---|---|
-| **[Handover](TXT_handover.md)** | Chỉ dẫn agent, commands/configs, inputs/outputs, cách tiếp tục khi thiếu input |
-| **[Proposal](TXT_Proposal.md)** | Giải thích chi tiết ý tưởng, mục đích, taxonomy/enrichment/calibration/cache |
-| [Algorithm](BEAR_ALGORITHM.md) | Công thức, semantics và invariants |
-| [Study](BEAR_REPLACEMENT_STUDY.md) | Đối chứng, splits, metric/budget, phạm vi kết luận |
-| [PLAN](PLAN.md) | Trình tự thực nghiệm và điều kiện từng stage |
-| [Runbook](reports/RUNBOOK.md) | Lệnh hiện hành và legacy controls |
-| [Prompts](prompts/) | Hợp đồng query analysis/enrichment có cấu trúc |
-| [Configs](configs/medical_hypothesis/) | Templates cho workflow mới |
-| [Pipeline 0,391](PIPELINE_0391.md) | Control từ sơ đồ, chưa đủ runtime linkage |
-| [Results](reports/RESULTS.md), [log](improvement_log.md) | Kết quả và lịch sử thực tế |
+`select` là LLM chọn lại shortlist tùy chọn sau fusion. Không chạy LLM hoặc encoder trong vòng tune khi feature cache còn hợp lệ.
 
-Từ repository root, kiểm tra CLI và chạy demo kỹ thuật:
+| Tài liệu | Dùng để |
+|---|---|
+| [Handover](TXT_handover.md) | Tiếp nhận đầy đủ: inputs, lệnh, cache, tham số, tài nguyên |
+| [Proposal](TXT_Proposal.md) | Mục đích từng thành phần và lựa chọn kết hợp dense/SapBERT |
+| [Algorithm](BEAR_ALGORITHM.md) | Công thức và semantics chính xác |
+| [Study](BEAR_REPLACEMENT_STUDY.md) | Đối chứng, validation, lợi ích/chi phí |
+| [PLAN](PLAN.md) | Thứ tự công việc hiện hành |
+| [Templates](configs/medical_hypothesis/) | Bind input thật trước khi chạy |
+| [Baseline 0,391](PIPELINE_0391.md) | Recipe control và provenance chưa xác minh |
+| [Results](reports/RESULTS.md), [log](improvement_log.md) | Kết quả và lịch sử thực tế |
+| [Cleanup](reports/CLEANUP_20261022.md) | Phạm vi dọn bản cũ và tra lại trong Git |
+
+Từ repository root:
 
 ```powershell
 python -B -m TXT.bear.medical_cli --help
-python -B -m TXT.bear.medical_cli demo --output-dir TXT/runtime/medical_hypothesis_demo
+python -B -m TXT.bear.medical_cli demo --output-dir TXT/runtime/medical_v5_demo
 ```
 
-Workflow mới dùng `python -B -m TXT.bear.medical_cli <stage> --config <path>` để inspect; thêm `--execute` để thực hiện. Không tự tải model/dataset. Các templates cần bind paths thật trước quality experiment.
+Stage nhận `--config`; mặc định inspect, thêm `--execute` để chạy. Templates còn paths mẫu không phải input đã hiện diện. Đọc tài liệu/demo không tự tải checkpoint hoặc gọi endpoint.
 
-**BR vẫn độc lập:** BEAR-Retriever tìm corpus/index và có thể ngoài baseline union; BEAR-Fusion mới chỉ chọn từ union. CLI prototype cũ `TXT.bear.cli corpus-index|retrieve|evidence-fuse` giữ riêng làm control. Source union, missing scores và corpus identity phải được giữ nguyên khi so fusion.
+V5 đã triển khai và qua tests kỹ thuật/synthetic; [report v5](reports/SAPBERT_V5_20261022.md) ghi kiểm chứng và phần chưa chạy. Tham số là **ước lượng khởi tạo để thử**, chưa tối ưu và chưa có quality gain được chứng minh trên 593 query thật. Fit chỉ học sigmoid BM25; normalizer SapBERT ban đầu là affine ước lượng.
 
-Native chunk selector/downstream control chưa đổi. Evidence refs không phải submission chunks. Legacy 2.0.0 fixed200/w045 và kết quả L1/L4/N0/N1 giữ lịch sử riêng. Unknown không tự là negative; query đã khai thác không pristine holdout. Không suy gain từ tests/demo hoặc từ việc có code.
-
-Bản trước ở [archive v3.5](archive/README_v3_5_20261020.md).
+BR tìm corpus độc lập; BF chỉ chọn union đã cache. SapBERT v5 chưa thêm doc ngoài union. Native chunk/downstream control cần recipe đúng để đo Doc/Chunk/FINAL. Legacy code/configs còn giữ để chạy control và tests, không phải kế hoạch song song với v5.

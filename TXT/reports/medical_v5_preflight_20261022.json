@@ -1,0 +1,163 @@
+{
+  "implementation_version": "medical_gate_sapbert_v2",
+  "schema_valid": true,
+  "template_count": 10,
+  "tuning_trial_count": 72,
+  "model_contacted": false,
+  "results": [
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\cache.template.json",
+      "status": "blocked_input",
+      "command": "cache",
+      "dry_run": true,
+      "missing_roles": [
+        "prepared",
+        "index",
+        "source:bm25",
+        "source:dense_head",
+        "source:dense_chunk"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/cache",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\document_terms.template.json",
+      "status": "blocked_input",
+      "command": "document-terms",
+      "dry_run": true,
+      "missing_roles": [
+        "index",
+        "cache"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/document_terms",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\evaluate.template.json",
+      "status": "blocked_input",
+      "command": "evaluate",
+      "dry_run": true,
+      "missing_roles": [
+        "predictions",
+        "split_path"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/evaluate",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\fit.template.json",
+      "status": "blocked_input",
+      "command": "fit",
+      "dry_run": true,
+      "missing_roles": [
+        "cache"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/fit",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\kb.template.json",
+      "status": "blocked_input",
+      "command": "kb-import",
+      "dry_run": true,
+      "missing_roles": [
+        "source_path"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/kb",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\prepare.template.json",
+      "status": "blocked_input",
+      "command": "prepare",
+      "dry_run": true,
+      "missing_roles": [
+        "queries",
+        "kb"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/prepare",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\run.template.json",
+      "status": "blocked_input",
+      "command": "run",
+      "dry_run": true,
+      "missing_roles": [
+        "cache",
+        "model"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/run",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\sapbert_cache.template.json",
+      "status": "blocked_input",
+      "command": "sapbert-cache",
+      "dry_run": true,
+      "missing_roles": [
+        "cache",
+        "index",
+        "document_terms",
+        "encoder_config"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/sapbert_cache",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\select.template.json",
+      "status": "blocked_input",
+      "command": "select",
+      "dry_run": true,
+      "missing_roles": [
+        "predictions",
+        "index"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/select",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    },
+    {
+      "template": "TXT\\configs\\medical_hypothesis\\tune.template.json",
+      "status": "blocked_input",
+      "command": "tune",
+      "dry_run": true,
+      "missing_roles": [
+        "cache",
+        "model",
+        "split_path"
+      ],
+      "output_dir": "TXT/runtime/medical_v5/tune",
+      "implementation_version": "medical_gate_sapbert_v2",
+      "hypothesis_only": true,
+      "model_contacted": false,
+      "baseline_0391_reproduced": false
+    }
+  ]
+}

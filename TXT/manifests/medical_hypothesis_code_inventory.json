@@ -1,168 +1,251 @@
 {
-  "date": "2026-10-21",
+  "date": "2026-10-22",
+  "implementation_version": "medical_gate_sapbert_v2",
+  "schema_version": 1,
+  "self_hash_excluded": true,
   "files": [
     {
-      "bytes": 4547,
+      "path": "TXT/BEAR_ALGORITHM.md",
+      "bytes": 6755,
+      "sha256": "636e41e4d5026946ca343f7e3ff4360ed78a4a18f3c6ccd4acb64692fe263f52"
+    },
+    {
+      "path": "TXT/BEAR_REPLACEMENT_STUDY.md",
+      "bytes": 5895,
+      "sha256": "a1056cd70489e54fbe0fea51487c2ffc71521c8baa2dcd9f5ce749ad32b1adbd"
+    },
+    {
+      "path": "TXT/PLAN.md",
+      "bytes": 4461,
+      "sha256": "f55e2b5e60c6bff6c1ea70ab49d10aaf019401c783f57c483f269fec6372870d"
+    },
+    {
+      "path": "TXT/README.md",
+      "bytes": 2737,
+      "sha256": "081f3e2dcad3919851cb297173ea6ab33078d56abce7ed2a0931e106adcdc3ae"
+    },
+    {
+      "path": "TXT/TXT_Proposal.md",
+      "bytes": 9784,
+      "sha256": "ea3118ad3551611dc9de8179d8775490bdf8e6bdfd694b370f31ea924bc75431"
+    },
+    {
+      "path": "TXT/TXT_handover.md",
+      "bytes": 25617,
+      "sha256": "831ef2e13dcfe183aa77975a893669c52df6bc00e9ebe7f79e221fdcc6f00c96"
+    },
+    {
       "path": "TXT/bear/medical_cache.py",
-      "sha256": "97d5257da44514abe4341e3b4fecf4f80f68701a226f64f23d2c8506a14f4def"
+      "bytes": 4544,
+      "sha256": "243cd73654ab4d673d54e09bf5ea9815ede0eb42980f0aef8c3bd5a0f8ac4ced"
     },
     {
-      "bytes": 2105,
       "path": "TXT/bear/medical_cli.py",
-      "sha256": "879cdc64f4ef1eec4251147903a9b41cd792ce25b535cbb128f464c4c53e7d62"
+      "bytes": 2152,
+      "sha256": "d3b47e13c876af96960fd3babd4471ff4b60a6fa999bd62de154999488679416"
     },
     {
-      "bytes": 6929,
       "path": "TXT/bear/medical_documents.py",
-      "sha256": "a2cf64de0167c962af00afb581bfccc48104408349b52a0785dd25540632357f"
+      "bytes": 7037,
+      "sha256": "519040cb15de0ce6e350971c91ae194f72dff1e8b50163a202839d98e04592ef"
     },
     {
-      "bytes": 8615,
       "path": "TXT/bear/medical_kb.py",
-      "sha256": "7a0be14e94319dbf881101a1fddbb2f73b1bf7aed226e40087fa2978bf8b9f89"
+      "bytes": 8626,
+      "sha256": "a1a170ca656afa9f67ebbcccfda3c5fcbd597770bb8ccd6f65b2a8429bb44a93"
     },
     {
-      "bytes": 23615,
       "path": "TXT/bear/medical_query.py",
-      "sha256": "0af464332d615559e65e23ba0ecae8c5c29794b9a0da5bfb646a37854aa42e09"
+      "bytes": 24426,
+      "sha256": "f9b24cddac46fa4e74eb6edb5ccc503dc70295ecf5bc3f2421221633d5db28be"
     },
     {
-      "bytes": 34603,
       "path": "TXT/bear/medical_runner.py",
-      "sha256": "0855383dbcdd274c5744da5553ee3c1ed5ebc58824b8ebb0bb79948c30620e10"
+      "bytes": 41622,
+      "sha256": "63a2dc03437223f2f8529369d0b952630ab2994018ec8a6daaa8db7c447be819"
     },
     {
-      "bytes": 21094,
       "path": "TXT/bear/medical_scoring.py",
-      "sha256": "6320346874b03c5cca355d47d5e48a1fa828f60470962acaad8e9b58a6dd30d8"
+      "bytes": 30530,
+      "sha256": "d0f8d0c76c22c067be63c9b25e5b069398458f692dfcb25913c981014ca33659"
     },
     {
-      "bytes": 22058,
+      "path": "TXT/bear/medical_selection.py",
+      "bytes": 8868,
+      "sha256": "46fee6eee5bd09e5b19a498c6c90cc51f15ea8c1f2e48d63ec0d6aae95a60db3"
+    },
+    {
+      "path": "TXT/bear/medical_semantic.py",
+      "bytes": 25841,
+      "sha256": "b69d3b6b9d6515e0ee616f2d5a29604fb5e6d1ffbc33be8b6662c7c9e6e90e63"
+    },
+    {
       "path": "TXT/bear/medical_validation.py",
+      "bytes": 22058,
       "sha256": "5e146607fc86e8b7f53e53911b21df30730be45936034997d86fa1dcc8f4e093"
     },
     {
-      "bytes": 6706,
-      "path": "TXT/BEAR_ALGORITHM.md",
-      "sha256": "537c279b5cafe365dc6f1db1db757c03ff7705b947fc71f3f39bc5591b5c0064"
-    },
-    {
-      "bytes": 7150,
-      "path": "TXT/BEAR_REPLACEMENT_STUDY.md",
-      "sha256": "aef16de7a747db1a96c249764efbcf8b243af9a4d1fbc59cbb722af35a947ca8"
-    },
-    {
-      "bytes": 805,
-      "path": "TXT/configs/medical_hypothesis/cache.template.json",
-      "sha256": "3cd1a38c619f7cecc335cfc08048cf4351c4f8c5c2550870f73ad92634425a34"
-    },
-    {
-      "bytes": 432,
-      "path": "TXT/configs/medical_hypothesis/document_terms.template.json",
-      "sha256": "9084d7968ccb69d05e359e6e9e690bef508374767335755fe210def88e6d9e1c"
-    },
-    {
-      "bytes": 302,
-      "path": "TXT/configs/medical_hypothesis/evaluate.template.json",
-      "sha256": "5c5dd1d5064da76edd3021a21fd9246fbae951c9caed32fd14e69db498249f02"
-    },
-    {
-      "bytes": 1294,
-      "path": "TXT/configs/medical_hypothesis/fit.template.json",
-      "sha256": "6e4f7086bd0dc04bc6d90036f9c2fca179fc314f203ca78c933497259ab2b1dd"
-    },
-    {
-      "bytes": 173,
-      "path": "TXT/configs/medical_hypothesis/kb.template.json",
-      "sha256": "3077f6615c02b654d10f2c89b4e601ded067019790aa35d4f1e090abd7c521c4"
-    },
-    {
-      "bytes": 526,
-      "path": "TXT/configs/medical_hypothesis/prepare.template.json",
-      "sha256": "6a76ad3f5849a39178fb5d4a65b833702948fe4dcc176c6541dd3e37f8091df5"
-    },
-    {
-      "bytes": 2715,
       "path": "TXT/configs/medical_hypothesis/README.md",
-      "sha256": "df6dfa08ab948629d7f0f7501e86bc5e0f5f15e75703bf6de65d9b5016803a6d"
+      "bytes": 6116,
+      "sha256": "2477468d4aa839745c1f7513c997cdb174a6aac3b093cea4c866900ed3f91d30"
     },
     {
-      "bytes": 231,
+      "path": "TXT/configs/medical_hypothesis/cache.template.json",
+      "bytes": 891,
+      "sha256": "d54392a5fc6d01f027f473a274f3e06ce233d962b31a3adc0e04463120011161"
+    },
+    {
+      "path": "TXT/configs/medical_hypothesis/document_terms.template.json",
+      "bytes": 424,
+      "sha256": "1c37b33f2f39b288a0d0bbb424671211ac7666626b4aac6921b7138071ca17b6"
+    },
+    {
+      "path": "TXT/configs/medical_hypothesis/evaluate.template.json",
+      "bytes": 287,
+      "sha256": "fba7f0324c175861db530acc2228f9276ff61eabcdcad11193dee6c42bed70ec"
+    },
+    {
+      "path": "TXT/configs/medical_hypothesis/fit.template.json",
+      "bytes": 1461,
+      "sha256": "b74f690921b1fb2828207fb0f59d699bdf6a665ac34db7ffe179838e6defaca6"
+    },
+    {
+      "path": "TXT/configs/medical_hypothesis/kb.template.json",
+      "bytes": 171,
+      "sha256": "dbd1aa89c80212c89bf35ba5942b0142299f4f597c22b0c087b816e6d49d127e"
+    },
+    {
+      "path": "TXT/configs/medical_hypothesis/prepare.template.json",
+      "bytes": 588,
+      "sha256": "e91d493a2cb5b7a0619794892900808f65cf15258aeb80ae7cb3df7d1a86e1ec"
+    },
+    {
       "path": "TXT/configs/medical_hypothesis/run.template.json",
-      "sha256": "2cc5fc1b7b24a46abc544f0c3c75c72fcf20cbaebad8befc02b026237a0d60a3"
+      "bytes": 222,
+      "sha256": "64df27eb50a66a5ac2d1b1afb19b58794ccdffe76349fd48782f71d412658ee0"
     },
     {
-      "bytes": 618,
+      "path": "TXT/configs/medical_hypothesis/sapbert_cache.template.json",
+      "bytes": 624,
+      "sha256": "9955727570bed9d6e90d0e48b08f581bdced17079dc8261d24dc8b231f2dfa1f"
+    },
+    {
+      "path": "TXT/configs/medical_hypothesis/select.template.json",
+      "bytes": 558,
+      "sha256": "f6152e92b9ffe544f4565a26081cbe38c8079c81cd1122f8979d58efaea29a01"
+    },
+    {
       "path": "TXT/configs/medical_hypothesis/tune.template.json",
-      "sha256": "c89ebb55f1a015c28a070dfbbe50c4ceebd56893316fd32e59331bdabf699926"
+      "bytes": 702,
+      "sha256": "512cdfe2875a28d30de496132fa300d0aeced8cc515cec6de0faece946a4bfed"
     },
     {
-      "bytes": 2507,
       "path": "TXT/data_sources/medical_sources.json",
-      "sha256": "ea56edae818f75b5704a21070df758613b3cd3339d9b358aec3331841fd97df4"
+      "bytes": 2956,
+      "sha256": "b9329048d80c3b216c37290091481a9a243c4f11cd18fc0836dfa2f8d7eb0f45"
     },
     {
-      "bytes": 6539,
-      "path": "TXT/PLAN.md",
-      "sha256": "014036d6134d2c5054d97d4ba9ebdba5c812f3d772b46f202b05e8728a7eb557"
+      "path": "TXT/improvement_log.md",
+      "bytes": 58941,
+      "sha256": "e7eac5015b8271b2f7937168844deef8846b094df19bd31132ff9a295b3f7057"
     },
     {
-      "bytes": 1655,
       "path": "TXT/prompts/medical_document_terms.txt",
+      "bytes": 1655,
       "sha256": "38be2851a283319e444993fda6e78b19b0f640833e7a14439c072af45a8e6ee3"
     },
     {
-      "bytes": 2848,
       "path": "TXT/prompts/medical_query_system.txt",
-      "sha256": "ca24b8a3269363a49b98e76d48cd121985563771b0ed130bcbf72da8baf299ab"
+      "bytes": 3047,
+      "sha256": "e9356876663c6bafd6ade68ce8dd9c41738287b87159512cdfb9039655edcb94"
     },
     {
-      "bytes": 201,
       "path": "TXT/prompts/medical_query_user.txt",
+      "bytes": 201,
       "sha256": "1fb3466054e4a30af82c70ca4d35e07b3737810358d262a8c1690bfc163e1d51"
     },
     {
-      "bytes": 3038,
-      "path": "TXT/README.md",
-      "sha256": "0f795695258cafd39b69781e1f1faf68f7c03108c8e2e517b10d331c9ed24a3a"
+      "path": "TXT/prompts/medical_selection.txt",
+      "bytes": 776,
+      "sha256": "6e1ff2ebae1ecc6d5b4e00c760c20269d82300b5b8427006a97271bad2020644"
     },
     {
-      "bytes": 14600,
+      "path": "TXT/reports/CLEANUP_20261022.md",
+      "bytes": 6998,
+      "sha256": "d5c790a12cfe1a37cd711f3775a65e64c1c21bd271ded601f9038a17d90dd1e6"
+    },
+    {
+      "path": "TXT/reports/DECISIONS.md",
+      "bytes": 3230,
+      "sha256": "7681fff9da5a34ecba93da1ded387dc3cd22513d6a7083375d5c7c707f907e00"
+    },
+    {
+      "path": "TXT/reports/KNOWN_LIMITATIONS.md",
+      "bytes": 4003,
+      "sha256": "d38aebec2a97531493a48c76c68c2f87ade340bf5e703af0c6faebd651775ce9"
+    },
+    {
+      "path": "TXT/reports/RESULTS.md",
+      "bytes": 9284,
+      "sha256": "bc493926d6646480c99993e713b60e3289c3d7bdcb1e6d95f7df97f46f56a816"
+    },
+    {
+      "path": "TXT/reports/RUNBOOK.md",
+      "bytes": 6913,
+      "sha256": "226c16a4939b6a5dfdae2c40f77d35c439bb12795d4f08430eed985acc320ba6"
+    },
+    {
+      "path": "TXT/reports/SAPBERT_V5_20261022.md",
+      "bytes": 5238,
+      "sha256": "e9566b7072ad0f2b53f33c70a1c7a1169948d0949d5a895f564c8012f9eca2bd"
+    },
+    {
+      "path": "TXT/reports/medical_v5_preflight_20261022.json",
+      "bytes": 5053,
+      "sha256": "f3f1a4330c8acaf6a91d33aff951c4e36c940f68a27f1157949dbdd4e94b4ebb"
+    },
+    {
       "path": "TXT/tests/test_medical_query.py",
-      "sha256": "91b9d045c974777a5016d72df347fa4c05d6f74dec435aee00d855b7b607289a"
+      "bytes": 15714,
+      "sha256": "fd6473c0a6f6c050a5deae7e4d30bff902ca9675f2ded60e981b21f0cedb0dc8"
     },
     {
-      "bytes": 5215,
       "path": "TXT/tests/test_medical_runner.py",
-      "sha256": "1fb5fab0cb950da909fdc23be50ae60a85baca1db9237d60995be4d3c77d8858"
+      "bytes": 10064,
+      "sha256": "9c6a20961a51473cdd74567b5cf48e9271fe58041a04eca50b8093747a33fc8a"
     },
     {
-      "bytes": 7494,
       "path": "TXT/tests/test_medical_scoring.py",
-      "sha256": "6519ba6778a3a0d4c8825ee0f20f8f81c1f2ed83316e747e1f4c039d70a86e1b"
+      "bytes": 15066,
+      "sha256": "a42f649b078f667f8209f5b815e9767506243c4d6c1cc5b6a9c866e1adeef048"
     },
     {
-      "bytes": 8212,
+      "path": "TXT/tests/test_medical_selection.py",
+      "bytes": 5248,
+      "sha256": "0414853aa166a4fea4810a3ca4b8b1c7307efbf58a2bbc74b66d04f94a5e7a31"
+    },
+    {
+      "path": "TXT/tests/test_medical_semantic.py",
+      "bytes": 14308,
+      "sha256": "7f302ebadfcff80d554d74e548cdee828ec0b9a8d5e331cf7792847941b5d09a"
+    },
+    {
       "path": "TXT/tests/test_medical_validation.py",
+      "bytes": 8212,
       "sha256": "d2e13aa157af327df1108cca784b4d8b82ced033513565451aa529a17ef4eaba"
     },
     {
-      "bytes": 7482,
       "path": "TXT/tools/demo_medical_hypothesis.py",
-      "sha256": "21192e82323047314dc2a68b9819e3003a395e1009c4663573fdf5f949cef7d3"
-    },
-    {
-      "bytes": 27304,
-      "path": "TXT/TXT_handover.md",
-      "sha256": "7c7570262400db5e4e7bff4cceec662cea1c0d1cdae60360962cd597521b34f5"
-    },
-    {
-      "bytes": 16769,
-      "path": "TXT/TXT_Proposal.md",
-      "sha256": "3647627c7c8b23037bd9de621d08107772a418fef4786dbca70e08cedab72e5b"
+      "bytes": 10116,
+      "sha256": "63ec7ea3328110d015f79c13575c6f1ceb20b38b60ce79db0ef3fc563b11da1c"
     }
   ],
-  "implementation_version": "medical_gate_hypothesis_v1",
-  "schema_version": 1,
-  "self_hash_excluded": true
+  "validation": {
+    "txt_tests_passed": 173,
+    "legacy_tests_passed": 10,
+    "template_schemas_valid": 10,
+    "tune_configs_valid": 72,
+    "real_model_called": false,
+    "quality_gain_established": false
+  }
 }

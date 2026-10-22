@@ -13,7 +13,7 @@ from .contracts import HashMismatchError, SchemaInvalidError
 from .io import (assert_valid_output_path, atomic_write_json, canonical_sha256,
                  read_json, resolve_repo_path, sha256_file)
 
-VERSION = "medical_gate_hypothesis_v1"
+VERSION = "medical_gate_sapbert_v2"
 
 
 def identity(path):

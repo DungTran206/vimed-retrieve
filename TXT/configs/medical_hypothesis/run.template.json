@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "cache": "TXT/runtime/medical_hypothesis/cache/cache.jsonl",
-  "model": "TXT/runtime/medical_hypothesis/tune/best_config.json",
+  "cache": "TXT/runtime/medical_v5/sapbert_cache/cache.jsonl",
+  "model": "TXT/runtime/medical_v5/tune/best_config.json",
   "mode": "medical",
-  "output_dir": "TXT/runtime/medical_hypothesis/run"
+  "output_dir": "TXT/runtime/medical_v5/run"
 }

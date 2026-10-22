@@ -1,70 +1,71 @@
-# BEAR v4 — Protocol thử nghiệm medical-gated fusion
+# BEAR v5 — Protocol thử nghiệm SapBERT và LLM selector
 
-Cập nhật 21/10/2026. Thí nghiệm kiểm chứng hypothesis của người dùng; chưa có quality gain trên control 0,391. Phải giúp chạy thử khi có inputs, ghi hạn chế nhưng không dùng chúng thay cho experiment.
+Cập nhật 22/10/2026. Mục tiêu là đo phần cải thiện thêm của SapBERT-XLMR và LLM chọn shortlist trong medical-gated BM25/dense fusion. Chưa có quality gain được chứng minh so với baseline 0,391.
 
-## 1. Câu hỏi nghiên cứu
+## 1. Câu hỏi thực nghiệm
 
-- H_score: score fusion được chuẩn hóa khai thác độ mạnh match tốt hơn RRF không?
-- H_medical: taxonomy theo query và observed important-concept matches giúp phân bổ BM25/dense tốt hơn trọng số cố định không?
-- H_threshold: variable-K theo threshold tốt hơn top-K ở cùng mean budget không?
-- H_adaptive: threshold theo query-tier buckets tốt hơn global threshold không?
-- H_enrich: bệnh→triệu chứng có nguồn giúp retrieval thêm relevant docs mà không tạo quá nhiều drift không?
-- H_cache: cache đủ raw features cho phép tune mà không gọi lại LLM/retrieval khi inputs không đổi không?
+- Giữ generic dense rồi thêm SapBERT có tốt hơn thay generic bằng SapBERT không?
+- SapBERT concept–term similarity bổ sung gì ngoài generic head/chunk scores trên cùng union?
+- Lexical medical gate có giúp hơn fixed alpha khi dense đã có SapBERT không?
+- Enrichment có nguồn thêm positives ngoài union hoặc cải thiện thứ hạng không?
+- LLM selector giữ/bỏ doc có cải thiện đủ bù chi phí và mất recall không?
+- Full feature cache có giúp tune offline mà không gọi lại model không?
 
-Expected-tier confidence, required-concept cap và document-side LLM candidate extraction là các ablations tùy chọn. Query salience không đồng nghĩa pairwise LLM relevance. Document extraction nếu thử phải lưu trích đoạn thật; chỉ đọc docs đã retrieve không tự cứu docs ngoài union.
+Hiệu quả đa ngôn ngữ phải đo trên VI/ZH theo corpus/query cụ thể; model multilingual không bảo đảm mọi ngôn ngữ hoặc mọi kiểu query tăng điểm.
 
-## 2. Runs và invariants
+## 2. Runs tối thiểu
 
-| Run | Candidate pool | Fusion/selection | Phần thay đổi |
+| Run | Pool | Recipe | Biến được thử |
 |---|---|---|---|
-| B0 | Control pre-fusion sources | RRF đúng k/weights/ties + top-K | Mốc |
-| M0 | Cùng B0 union | Calibrated fixed mix + top-K | Dùng score magnitudes |
-| M1 | Cùng B0 union | Medical-gated mix + top-K | Medical salience/gate |
-| M2 | Cùng B0 union | M1 + global threshold | Variable-K |
-| M3 | Cùng B0 union | M1 + tier-bucket threshold | Query-adaptive selection |
-| E_alias | Retrieval có alias nguồn | Recipe đã khóa | Vocabulary đồng nghĩa |
-| E_symptom | Retrieval có bệnh→triệu chứng | Recipe đã khóa | Related-concept expansion |
-| P_expected | Cùng M1/E pool | Actual 4-class probability expectation | Confidence use |
-| BR | Corpus/index trong scope | Retriever độc lập | Khả năng tìm ngoài union |
+| B0 | Control sources | RRF đúng recipe + top-K | Control có provenance |
+| G0 | Cùng union | Calibrated BM25 + generic, fixed alpha | Score magnitudes |
+| G1 | Cùng union | Lexical gate + generic, λ=0 | Gate |
+| S03 | Cùng union | G1 + SapBERT, λ=0,30 | Kết hợp dense |
+| S1 | Cùng union | G1 + SapBERT, λ=1 | Thay generic dense |
+| S_best | Cùng union | λ/affine/alpha được chọn trên tune | Chốt recipe |
+| L0 | Shortlist S_best | Fusion top-K hoặc bounded threshold | Budget control selector |
+| L1 | Cùng shortlist | LLM select, cùng max output | Selector |
+| E0/Ea/Es | Union được ghi rõ | No-enrich / aliases / symptoms | Vocabulary và pool change |
 
-So M0/M1/M2/M3 giữ corpus/query/lang/raw sources/depth và downstream. Enrichment đổi union nên cần so riêng với union gốc; báo docs mới thực sự tìm được và known-positive contribution. BF không tự thêm doc ngoài union để bù. BR/BF không là prerequisite của nhau; joint đo riêng, không cộng gain.
+Bật retrieval expansion làm union đổi thì báo experiment riêng; BF/SapBERT/selector không tự lấy doc ngoài union. BR corpus retrieval vẫn độc lập. Không cộng gain các experiment khác pool hoặc downstream.
 
-Ngân sách: M0/M1 top-K như control; M2/M3 chọn threshold để mean/tổng candidate budget gần control rồi so chất lượng. Báo thêm curve nếu chủ động đổi budget. Kmin/Kmax và floor/cap events phải có log, không gọi floor-added docs là threshold-pass.
+Giữ corpus/query/lang/source recipe/depth/missing-policy và native chunk/downstream control. Nếu select chỉ xem top40, control selector cũng chỉ xem cùng shortlist; báo both recall trước shortlist và sau shortlist để thấy trần hiệu quả.
 
-## 3. Validation protocol
+## 3. Splits và tuning
 
-Chia theo query thành calibration, tuning, holdout; ít dữ liệu dùng query folds. Không có query overlap giữa fit/tune/evaluation. Query từng khai thác trước đây vẫn là development/exploratory, không pristine holdout.
+Chia calibration/tune/holdout theo query; normalized duplicates cùng split. Đã xem val thì ghi exposure thật, holdout là retrospective/exploratory. Lưu split IDs/seed, không mở holdout để chọn λ/threshold/prompt.
 
-Calibration sigmoid BM25: raw hoặc query_scale, fit x0/temperature bằng explicit positive/negative judgments. Dense transform cũng khai báo/fit riêng. Unknown/unjudged không là negative; nếu positives-only, báo known-positive coverage và chưa khẳng định probability calibration. Negative sampling và class-prior correction nếu có phải ghi rõ.
+Fit stage chỉ học BM25 x0/T từ judged positives/negatives. Sap affine low/high và λ ban đầu là ước lượng, được chọn theo retrieval objective trên tune; chưa là probability calibration. Tune đổi BM25 enrichment/pretransform cần refit calibration split từ raw cache. Không dùng unknown như negative để làm đủ hai lớp.
 
-Tuning: lưu search space, objective, budget constraint, seed và toàn bộ trials. Tune tier scores/alpha/enrichment/threshold từ cache; chọn config rồi khóa trước holdout. Nếu chạy nhiều lần nhìn holdout thì báo đúng exploratory status.
+Grid/search space, objective, max_mean_docs, seed và mọi trials phải lưu. Không chạy model trong mỗi numerical trial; full cosine matrix/raw scores cho phép replay. Selector prompt/shortlist budget thử riêng sau numerical tuning; nếu nhìn holdout để sửa prompt thì đánh dấu exploratory.
 
-## 4. Metrics
+## 4. Metric và chi phí
 
-Candidate stage cần known-positive coverage, precision/F2 chỉ khi judgments cho phép semantics đó, nDCG/MRR nếu graded/rank labels đủ; union coverage giới hạn recall tối đa. Khi judgments không đầy đủ, không báo unknown thành false positive hoặc gọi coverage là true recall.
+Native judgments không đầy đủ: known-positive recall/coverage là default. F2 chỉ khi completeness/semantics cho phép; explicit proxy phải ghi tên/assumption. Union coverage là trần trước selection; selector không tăng trần đó.
 
-Selection/cost: mean/median/p95/max docs/query, query không có docs, floor/cap count, missing-source rate, dense-only/BM25-only/fallback share, LLM calls/tokens/latency, reranker calls, retrieval/cache runtime và disk. Calibration: log-loss/Brier/reliability trên distribution có nhãn rõ. Các metric này trả lời những câu khác nhau, không suy FINAL từ calibration hoặc ΔDoc.
+Báo mean/median/p95/max docs/query, threshold pass/min-fill/max-cap, missing component share, zero-output queries, runtime/cache bytes. SapBERT cần số unique strings encoded, batches, matrix pairs, encoder wall/GPU time. LLM cần calls/tokens/latency theo query/document/selector, tỷ lệ cache hit và lỗi/schema retries.
 
-Nếu đủ baseline linkage thì chạy cùng Qwen checkpoint/prompt/preprocessing/MaxP/p̂/threshold/chunk policy, đo Doc/Chunk/FINAL theo scorer đúng semantics và paired query uncertainty. Doc mới thiếu cache phải inference đúng recipe, không gán score 0. Candidate score threshold khác downstream p̂ threshold.
+Nếu đúng baseline/downstream artifacts thì đo Doc/Chunk/FINAL bằng scorer đúng contract và paired query uncertainty. Calibration log-loss/Brier/reliability chỉ có ý nghĩa trên labeled distribution rõ; không suy FINAL từ calibration.
 
-## 5. Dữ liệu ngoài và audit
+So cùng mean/tổng candidate budget hoặc báo cost curve. Report tăng chất lượng nhưng tăng reranker load riêng; không gọi matched-budget nếu chỉ cùng max_docs mà mean khác đáng kể.
 
-KB cần concept IDs, labels/aliases/ngôn ngữ, quan hệ và source provenance. CMeIE/OpenCMKG là source candidates, không tự clinical gold. Vietnamese mappings chưa duyệt giữ trạng thái đó; không dịch rồi gắn nhãn chuẩn y khoa. Original query concepts và expansions tách riêng; gate mặc định chỉ original.
+## 5. Error audit
 
-Match audit cần identifier boundaries, units/numbers, phrase spans và aliases. Kiểm các lỗi điển hình: tên bệnh chung nhưng sai subtype; term phụ match nhiều làm gate cao; doc chỉ liệt kê tên mà không trả lời intent; sai population; phủ định bị coi sai là irrelevant; expansion drift; Chinese terms không phù hợp Vietnamese index.
+Lấy mẫu queries/documents theo tiêu chí đã ghi; phân theo VI/ZH, lời đời thường/thuật ngữ, dài/ngắn, acronym và missingness. Rà:
 
-Các lỗi không phải lý do từ chối thử. Ghi tần suất trên mẫu có tiêu chí chọn rõ, thử biến thể cấu hình, đo lại đúng split.
+- Alias thật bị exact matcher bỏ sót nhưng SapBERT giúp.
+- Entity cùng họ/liên quan bị cosine coi như cùng concept; sai subtype/ID/dose/number.
+- Term có mặt nhưng document không trả lời intent hoặc sai population/relation.
+- Document terms bị trích thiếu hoặc prefix truncate làm mất thông tin.
+- Enrichment sai intent/ngôn ngữ, quá nhiều symptom terms.
+- LLM selector bỏ known-positive hoặc chọn theo bằng chứng ngoài snippets được gửi.
 
-## 6. Cache và reproducibility
+Assertion/negation cần ngữ cảnh; câu bác bỏ giả định vẫn có thể relevant. Không đưa cặp cosine cao thành KB alias đã duyệt mà thiếu nguồn/validation riêng.
 
-Giữ raw scores từng nguồn, original/enriched BM25, source masks/ranks/depth/query scale; query tiers/probs khi có; observed term matches; KB/model/prompt/corpus/index hashes. Giữ labels/splits riêng, không để inference đọc đáp án chọn docs.
+## 6. Provenance và kết luận
 
-Tính lại fusion/threshold từ cache khi chỉ đổi tham số. Đổi enrichment term/depth có thể cần retrieve lại; đổi model/prompt cần prepare lại; đổi matcher/aliases/corpus cần matches lại. Cache top-K cũ không đủ đánh giá docs ngoài nó.
+Giữ code commit, input/output hashes, model checkpoint identity/revision, prompts, KB/corpus/index, raw scores, masks, full cosines, splits và candidate IDs. Không đè completed artifacts; đổi recipe dùng output_dir mới.
 
-## 7. Kết luận được phép và việc chưa làm
+Tests/demo chỉ kiểm engineering behavior; không gọi fixtures là clinical labels hoặc model inference thật. Báo kết quả âm và phạm vi chưa chạy. Khuyến nghị giữ branch riêng cho source changes; manifests không thay Git snapshot, branch không sao lưu runtime bị ignore.
 
-Engineering demo chỉ xác nhận paths/schema/formulas/invariants. Quality claim cần real judgments/control/downstream đúng recipe. Chưa đủ inputs thì report `missing`, chạy available stages và ghi command tiếp theo, không dựng control/negative/provenance giả.
-
-Native selected_chunks/exporter chưa được thay trong hypothesis này. Lịch sử L1/L4/N0/N1 giữ nguyên, không cần làm lại prerequisite. Báo kết quả âm đầy đủ; nếu một thành phần không cải thiện, kết luận theo thực nghiệm thay vì xóa run để giữ câu chuyện.
-
-Vận hành theo [handover](TXT_handover.md), mục đích/công thức ở [proposal](TXT_Proposal.md) và [algorithm](BEAR_ALGORITHM.md). [Archive v3.5](archive/BEAR_REPLACEMENT_STUDY_v3_5_20261020.md) giữ protocol trước.
+Vận hành theo [handover](TXT_handover.md); công thức tại [algorithm](BEAR_ALGORITHM.md).

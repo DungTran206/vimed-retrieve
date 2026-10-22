@@ -1,311 +1,266 @@
-# Handover v4 — Vận hành hypothesis medical-gated retrieval
+# Handover v5 — BM25/dense fusion với SapBERT-XLMR
 
-Cập nhật 21/10/2026. Đọc tài liệu này trước khi tiếp tục, rồi [proposal](TXT_Proposal.md) để hiểu mục đích và [algorithm](BEAR_ALGORITHM.md) để kiểm công thức. Workflow mới là `TXT.bear.medical_cli`; CLI prototype cũ được giữ riêng.
+Cập nhật 22/10/2026. Đây là tài liệu tiếp nhận chính. [Proposal](TXT_Proposal.md) giải thích ý tưởng; [algorithm](BEAR_ALGORITHM.md) chốt công thức; [study](BEAR_REPLACEMENT_STUDY.md) quy định đối chứng; [PLAN](PLAN.md) ghi thứ tự công việc.
 
-## 1. Chỉ dẫn bắt buộc cho agent tiếp nhận
+## 1. Quyết định hiện hành và trạng thái
 
-**Đây là giả thuyết thử nghiệm do người dùng muốn kiểm chứng. Agent phải giúp triển khai/chạy thử và ghi kết quả. Có thể ghi phản biện/hạn chế nhưng không dùng phản biện, prerequisite cũ hoặc thiếu bằng chứng gain để từ chối hay trì hoãn thí nghiệm được ủy quyền.**
+Người dùng muốn giữ ý tưởng fusion BM25/dense, dùng SapBERT-XLMR để giảm bỏ sót cách gọi khác nhau, enrichment có dữ liệu ngoài và LLM chọn shortlist tùy chọn. Biến thể đầu giữ dense tổng quát rồi trộn SapBERT vào nhánh dense; λ=1 là ablation thay thế.
 
-Người dùng yêu cầu thử medical importance để tăng BM25 khi bắt được keyword quan trọng, nghiêng dense khi không bắt được; taxonomy bốn tầng; sigmoid BM25 có smooth/x0; adaptive threshold; enrichment bệnh→triệu chứng Việt/Trung; LLM dưới 15B và cache để tune. Không tự đổi thành phương án cộng LLM relevance độc lập cho mọi query–doc.
+Đây là hypothesis cần triển khai/thử nghiệm. Agent tiếp nhận phải chạy phần đã được ủy quyền khi có inputs, ghi cả kết quả thuận/nghịch; hạn chế là cơ sở thiết kế đối chứng, không phải lý do từ chối thử. Thiếu input thì nêu đúng artifact thiếu và tiếp tục phần độc lập có thể chạy. Không bịa quality score, clinical facts, aliases, confidence hoặc provenance.
 
-Nếu chưa có đủ input, xác định chính xác artifact nào thiếu, chạy các stage độc lập/demo có thể chạy và ghi lệnh tiếp theo. Không bịa baseline, medical labels, alias/provenance, confidence hoặc kết quả quality. Không biến thiếu control FINAL thành lý do không thử candidate-stage hypothesis.
+**Trạng thái cập nhật:** v5 đã triển khai với implementation version `medical_gate_sapbert_v2`. Sau khi dọn prose cũ, full TXT suite **173/173 tests qua** trong 43,921 giây; **10/10 legacy tests qua**. Mười templates preflight hợp schema và 72 tuning configs hợp lệ trong max_trials=96. Có synthetic semantic cache/replay và selector dùng mock endpoint. Chi tiết tại [report v5](reports/SAPBERT_V5_20261022.md), [preflight](reports/medical_v5_preflight_20261022.json), [results](reports/RESULTS.md) và [log](improvement_log.md). Đây là kiểm chứng kỹ thuật: chưa gọi endpoint/encoder thật, chưa tải checkpoint/dataset, chưa đo gain trên 593 query thật.
 
-## 2. Kiến trúc và những gì giữ riêng
+Hiện branch `Tung`. Người dùng sẽ tự tạo branch; khuyến nghị `exp/sapbert-xlmr` cho thử nghiệm. Git commit giữ mã nguồn; log/manifest ghi thực nghiệm; branch không sao lưu runtime bị ignore. Không tự tạo branch khi chưa được yêu cầu.
+
+## 2. Sơ đồ và vai trò
 
 ```text
-kb-import → prepare → cache → fit → tune → run → evaluate
-                ↑         ↑                    ↓
-       Qwen3.5-9B   corpus index + sources   candidates.jsonl
-                                              ↓
-                          cùng Qwen/MaxP/p̂/chunk control khi đã bind
+KB ngoài → kb-import → prepare(query LLM: concepts/tiers/enrichment)
+corpus index + pre-fusion sources + prepared → cache
+cache union hoặc explicit doc_ids → document-terms(document LLM)
+cache + document_terms + encoder → sapbert-cache
+                 ↓
+         fit → tune → run → [select: LLM shortlist] → evaluate
 ```
 
-Medical score là **query term salience → observed matches → gate → BM25/dense weight**. Không cần additive LLM relevance. `x0` midpoint của sigmoid khác candidate threshold; candidate threshold khác downstream p̂ threshold.
+BM25 khai thác term cụ thể và lexical overlap; generic dense bổ sung ý nghĩa câu/cách nói đời thường; SapBERT bổ sung entity/concept similarity đa ngôn ngữ. Vai trò bổ trợ, không tuyệt đối hoặc bảo đảm tăng điểm.
 
-BR vẫn tìm corpus/index độc lập, có thể ngoài baseline union. BF mới chỉ chọn union sources. `include_index_candidates=false` để so fusion cùng union; bật nó là thí nghiệm thêm lexical candidates, phải gọi đúng scope. Native chunk policy chưa đổi; evidence windows chưa native `selected_chunks`.
+BF chỉ xếp/chọn union đã cache; SapBERT/selector không tìm được doc ngoài union. BR tìm corpus độc lập là experiment riêng. `include_index_candidates=false` giữ union khi so fusion; bật true thêm lexical candidates và phải báo scope pool thay đổi.
 
-Legacy `python -B -m TXT.bear.cli corpus-index|retrieve|evidence-fuse` và templates `configs/bear_parts/` là prototype/control riêng, vẫn fixed lexical/evidence recipe cũ. `medical_cli` không lén thay default cũ. Legacy 2.0.0 fixed200/w045 cũng không phải recipe v4.
+Legacy `TXT.bear.cli`, fixed lexical/evidence prototype và downstream control được giữ để kiểm chứng/code dependencies. V5 không tự thay native chunk selector, Qwen reranker, MaxP/p̂ hoặc exporter cũ. Evidence spans không phải native selected_chunks.
 
-## 3. Lệnh khởi động và demo
+## 3. Lệnh, templates và artifacts
 
-Chạy từ repository root, ví dụ `D:\hackathon\vimed-retrieve`. Python có sẵn đủ chạy demo offline, không cần endpoint/model download.
+Chạy từ repository root:
 
 ```powershell
 python -B -m TXT.bear.medical_cli --help
-python -B -m TXT.bear.medical_cli demo --output-dir TXT/runtime/medical_hypothesis_demo
+python -B -m TXT.bear.medical_cli demo --output-dir TXT/runtime/medical_v5_demo
 ```
 
-Demo dùng corpus/KB/labels synthetic để kiểm đường chạy, calibration/tune/replay. Đây không phải quality experiment trên 593 query thật, không gọi Qwen, không tái lập 0,391. Khi đổi code/config/input, chọn output_dir mới thay vì đè run cũ.
+Các stage nhận `--config`, mặc định inspect; thêm `--execute` để chạy thật. Inspect chỉ kiểm sơ bộ paths/schema, không chứng nhận checkpoint, endpoint, labels hoặc baseline parity. Demo offline/synthetic không chứng minh quality và không được gọi là đã dùng model thật.
 
-Các stage có `--config`; mặc định inspect/dry-run. **Chỉ thêm `--execute` khi muốn chạy thật.** Inspect chỉ báo presence/config sơ bộ, không chứng nhận nội dung/schema/model/parity đã đúng.
+Templates ở `TXT/configs/medical_hypothesis/`; paths mẫu chưa tự có dữ liệu. Bind config riêng dưới TXT, outputs mới dưới `TXT/runtime/medical_v5/` hoặc directory run riêng. Không ghi đè input hoặc completed artifacts; không ghi vào `TXT/inputs`.
 
-| Stage | Template | Output chính dưới output_dir |
+| Stage | Config bắt buộc/đầu vào chính | Output chính |
 |---|---|---|
-| kb-import | `configs/medical_hypothesis/kb.template.json` | `kb.jsonl` |
-| prepare | `configs/medical_hypothesis/prepare.template.json` | `prepared.jsonl`, `responses/<query_id>.json` |
-| cache | `configs/medical_hypothesis/cache.template.json` | `cache.jsonl`, `queries/<query_id>.json` |
-| fit | `configs/medical_hypothesis/fit.template.json` | `model.json`, `splits.json` |
-| tune | `configs/medical_hypothesis/tune.template.json` | `best_config.json`, `trials.jsonl`, `tuning.json` |
-| run | `configs/medical_hypothesis/run.template.json` | `scores.jsonl`, `candidates.jsonl`, `scoring.json` |
-| evaluate | `configs/medical_hypothesis/evaluate.template.json` | `evaluation.json` |
-| document-terms (optional) | `configs/medical_hypothesis/document_terms.template.json` | `document_terms.jsonl`, per-doc cache |
+| kb-import | source_path; canonical hoặc CMeIE có mapping | kb.jsonl |
+| prepare | queries, kb, llm; prepared_input tùy chọn | prepared.jsonl; responses/<qid>.json |
+| cache | prepared, index, sources; score_tables tùy chọn | cache.jsonl; queries/<qid>.json |
+| document-terms | index, llm; **đúng một** trong cache/doc_ids_path | document_terms.jsonl; per-doc cache |
+| sapbert-cache | cache, index, document_terms, encoder; embeddings_input tùy chọn | cache.jsonl; queries/; embeddings/; semantic_recipe.json |
+| fit | semantic cache, validation, scoring; split/split_path | model.json; splits.json |
+| tune | semantic cache, validation, model; grid hoặc trials | best_config.json; trials.jsonl; tuning.json |
+| run | semantic cache, model/scoring, mode=medical/rrf | scores.jsonl; candidates.jsonl; scoring.json |
+| select, tùy chọn | predictions=run/scores.jsonl, index, llm, selection | scores.jsonl; candidates.jsonl; responses/<qid>.json |
+| evaluate | predictions, validation; split_path/split/query_ids | evaluation.json |
 
-Mỗi stage còn có `manifest.json`: input/config/code identity, output hashes, counts, trạng thái. Configs dùng `schema_version:1`. Tất cả outputs dưới TXT, không ghi `TXT/inputs` hoặc đè source/completed artifacts. Templates có paths mẫu, cần sửa thành inputs thật; không dùng inspect output làm bằng chứng đã chạy.
+Mỗi stage có manifest.json với input/config/code identity, hashes và trạng thái. Raw cache và semantic cache đều tên cache.jsonl nhưng ở **output_dir khác nhau**. Fit/tune/run phải trỏ semantic cache khi dùng SapBERT; λ=0 có thể chạy đối chứng trên cùng semantic cache.
 
-Các lệnh bên dưới minh họa bằng template path. Khi tạo config local đã bind inputs, thay `--config` bằng path local đó. Mặc định outputs liên kết theo `TXT/runtime/medical_hypothesis/<stage>/`; đổi stage directory thì sửa input path của stage sau. Paths `TXT/inputs/medical_hypothesis/...` trong templates là placeholders đọc dữ liệu được cung cấp, **không phải chỉ dẫn ghi inputs mới vào đó**.
+Inspect trước bằng lệnh không có --execute. Mẫu thứ tự chạy thật theo templates sau khi đã bind paths:
 
-## 4. Chuẩn bị inputs
+```powershell
+python -B -m TXT.bear.medical_cli kb-import --config TXT/configs/medical_hypothesis/kb.template.json --execute
+python -B -m TXT.bear.medical_cli prepare --config TXT/configs/medical_hypothesis/prepare.template.json --execute
+python -B -m TXT.bear.medical_cli cache --config TXT/configs/medical_hypothesis/cache.template.json --execute
+python -B -m TXT.bear.medical_cli document-terms --config TXT/configs/medical_hypothesis/document_terms.template.json --execute
+python -B -m TXT.bear.medical_cli sapbert-cache --config TXT/configs/medical_hypothesis/sapbert_cache.template.json --execute
+python -B -m TXT.bear.medical_cli fit --config TXT/configs/medical_hypothesis/fit.template.json --execute
+python -B -m TXT.bear.medical_cli tune --config TXT/configs/medical_hypothesis/tune.template.json --execute
+python -B -m TXT.bear.medical_cli run --config TXT/configs/medical_hypothesis/run.template.json --execute
+```
 
-### 4.1. Queries không có labels
+Select/evaluate chạy sau run, theo predictions đã bind:
 
-JSONL mỗi dòng:
+```powershell
+python -B -m TXT.bear.medical_cli select --config TXT/configs/medical_hypothesis/select.template.json --execute
+python -B -m TXT.bear.medical_cli evaluate --config TXT/configs/medical_hypothesis/evaluate.template.json --execute
+```
+
+Không nhầm candidates.jsonl với scores.jsonl đầy đủ ranking mà selector yêu cầu.
+
+## 4. Input schemas và labels
+
+Queries label-free:
 
 ```json
 {"id": 1, "query": "Biểu hiện của bệnh A là gì?", "lang": "vi"}
 ```
 
-`id` là nonnegative integer, `lang` là `vi` hoặc `zh`, query không rỗng. Đây là minh họa cấu trúc, không là query y khoa thật. Không đưa nguyên val có `gold/not_gold/G/gold_unseen/qrels/judgments` vào inference. Nếu lấy query text từ val, xuất file label-free riêng dưới TXT; labels chỉ vào fit/tune/evaluate.
+ID nonnegative integer duy nhất, text không rỗng; vi/zh/en được hỗ trợ, ngôn ngữ khác cần adapter. Ví dụ này chỉ minh họa schema. Không truyền gold/not_gold/G/gold_unseen/qrels/judgments vào prepare/cache/selector. Nếu lấy text từ val, xuất JSONL label-free vào path runtime mới và giữ nguyên IDs/query/lang; labels chỉ vào fit/tune/evaluate.
 
-Ví dụ xuất query Việt label-free từ `val.jsonl`, giữ nguyên text/IDs để đối chiếu validation. Chạy một lần vào path mới; mode `x` tránh đè dữ liệu đã tạo:
-
-```powershell
-$queryExportScript = @'
-import json
-from pathlib import Path
-source = Path('val.jsonl')
-destination = Path('TXT/runtime/medical_hypothesis/query_inputs/queries.jsonl')
-destination.parent.mkdir(parents=True, exist_ok=True)
-with source.open(encoding='utf-8') as incoming, destination.open('x', encoding='utf-8') as outgoing:
-    for line in incoming:
-        if line.strip():
-            row = json.loads(line)
-            query = {'id': row['id'], 'query': row['query'], 'lang': 'vi'}
-            outgoing.write(json.dumps(query, ensure_ascii=False) + '\n')
-'@
-python -B -c $queryExportScript
-```
-
-Đặt `prepare.queries` thành `TXT/runtime/medical_hypothesis/query_inputs/queries.jsonl`. Đổi `lang` nếu xuất một tập Trung thật; không đổi nhãn ngôn ngữ để giả query đã dịch.
-
-### 4.2. Corpus index và source rankings
-
-Cache cần index `CorpusIndex` tạo qua legacy `corpus-index`, giữ đúng snapshot/IDs/lang của sources. Xem `configs/bear_parts/index.template.json`; inspect rồi execute khi bind corpus thật:
+Corpus index dùng `CorpusIndex` từ CLI cũ:
 
 ```powershell
 python -B -m TXT.bear.cli corpus-index --config TXT/configs/bear_parts/index.template.json --dry-run
 python -B -m TXT.bear.cli corpus-index --config TXT/configs/bear_parts/index.template.json --execute
 ```
 
-Index template đọc `data/corpus_new.sqlite` và tạo **`TXT/runtime/bear_parts/index_001/index.sqlite`**. Nếu dùng output đó, sửa `cache.index` và `document-terms.index` về đúng path này; templates medical đang để placeholder `TXT/inputs/medical_hypothesis/index.sqlite`, không phải output được tạo tự động. Có thể đổi index output_dir sang directory runtime mới rồi trỏ consumer vào `<output_dir>/index.sqlite`; không cần chuyển index vào TXT/inputs.
+SQLite source có doc với doc_id hoặc id và body; title/lang nếu có. JSONL corpus cũng được adapter hỗ trợ. Bind cache.index, document-terms.index, sapbert-cache.index và select.index về **cùng index.sqlite/corpus snapshot**. Template index cũ có output riêng; không giả định nó tạo index ở paths medical mẫu. Corpus schema khác cần export/adapt riêng, không sửa nguồn để ép chạy.
 
-Input SQLite cần bảng `doc` có `doc_id` hoặc `id` và `body`, thêm title/lang nếu có. JSONL corpus cũng dùng được với doc_id/id, body/title/lang. Medical matching cần lang vi/zh đúng scope. Nếu corpus snapshot dùng schema khác, export/adapt rồi build index riêng; không sửa corpus nguồn để ép chạy.
-
-Mỗi source JSONL phải phủ đúng query universe, không trùng query/doc:
+Source ranking JSONL trước RRF:
 
 ```json
-{"id": 1, "candidates": [{"doc_id": "123", "score": 8.2}, {"doc_id": "456", "score": 4.1}]}
+{"id":1,"candidates":[{"doc_id":"123","score":8.2},{"doc_id":"456","score":4.1}]}
 ```
 
-Giữ nguồn **trước RRF**, không lấy top-K sau RRF giả làm union rộng. `sources` là map source name→path. Ranks dùng provenance và control RRF; raw scores dùng fusion khi nguồn được chọn.
-
-Dense muốn đầy đủ score trên union có thể dùng `score_tables` map `dense_head`/`dense_chunk`→JSONL:
+Mỗi source phủ query universe, IDs không trùng, doc IDs tồn tại trong index. Raw scores dùng fusion; source rank/membership dùng provenance và RRF control. Top-K source absence là missing, không phải raw 0. score_tables cung cấp **rescore thật trên union** nếu có:
 
 ```json
-{"id": 1, "doc_id": "123", "score": 0.71}
+{"id":1,"doc_id":"123","score":0.71}
 ```
 
-Một doc không xuất hiện trong truncated source là missing, không tự 0. `score_tables` là cách cung cấp rescore thật, không phải yêu cầu điền 0. Corpus/index thiếu doc trong source sẽ được báo lỗi, không âm thầm drop để làm đẹp kết quả.
+Validation có thể là qrels `{id,qrels:{doc_id:0|1},total_gold,complete}`, pairwise `{query_id,doc_id,relevance}` hoặc native `{id,gold,not_gold,G,gold_unseen}`. Native gold→1, supplied not_gold→0 theo file; không biến phần còn lại thành âm.
 
-### 4.3. Validation judgments
+Inventory đã ghi cho val: 593 query, 22.091 gold entries, 66.547 not_gold entries, 20.186 gold_unseen; không query nào complete=true. Counts không chứng minh relevance completeness. Default known_positive_recall; unknown không negative. Nếu not_gold là weak/chunk-derived thì ghi assumption/sensitivity. F2 proxy phải opt-in và ghi rõ tên, không gọi official full DocF2.
 
-Định dạng explicit qrels:
+## 5. KB ngoài và enrichment
 
-```json
-{"id": 1, "qrels": {"123": 1, "456": 0}, "total_gold": 1, "complete": false}
-```
+Nguồn ứng viên Trung: [CMeIE](https://github.com/CBLUEbenchmark/CBLUE#cmeie), [OpenCMKG](https://github.com/RuiqingDing/OpenCMKG). Có nguồn không tự đồng nghĩa clinical gold. Nguồn Việt/English tự có cần mapping/canonical schema và trạng thái duyệt. Không coi model multilingual là khả năng import mọi ngôn ngữ/format.
 
-Hoặc pairwise JSONL `{query_id,doc_id,relevance:0|1}`. Adapter cũng nhận native `{id,gold,not_gold,G,gold_unseen}`: gold→1, supplied not_gold→0 theo semantics file, phần không có judgment vẫn unknown. **Adapter không xác nhận not_gold là clinical gold**; nếu negatives có nguồn chunk-derived/weak, ghi assumption và chạy sensitivity hoặc dùng reviewed explicit qrels. Không tự biến mọi doc ngoài gold thành negative.
-
-Inventory hiện kiểm được: 593 query, 22.091 gold entries, 66.547 not_gold entries, 20.186 gold_unseen, không query nào `complete=true`. Đây là counts của file, không phải corpus-level relevance completeness. Mặc định tune/evaluate dùng known-positive recall; không gọi true DocF2 trên judgments thiếu. `allow_incomplete_f2`/proxy chỉ dùng khi chủ động thử và phải ghi rõ giả định.
-
-## 5. Import KB bệnh → triệu chứng
-
-Nguồn Trung ứng viên: [CMeIE](https://github.com/CBLUEbenchmark/CBLUE#cmeie), [OpenCMKG](https://github.com/RuiqingDing/OpenCMKG). Chúng không tự là clinical gold. Nguồn Việt chuẩn hóa đầy đủ chưa được xác minh; nhập dữ liệu có sẵn hoặc mapping nhãn Việt có ghi trạng thái duyệt.
-
-Canonical JSONL gồm:
+Canonical record minh họa:
 
 ```json
 {"disease":{"concept_id":"D001","labels":{"vi":"Bệnh A","zh":"疾病甲"},"aliases":{"vi":[],"zh":[]}},"symptom":{"concept_id":"S001","labels":{"vi":"Biểu hiện B","zh":"表现乙"},"aliases":{"vi":[],"zh":[]}},"relation":"has_symptom","source":{"name":"EXAMPLE_ONLY","record_id":"row-1"}}
 ```
 
-Đây là record minh họa, không chứa sự kiện y khoa để dùng retrieval thật. Mỗi concept ID phải có labels/aliases nhất quán; source tối thiểu `name,record_id`, nên có URL/version/license/status. Giữ frequency/context/provenance nếu có. Đừng trộn complication/adverse-effect vào has_symptom mà không audit quan hệ.
+Không dùng record minh họa làm medical fact. Giữ concept IDs/labels/aliases nhất quán và source name/record_id; nên thêm URL/version/license/mapping status. Alias đồng nghĩa khác disease→symptom liên quan.
 
-`kb-import` nhận `source_path`, `format:canonical|cmeie`. Với CMeIE cần `concept_map_path` JSON list canonical concepts kèm `kind:disease|symptom`, source.name và tùy chọn `symptom_predicates` (mặc định `临床表现`). Mentions chưa map/ambiguous sẽ báo lỗi để rà mapping; adapter không tự phát minh IDs/dịch/aliases. OpenCMKG cần export về canonical schema trước; chưa có downloader/import trực tiếp mọi format của OpenCMKG.
+`kb-import` nhận format canonical hoặc cmeie. CMeIE cần concept_map_path có kind disease/symptom và source metadata; unmapped/ambiguous mention phải được xử lý thật. OpenCMKG cần export canonical, chưa tự download/convert mọi schema.
 
-```powershell
-python -B -m TXT.bear.medical_cli kb-import --config TXT/configs/medical_hypothesis/kb.template.json
-python -B -m TXT.bear.medical_cli kb-import --config TXT/configs/medical_hypothesis/kb.template.json --execute
+Query LLM chỉ chọn selected_expansion_ids thuộc whitelist theo bệnh neo trong query. Intent symptoms/general mới xem symptom expansion; dose/treatment/contraindication/interaction có chặn phù hợp. Label expansion theo language query, không tự dịch khi thiếu. Initial llm.max_kb_candidates=256; llm.max_expansion_terms=8, kiểm cả generated/imported prepared records. Vượt cap thì rà/bind budget rõ, không silent invent/truncate KB.
+
+KB bổ sung vocabulary/relations cho enrichment; document ngoài muốn xuất hiện trong retrieval phải đi qua corpus/index, không chỉ import KB.
+
+## 6. Query/document LLM và endpoint
+
+Initial `Qwen/Qwen3.5-9B`, metadata num_parameters_b=9; override phải là model thật 0<B<15. Client dùng endpoint tương thích /v1/chat/completions; không tự tải checkpoint hoặc chạy server. Bind base_url/served-model alias theo endpoint thật; model alias không tự chứng minh đúng checkpoint.
+
+Config chỉ giữ api_key_env khi cần, không chép secrets vào files/cache. Query/doc/selector prompts là source-controlled files dưới [prompts](prompts/). Hard tiers mặc định; expected mode cần backend_label_logits/backend_label_probabilities và probability_provenance thật.
+
+Prepare resume responses/<qid>.json; prepared_input nhập outputs đã đúng schema/query/KB có provenance để không gọi API lại. Synthetic tiers không được gọi là LLM inference thật.
+
+Document-terms có thể lấy unique IDs từ `cache` union hoặc `doc_ids_path` JSON list strings, đúng một trong hai. Model trích literal term, field/anchor, kind và assertion affirmed/negated/uncertain/historical; kiểm spans exact trước khi cache. Initial document_max_chars=24.000, document_overflow=error; prefix là opt-in có windows/truncated, không được báo full-document coverage khi chỉ đọc prefix.
+
+Term extraction không tự sửa lexical gate/index; v5 semantic stage tiêu thụ terms để tính SapBERT. LLM không được thêm synonym/fact không thấy trong text.
+
+## 7. SapBERT cache và encoder identity
+
+Model mục tiêu: [cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR](https://huggingface.co/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR); nền tảng entity linking đa ngôn ngữ trong [paper](https://aclanthology.org/2021.acl-short.72/). Chưa có benchmark chứng minh phù hợp corpus này.
+
+Config encoder nhận model, revision hoặc local_path, pooling=cls, l2_normalize=true, max_length=64, batch_size=64, local_files_only=true, overflow=error và device đã chọn. revision phải immutable commit SHA; revision=null chỉ hợp lệ khi có local_path snapshot rõ. local_path trong template là placeholder phải bind checkpoint thật. Không tự tải model khi thiếu.
+
+Backend Transformers/PyTorch chỉ cần khi encode thật; import package/demo/feature replay không được kéo model về. Embeddings_input là đường import vectors có metadata/provenance, không biến fixture vectors thành model output thật. Giữ dimension/token_count/truncated phù hợp recipe. Nếu encoder.local_path được đặt, snapshot đó vẫn phải hiện diện và được hash kể cả khi import embeddings. Muốn import embeddings không có checkpoint local cần local_path=null và revision SHA pin thật, khớp provenance vectors.
+
+Semantic cache kiểm corpus hashes/literal spans rồi encode concept/term duy nhất; giữ full cosine matrix, embedding identities và semantic_recipe. Khi terms vượt max_length mặc định error; truncate là opt-in có log. Thay checkpoint/tokenization/max_length/pooling/truncation sẽ invalid embeddings.
+
+## 8. Công thức và tham số
+
+```text
+G_lexical = Σ_i a_i² m_i / Σ_i a_i, có optional required_cap
+α = α_min + (α_max − α_min) G_lexical
+B = (1 − w) B_original + w B_enriched
+z_B = sigmoid((u_B − x0) / T)
+D_generic = 0,50 z_H + 0,50 z_C
+S_sap = Σ_i a_i max_j normalize(cosine_i_j) / Σ_i a_i  # i loại kind=intent
+D_new = (1 − λ) D_generic + λ S_sap
+F = α z_B + (1 − α) D_new
 ```
 
-## 6. LLM 9B và prompts
+Mẫu số gate bằng 0 thì G=0. Với SapBERT, không có eligible original concept, tổng importance=0 hoặc không có actual term pair thì S_sap là missing. Khi đã có pair hợp lệ, concept riêng thiếu comparison đóng góp 0 trong trung bình. Available-policy renormalize các dense branches còn bật/có thật; λ=1 tắt generic nên không tự có generic fallback. Missing/error và BM25-only policy phải giữ rõ.
 
-Default `Qwen/Qwen3.5-9B`. Override model phải có metadata `num_parameters_b` thực, lớn hơn 0 và nhỏ hơn 15. Model này phục vụ query-role, không tự thay reranker. Code client gọi endpoint tương thích `/v1/chat/completions`, không tải/chạy model server tự động.
+SapBERT không đi vào lexical m_i/G. α là tỷ trọng BM25: tăng α không chắc tăng F, bởi dF/dα=z_B−D_new. Gate cao nhưng BM25 thấp vẫn có thể làm điểm giảm. Source-backed alias/exact gate và semantic similarity evidence giữ riêng ở biến thể đầu.
 
-Trên GPU host Linux/WSL đã cài runtime tương thích và **đã có checkpoint local**, ví dụ lệnh server:
+**Mọi giá trị ở cột initial là ước lượng khởi tạo**, trừ recipe được ghi là cố định. Tune ranges là menu đề xuất, cần chọn grid nhỏ/có max_trials; không khẳng định đã sweep toàn tích Descartes.
 
-```bash
-vllm serve /path/to/existing/Qwen3.5-9B --served-model-name Qwen/Qwen3.5-9B --host 127.0.0.1 --port 8000
-```
+| Tham số | Initial | Menu/range đề xuất | Tính lại khi đổi |
+|---|---|---|---|
+| Tier generic/supporting/discriminative/decisive | 0,05/0,30/0,70/1,00 | Đổi có thứ tự, ví dụ supporting 0,2–0,4; discriminative 0,6–0,8 | Gate/Sap aggregation/replay; không LLM |
+| tier_mode | hard | hard; expected chỉ có probabilities thật | Replay nếu cache đủ probabilities |
+| required_cap | true | false/true | Gate/replay |
+| alpha_min | 0,10 | 0,05/0,10/0,20 | Replay |
+| alpha_max | 0,85 | 0,65/0,75/0,85 | Replay |
+| dense_floor | 0,10 | 0,10/0,15; alpha_max≤1−floor | Replay |
+| BM25 enrichment_weight w | 0,25 | 0/0,25/0,50 | Refit BM25 calibration + replay từ raw scores |
+| BM25 pretransform | query_scale cho prototype; raw cho external | raw/query_scale đúng recipe | Refit calibration + replay |
+| BM25 x0/T | Template 0,30/0,15 trước fit | Fit calibration; T>0, không coi init là learned | Refit từ raw cache |
+| Generic head/chunk weights | 0,50/0,50 | 0,25/0,75; 0,50/0,50; 0,75/0,25 | Replay |
+| Generic affine low/high | −1/1 cho cosine | Theo domain source thật; fit riêng nếu muốn | Replay từ raw |
+| Sap weight λ | 0,30 | 0/0,15/0,30/0,50/1 | Replay |
+| Sap affine low/high | 0,20/0,90 | low 0/0,20/0,40; high 0,80/0,90/1, low<high | Full-matrix replay; không encode |
+| Candidate threshold | 0,50 | 0,40/0,50/0,60; mở rộng theo budget | Replay |
+| min_docs/max_docs/top_k | 0/400/300 ở template | So min=0/40; max/budget 100–400 theo control | Replay; chưa là quota baseline |
+| missing_scores/allow_bm25_only | available/false | available/error; BM25-only opt-in ablation | Replay; ghi effective weights |
+| include_index_candidates | false | false/true là scope experiment khác | Pool/retrieval/features cho docs mới |
+| RRF k/source weights | 60; mỗi source 1 trong template | Bind đúng recipe control, không tune rồi gọi parity | RRF replay từ ranks; không model |
+| Query/document/selector LLM | Qwen3.5-9B; temperature=0 | Checkpoint khác thật dưới 15B là ablation | LLM stage và downstream cache |
+| LLM max_tokens/timeout/thinking/JSON | 2.048/120s/false/true | Theo endpoint/context; không bảo đảm đủ context | LLM stage; prompt/response identity |
+| Query max_expansion_terms | 8 | 0/4/8/12 | Prepare/expanded retrieval/cache đổi |
+| Query max_kb_candidates | 256 | 128/256 theo token budget | Prepare; không tự thay whitelist sau inference |
+| lookup_top_k/expanded_top_k | 1.000/1.000 khi bật index candidates | 500/1.000/2.000 theo headroom | Retrieval/cache và features cho doc mới |
+| Encoder CLS/L2 | cls/true | Cố định recipe v5 | Embeddings/matrix nếu đổi recipe tương lai |
+| Encoder max_length/batch_size | 64/64 | length 64/128 nếu cần; batch theo RAM/VRAM | Length đổi encode; batch kiểm identity/cache theo config |
+| Document LLM chars/overflow | 24.000/error | Prefix opt-in hoặc tăng theo runtime | Document LLM terms + downstream semantic |
+| Selector max_candidates | 40 | 20/40/80 theo context | Selector LLM cache |
+| Selector document_max_chars | 2.000 | 1.000/2.000/4.000 | Selector LLM cache |
+| Selector min_docs/max_docs | 0/40 | min 0/5; max theo shortlist/budget | Selector stage, giữ chosen IDs/response |
+| Split seed/calibration/tune | 391/0,40/0,40 | Khóa trước thử; phần còn lại holdout | Fit/tune/eval, không model feature inference |
+| Fit l2/max_iter/tolerance | 0,0001/200/1e−8 | Chỉnh khi convergence/data cần; giữ protocol | Refit BM25 |
+| Tune objective/max_mean_docs | known_positive_recall/300 | Budget theo control; F2 proxy phải opt-in | Tune/eval numerical |
+| max_trials | Theo template đã khóa | Ít nhất số tổ hợp grid thực; bắt đầu menu nhỏ | Giới hạn numerical sweep, không LLM |
 
-Đây là ví dụ vận hành endpoint, chưa là benchmark hay cam kết version vLLM/GPU cụ thể. Chọn runtime hỗ trợ checkpoint theo [model card](https://huggingface.co/Qwen/Qwen3.5-9B). Nếu GPU ở máy khác, đặt `llm.base_url`/auth theo endpoint thật. Config mặc định `http://127.0.0.1:8000/v1`, temperature 0, JSON mode, thinking tắt. Nếu server không hỗ trợ option thì chỉnh rõ llm config, không đổi model lén.
+Sap transform config `sapbert:{weight:0.30,method:"affine",low:0.20,high:0.90}`. Fit stage hiện học **BM25 sigmoid**; Sap affine được ước lượng/tune retrieval objective, chưa probability calibrator học từ labels. F cũng chưa là final relevance probability.
 
-API key nếu cần đặt trong environment variable, config chỉ dùng `api_key_env`, không chép secret vào JSON/cache. Server alias phải khớp model response; dùng `expected_served_model` cho alias đã kiểm đúng <15B.
+## 9. Chi phí và cache: bước nào chạy lại?
 
-Prompts canonical:
+| Công việc | Nút thắt | Cache/tái dùng | Invalidation chính |
+|---|---|---|---|
+| KB import | I/O/mapping | Canonical KB + source hash | Source/schema/mapping |
+| Query LLM | Endpoint tokens/calls theo query | Một response/query | Query/model/prompt/KB/whitelist/caps |
+| Document LLM | Tokens theo unique document, có thể lớn | Một extraction/doc; dùng cho nhiều query | Corpus text/model/prompt/windows |
+| Retrieval/BM25 raw | Index/search/rescore | Union/source/raw scores/ranks/masks | Query/expansion/index/recipe/depth |
+| Sap embeddings | Encoder forward/RAM/VRAM | Unique concept/term vectors | Checkpoint/tokenizer/text/max_length/overflow |
+| Concept–term cosine matrix | Số cặp và disk | Full raw matrix theo union | Vectors/concepts/document terms/pool |
+| Fit/tune/fusion/threshold | CPU đọc cache và numerical replay | Trials/model/rankings | Tham số/split/labels; không LLM/encoder |
+| LLM select | Tokens theo shortlist và snippets | Per-query selection/response | Candidate set/corpus/prompt/model/budget |
+| Evaluation | Labeled metrics/I/O | Evaluation report | Predictions/labels/split/scorer |
 
-- [medical_query_system.txt](prompts/medical_query_system.txt): định nghĩa intent/tier, source whitelist, original anchors, không sinh confidence/facts.
-- [medical_query_user.txt](prompts/medical_query_user.txt): payload gồm query, language, named diseases và candidate expansions.
+Cache tránh chạy lại phần đắt trong sweep; không biến lần chạy đầu thành miễn phí. Document LLM trên union lớn có thể là chi phí chính; bắt đầu subset có phạm vi rõ, đo unique docs/token counts/runtime rồi mở rộng. Chưa có model/hardware benchmark thật nên không quy đổi thành giờ GPU đáng tin.
 
-Model trả `intent`, `concepts`, `selected_expansion_ids`. Code kiểm exact query text, thêm spans/KB provenance và tạo `prepared.jsonl`. Không có đủ KB label cùng ngôn ngữ thì không tự dịch; expansion chỉ được chọn từ whitelist, gắn disease có thật trong query.
+Thay λ/alpha/threshold có thể đổi shortlist. Tune xong mới chạy selector cho config đã khóa; không gọi selector mỗi trial. Có thể tái dùng chosen IDs chỉ khi candidate/prompt/corpus identity vẫn đúng; không tự tái dùng semantic decision cho ngữ cảnh khác.
 
-LLM call mặc định trả hard tiers; `probabilities:null`. Muốn `tier_mode:expected`, phải import bốn class probabilities/logits thực kèm `probability_method` và `probability_provenance`; không dùng confidence tự sinh. **Bật expected mà thiếu thông tin sẽ báo lỗi**, không âm thầm giả probabilities.
+## 10. Fit, tune, run và evaluate
 
-```powershell
-python -B -m TXT.bear.medical_cli prepare --config TXT/configs/medical_hypothesis/prepare.template.json
-python -B -m TXT.bear.medical_cli prepare --config TXT/configs/medical_hypothesis/prepare.template.json --execute
-```
+Fit cần đủ hai lớp judged candidates trên calibration split. Chỉ labels do file cung cấp; thiếu negatives thì báo scope và chạy descriptive inference/demo được, không dựng negatives. Chia normalized query groups vào calibration/tune/holdout, không overlap. Template ghi previously_observed_ids=all, exposure_status=recorded vì val đã khai thác; chia lại không làm pristine.
 
-`prepare` cần `queries,kb,llm`. `prepared_input` tùy chọn cho saved outputs đáng tin, đã đúng schema/query IDs/KB; mode này không gọi API. Không biến fixture tự gán tiers thành tuyên bố “đã chạy LLM thật”. Stage resume theo query: `responses/<id>.json`.
+Tune nhận trials hoặc grid dotted keys, không cả hai; lưu toàn bộ search/trials/budget/objective. Với w/pretransform đổi, runner refit BM25 trên calibration split từ cached raw scores. Đổi λ/Sap affine/tier/alpha/threshold không cần LLM/encoder/retrieval lại nếu cache đủ.
 
-## 7. Tạo feature cache đủ rộng
-
-`cache` cần `prepared,index,sources`. Chọn một trong hai BM25 recipes:
-
-- Prototype index: đặt `bm25_source:null`, `bm25_expanded_source:null`; code tính cùng lexical BM25 recipe trên mọi union doc cho query gốc và expanded, kể cả true zero. Có original/expanded query scale tương ứng để audit.
-- External baseline BM25F: đặt `bm25_source` tên source thật, hoặc score_tables. Không tự vá expanded score bằng BM25 prototype khác recipe. Để thử enrichment phải cung cấp expanded BM25 từ đúng recipe; nếu chưa có, weight=0 hoặc fallback `missing_expanded:original` có log. External source không được chia bằng scale index không tương thích; dùng raw.
-
-`include_index_candidates:false` giữ source union cho BF. Bật true thêm candidates từ lexical lookup gốc/expanded theo `lookup_top_k,expanded_top_k`; report đây là scope thay đổi. Default languages vi không tự kiểm chứng Chinese recall parity; nghiên cứu VI giữ ZH control.
-
-```powershell
-python -B -m TXT.bear.medical_cli cache --config TXT/configs/medical_hypothesis/cache.template.json
-python -B -m TXT.bear.medical_cli cache --config TXT/configs/medical_hypothesis/cache.template.json --execute
-```
-
-Cache giữ query analysis, BM25 raw gốc/enriched, dense scores, masks, source ranks/membership, RRF control score, concept match spans và corpus hashes. Mỗi query có file riêng để resume. Không chỉ lưu fused score hoặc top-300 cuối; union nhỏ sẽ giới hạn mọi sweep sau.
-
-## 8. Fit sigmoid và splits
-
-`fit` cần `cache,validation,scoring`. `split` có `seed,calibration_fraction,tune_fraction,previously_observed_ids,exposure_status`; hoặc cung cấp `split_path` có query IDs tách biệt ở `calibration,tune,holdout`. Grouping giữ các normalized query giống nhau cùng split. Template ghi `previously_observed_ids:all,exposure_status:recorded` vì val hiện có đã khai thác; chỉ sửa khi có lịch sử exposure thật để chứng minh.
-
-```powershell
-python -B -m TXT.bear.medical_cli fit --config TXT/configs/medical_hypothesis/fit.template.json
-python -B -m TXT.bear.medical_cli fit --config TXT/configs/medical_hypothesis/fit.template.json --execute
-```
-
-Stage hiện fit **BM25 sigmoid** từ judged candidates ở calibration split; x0/temperature và split lưu `model.json`. Dense có affine/sigmoid config riêng; fit stage không tự học dense calibrator. Nếu muốn fitted dense parameters cần chuẩn bị đúng protocol rồi khai báo, không báo chúng là learned khi chỉ đặt tay.
-
-Scoring khởi tạo quan trọng:
+Run nhận best_config.json như model và semantic cache cùng recipe; mode=rrf dùng source ranks/membership đúng control recipe. Không gọi baseline parity nếu k/weights/ties/source snapshots chưa xác minh. scores.jsonl giữ full ranking/components/gate/effective weights/selection; candidates.jsonl chỉ selected docs:
 
 ```json
-{
-  "tier_scores": [0.05, 0.30, 0.70, 1.00],
-  "tier_mode": "hard",
-  "required_cap": true,
-  "alpha_min": 0.10,
-  "alpha_max": 0.85,
-  "dense_floor": 0.10,
-  "bm25": {"pretransform":"raw","x0":0.0,"temperature":1.0,"enrichment_weight":0.0,"missing_expanded":"error"},
-  "dense": {"head_weight":0.5,"chunk_weight":0.5,"head":{"method":"affine","low":-1.0,"high":1.0},"chunk":{"method":"affine","low":-1.0,"high":1.0}},
-  "missing_scores":"available",
-  "allow_bm25_only":false,
-  "selection":{"mode":"threshold","threshold":0.5,"thresholds_by_tier":{},"min_docs":0,"max_docs":300,"top_k":300}
-}
+{"id":1,"candidates":[{"doc_id":"123","score":0.75}]}
 ```
 
-`x0=0,T=1` và affine -1..1 ở ví dụ chỉ là init/smoke, **chưa fit**. Dense domain phải đúng nguồn thật. `query_scale` chỉ dùng khi score recipe tương thích index scale; code từ chối chia external BM25 bằng unrelated scale. `alpha_max≤1−dense_floor`; không đặt sai rồi chờ code tự clamp.
+Evaluate từ run hoặc select outputs; chỉ định split_path/split và query_ids thuộc split đó. Không vô tình đánh giá toàn universe rồi gọi holdout. Default metric là known-positive recall do incomplete judgments. Downstream Doc/Chunk/FINAL cần scorer đúng contract, không tự suy từ candidate score.
 
-Fit cần đủ hai lớp trong judged calibration candidates. Nếu thiếu, report exact labels/scope; vẫn có thể chạy descriptive inference/demo, không dựng negatives. Native val positives/negatives là assumption của file, cần ghi weak-label sensitivity nếu có. Previously observed nên ghi thật, ví dụ `"all"` nếu toàn val đã dùng; query-disjoint retrospective split không xóa exposure cũ.
+## 11. Selector tùy chọn
 
-## 9. Tune offline và adaptive threshold
+`select` yêu cầu full run/scores.jsonl, index cùng snapshot, llm và selection config. Scored rows phải có index_sha256 khớp select.index; predictions cũ thiếu identity cần chạy lại run từ cache, đây là bước rẻ và không gọi model. Lấy các selected IDs theo fusion order rồi giới hạn max_candidates. LLM response chỉ `{"selected_doc_ids":["..."]}`, không tự thêm IDs/rerank/rewrite scores.
 
-`tune` cần `cache,validation,model`; model là `fit/model.json`. Chọn `trials` list scoring overrides **hoặc** `grid` dotted keys, không cả hai. Ví dụ:
+Code kiểm duplicate/out-of-shortlist IDs, giữ score order, áp deterministic min-fill rồi cap; empty shortlist bỏ endpoint call. Lưu responses/<qid>.json, scores/candidates và metadata snippet truncation/cache identity. Invalid response phải báo lỗi, không âm thầm dùng selector khác.
 
-```json
-{"grid":{"selection.threshold":[0.35,0.45,0.55],"alpha_max":[0.65,0.85]},"objective":"known_positive_recall","max_mean_docs":300,"allow_incomplete_f2":false}
-```
+Ban đầu tối đa 40×2.000 ký tự/query có thể là prompt đáng kể; max chars không phải token budget bảo đảm. Đo token/context theo endpoint thật và giảm shortlist/chars khi cần. Missing text hoặc vượt context không được coi là đã đánh giá đủ docs.
 
-Đoạn trên là phần cấu hình, không là full stage config. Với tier thresholds có thể dùng trial:
+## 12. Giới hạn cần giữ khi bàn giao
 
-```json
-{"selection":{"threshold":0.5,"thresholds_by_tier":{"4":0.45,"3":0.5}}}
-```
+- Source union là trần của BF; re-score không tăng pool recall.
+- No-match/missing/unknown-label khác nhau; không gán 0/negative để ép fit.
+- Cosine tương tự không tự là synonym/clinical fact; SapBERT không thay toàn bộ nghĩa câu trong biến thể đầu.
+- Qwen query/document/selector khác downstream reranker; chưa tự thay checkpoint/prompt/recipe control.
+- Candidate threshold khác sigmoid x0 và downstream p̂ threshold.
+- Native chunk policy/exporter chưa đổi; evidence refs chưa submission chunks.
+- Completed artifacts immutable; stage/config/input/code đổi chọn output_dir mới.
+- Branch không giữ runtime bị ignore; hash không khôi phục source text, cần commit và backup artifacts.
+- Prose cũ dọn theo [cleanup](reports/CLEANUP_20261022.md); giữ [baseline spec](PIPELINE_0391.md), [evaluator contract](reports/EVALUATOR_CONTRACT.md), [results](reports/RESULTS.md) và [log](improvement_log.md).
 
-Bucket lấy max hard tier của original concepts; không concepts là bucket 0. Mặc định global fallback. `min_docs` bù và `max_docs` cap có counts riêng; số docs/query thay đổi là chủ đích. Nếu phần lớn query tier4, bucket này ít phân biệt được query: vẫn chạy và ghi phân bố, không tự đổi taxonomy để tạo gain.
-
-```powershell
-python -B -m TXT.bear.medical_cli tune --config TXT/configs/medical_hypothesis/tune.template.json
-python -B -m TXT.bear.medical_cli tune --config TXT/configs/medical_hypothesis/tune.template.json --execute
-```
-
-Objective hiện hỗ trợ `known_positive_recall`, `macro_doc_f2` khi nhãn đủ, hoặc `known_positive_f2_proxy` explicit. Giới hạn `max_trials` mặc định 4096 để grid có chủ đích. Tune dùng tuning queries; đổi `enrichment_weight/pretransform` sẽ re-fit BM25 trên calibration queries **chỉ**, không gọi LLM/retrieval. Lưu tất cả trials và winner, holdout chưa đọc.
-
-`tune.split_path` phải có **cùng query assignments** như fitted model; đổi split thì tạo fit mới. Model còn bound với feature recipe/index/source mappings, nên không đem calibrator từ prototype BM25 sang external BM25F hoặc index khác. Chỉ đổi tham số fusion/threshold được replay trên cache tương thích; recipe thay đổi cần fit mới.
-
-So global với tier thresholds ở cùng mean budget, cùng Kmin/Kmax và downstream; không gọi việc đưa thêm nhiều docs là gain scoring. Sweep points cần rộng vừa đủ, lưu toàn bộ để tái lập.
-
-## 10. Run và evaluate
-
-`run` dùng `cache`, `model` tùy chọn (`tune/best_config.json` hoặc fit model), `scoring` overrides tùy chọn, `mode:medical|rrf`, `query_ids` tùy chọn. Không đọc validation labels.
-
-```powershell
-python -B -m TXT.bear.medical_cli run --config TXT/configs/medical_hypothesis/run.template.json
-python -B -m TXT.bear.medical_cli run --config TXT/configs/medical_hypothesis/run.template.json --execute
-python -B -m TXT.bear.medical_cli evaluate --config TXT/configs/medical_hypothesis/evaluate.template.json
-python -B -m TXT.bear.medical_cli evaluate --config TXT/configs/medical_hypothesis/evaluate.template.json --execute
-```
-
-`mode:rrf` dùng cached source membership/ranks và ép top-K selection. Phải bind `rrf_k,rrf_weights` đúng recipe khi cache; nếu chưa xác minh không gọi baseline parity. `mode:medical` dùng calibrated gate/fusion/selection. Sau fit, đổi recipe BM25 bằng run override bị từ chối; dùng fit/tune để calibrate recipe mới.
-
-`run` mặc định xuất tất cả cached query IDs; `evaluate` dùng split_path để chọn subset holdout. Nếu muốn chỉ export holdout candidates, cung cấp `run.query_ids` lấy từ chính fitted splits; không lấy IDs từ một cách chia mới.
-
-`scores.jsonl` giữ full ranking, component normalized scores, requested/effective alpha, gate details và selection diagnostics. `candidates.jsonl` chỉ selected docs, tương thích adapter:
-
-```json
-{"id": 1, "candidates": [{"doc_id": "123", "score": 0.75}]}
-```
-
-`evaluate` nhận predictions là scores.jsonl hoặc candidates.jsonl, validation, `split_path` và `split:holdout` (hoặc calibration/tune để diagnostic có tên đúng). Thiếu split file thì report retrospective all-predictions, không tự holdout. Outputs chỉ **candidate-stage diagnostics**, không official Chunk/FINAL scorer. Không suy FINAL từ coverage gain.
-
-Thử B0/M0/M1/M2/M3 theo [study](BEAR_REPLACEMENT_STUDY.md). Cùng downstream thật cần Qwen checkpoint/prompt/preprocessing/MaxP/p̂/threshold/chunk policy/cache; doc mới thiếu score phải chạy đúng recipe, không gán 0/bỏ doc/áp p̂ threshold lên fusion score.
-
-## 11. Optional document term candidates
-
-Ý tưởng cũ trong chat được giữ thành experiment riêng: LLM đọc document, trích term candidates có đoạn nguyên văn để tìm những cách diễn đạt query expansion bỏ sót. CLI `document-terms` dùng index, JSON list doc IDs và llm config; prompt `prompts/medical_document_terms.txt`. Cần exact title/body spans và assertion status, lưu `document_terms.jsonl` cùng provenance và resume theo doc.
-
-```powershell
-python -B -m TXT.bear.medical_cli document-terms --config TXT/configs/medical_hypothesis/document_terms.template.json
-python -B -m TXT.bear.medical_cli document-terms --config TXT/configs/medical_hypothesis/document_terms.template.json --execute
-```
-
-Config dùng `schema_version:1,index,doc_ids_path,llm,output_dir`; doc_ids_path là JSON list strings, ví dụ `["123","456"]`. `llm.document_max_chars` mặc định 24.000; document dài hơn báo lỗi, hoặc opt-in `document_overflow:prefix` để trích phần đầu có đánh dấu truncated/source windows. Không báo full-document coverage khi chỉ gửi prefix. Prompt [medical_document_terms.txt](prompts/medical_document_terms.txt) chỉ cho trích text đã thấy; assertion `affirmed|negated|uncertain|historical` là annotation của model, chưa gold.
-
-Per-doc resume lưu `responses/<sha256(doc_id)>.json`; `document_terms.jsonl` là tập gộp cuối. Tên digest tránh dùng doc IDs có dấu phân cách làm filesystem paths.
-
-Đây là diagnostic extraction, chưa tự index aliases, chưa tự thêm concept vào query hay retrieve vòng hai. Muốn tăng recall ngoài union phải thêm bước document indexing/expansion trước retrieval hoặc second retrieval có config riêng. Trích lại từ đã có trong body không tự thêm vocabulary cho BM25; lợi ích có thể là phrase/alias/concept normalization và weighting.
-
-## 12. Cache invalidation và xử lý lỗi
-
-- Không đổi inputs/config/code rồi reuse cùng output_dir. Manifest identity khác sẽ báo mismatch; chọn directory run mới, giữ kết quả cũ để so.
-- Resume partial đúng cùng recipe: prepare theo query, cache theo query; completed stages được hash-verify trước reuse. Không sửa tay cache để làm hash khớp.
-- Đổi tier weights/alpha/threshold: reuse cache, tạo tune/run output mới. Đổi bm25 enrichment weight/pretransform: re-fit calibration từ raw cache; terms mới thì retrieve/cache lại.
-- Đổi model/prompt/KB/query: prepare lại phần liên quan, cache match/retrieval tương ứng. Đổi corpus/index/alias matcher: cache lại; top-K cũ không đủ đánh giá docs ngoài union.
-- Missing input/schema/hash/model endpoint: ghi error thật và missing role. Không dùng model lớn hơn 15B hoặc fake output làm fallback. Nếu endpoint chưa chạy, trusted saved model outputs hoặc demo là đường độc lập có thể thử.
-- Nếu missing dense toàn bộ, default sẽ báo lỗi; `allow_bm25_only:true` là ablation rõ, không còn đầy đủ hypothesis BM25↔dense. Missing một source theo available-policy có log effective weights.
-
-## 13. Báo cáo và trạng thái cuối mỗi lần làm
-
-Ghi config/inputs/splits/hashes, model endpoint có thật được gọi không, KB nguồn/coverage, actual confidence availability, counts/missingness/budgets, metric đúng scope, runtimes và limitations. Report test/demo riêng real validation. Chỉ đánh dấu quality experiment hoàn tất khi đã chạy thực; không dùng task checklist làm bằng chứng gain.
-
-0,391 và counts sơ đồ chưa được tự tái lập bởi workflow này. L1/L4/N0/N1 giữ lịch sử; không yêu cầu làm lại chúng trước hypothesis v4. BR/BF độc lập; native chunk selector là công việc riêng.
-
-Code liên quan: `medical_cli.py`, `medical_runner.py`, `medical_cache.py`, `medical_query.py`, `medical_kb.py`, `medical_documents.py`, `medical_scoring.py`, `medical_validation.py` dưới [bear/](bear/). Xem [results](reports/RESULTS.md), [runbook](reports/RUNBOOK.md), [log](improvement_log.md) để biết những lệnh/tests thực sự đã chạy. Phiên bản trước ở [archive](archive/TXT_handover_v3_5_20261020.md).
+Agent tiếp nhận bắt đầu bằng kiểm config/input hiện có, chạy stage nhỏ có đủ dữ liệu và cập nhật kết quả thực. Không lấy tài liệu kế hoạch hoặc synthetic demo làm bằng chứng đã chạy experiment thật.

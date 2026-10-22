@@ -1,5 +1,13 @@
 # Kết quả và quyết định hiện hành
 
+## 22/10/2026 — v5 SapBERT-XLMR và optional LLM selector
+
+Đã triển khai `medical_gate_sapbert_v2`: SapBERT concept–literal-term cache, generic/Sap dense fusion, semantic recipe identity, document terms từ cache union và LLM chọn subset shortlist. Lexical gate exact/source-backed aliases giữ riêng. Initial λ=0,30 và Sap affine 0,20–0,90 là ước lượng để tune, không phải optimum hoặc probability calibration đã fit.
+
+Kiểm chứng cuối sau xóa prose cũ: **full TXT suite 173/173 tests qua trong 43,921 giây; 10/10 legacy tests qua**. Mười templates đã preflight đúng schema và báo paths mẫu chưa bind; 72 tuning configs hợp lệ trong max_trials=96. Không có LLM call trong kiểm numerical/preflight. Chi tiết [report v5](SAPBERT_V5_20261022.md), [preflight JSON](medical_v5_preflight_20261022.json), vận hành [handover](../TXT_handover.md).
+
+Chưa tải checkpoint/dataset, chưa gọi endpoint/encoder thật, chưa fit trên real candidate pool hoặc đo gain trên 593 query. Gain=null; baseline 0,391 chưa được tái lập bằng v5. Kết quả lịch sử bên dưới giữ nguyên phạm vi, không quy gain cũ cho SapBERT/selector.
+
 ## 21/10/2026 — medical importance hypothesis v4
 
 Đã triển khai taxonomy query terms, source-backed enrichment, Qwen3.5-9B client/prompts, original-concept matching, sigmoid calibration, BM25/dense medical gate, global/tier thresholds và cache replay. Có nhánh document-term extraction tùy chọn. Báo cáo [MEDICAL_HYPOTHESIS_20261021](MEDICAL_HYPOTHESIS_20261021.md) ghi phạm vi và readiness cụ thể.
@@ -10,9 +18,9 @@ Val thật chỉ được đọc inventory/schema: 593 queries, 22.091 gold, 66.
 
 **Triển khai lịch sử 20/10 — PLAN3.5:** BEAR có hai phần độc lập: corpus retrieval và fusion thay RRF, dùng chung index/scorer. [Báo cáo triển khai](BEAR_PARTS_20261020.md) ghi 98 BEAR +10 legacy tests qua và demo tổng hợp chạy thật. Đây là prototype lexical/explicit-relation, chưa có quality gain hoặc baseline0,391 parity mới. Các đoạn v3.3/v3.4 bên dưới mô tả lịch sử trước triển khai hai phần.
 
-Cập nhật **20/10/2026**. Người dùng đã chọn **baseline mới 0,391** và xác nhận tiếp tục ý tưởng BEAR trong proposal. [PIPELINE_0391.md](../PIPELINE_0391.md) ghi kiến trúc đọc từ hai ảnh; [spec tham chiếu](../specs/pipeline_0391.json) không phải config thực thi. Điểm có mức bằng chứng `REPORTED`, baseline là `USER_SELECTED`; chưa liên kết metric/run/cache. Xem [hồ sơ baseline](BASELINE_0391_20261020.md), [PLAN v3.4](../PLAN.md) và [lịch sử cải tiến](../improvement_log.md).
+Cập nhật **20/10/2026**. Người dùng đã chọn **baseline mới 0,391** và xác nhận tiếp tục ý tưởng BEAR trong proposal. [PIPELINE_0391.md](../PIPELINE_0391.md) ghi kiến trúc đọc từ hai ảnh; [spec tham chiếu](../specs/pipeline_0391.json) không phải config thực thi. Điểm có mức bằng chứng `REPORTED`, baseline là `USER_SELECTED`; chưa liên kết metric/run/cache. Xem [hồ sơ baseline](BASELINE_0391_20261020.md), [snapshots kế hoạch cũ](CLEANUP_20261022.md) và [lịch sử cải tiến](../improvement_log.md).
 
-**Mở rộng3.4 theo người dùng:** [F1/R1/C1/S1/J1](../BEAR_REPLACEMENT_STUDY.md) thử BEAR thay từng khối retrieval, ưu tiên fusion trước top300. Đây là thiết kế, chưa có kết quả quality. Pilot selector3.3 và các số lịch sử bên dưới giữ đúng phạm vi, không chứng minh BEAR đã thay candidate generator toàn kho.
+**Mở rộng3.4 theo người dùng, lịch sử:** F1/R1/C1/S1/J1 từng là thiết kế thử BEAR thay từng khối retrieval, ưu tiên fusion trước top300; xem snapshots qua cleanup. Đây chưa là kết quả quality. Pilot selector3.3 và các số lịch sử bên dưới giữ đúng phạm vi, không chứng minh BEAR đã thay candidate generator toàn kho.
 
 L1/L4 trên **bài 0,4076 trước đây** vẫn đóng theo kết quả đã báo: tối đa `+0.0003` / `+0.0004` Doc F2, CI95 chạm 0 hoặc âm. [Bảng sáu λ và giới hạn nhãn](L1_L4_20261020.md) là lịch sử của control đó; không chuyển delta hoặc CI sang baseline 0,391 và không chạy lại chỉ vì thay baseline.
 
@@ -36,9 +44,9 @@ File `val.jsonl` local có 593 query, 22.091 cặp `gold`, 66.547 cặp `not_gol
 
 Nhãn BTC có thể dùng offline; không biến âm suy từ chunk thành negative chắc chắn ở mức doc hoặc coi unknown là 0. Khi threshold làm k thay đổi, ΔF2 phụ thuộc cả hits control: uncertainty ở docs giữ nguyên cũng phải xét, không chỉ added/removed. Không yêu cầu gán tay lại toàn bộ tập; xem [hợp đồng đánh giá](EVALUATOR_CONTRACT.md).
 
-## Hướng triển khai tiếp — chưa có kết quả
+## Hướng triển khai lịch sử v3.3 — đã được thay bằng v5
 
-Theo đính chính người dùng, BEAR phải tạo doc set và chunks. [BEAR_ALGORITHM](../BEAR_ALGORITHM.md) và [PLANv3.3](../PLAN.md) dùng A0adapter →A1structured evidence →A2doc →A3chunk →A4ablation/joint. B0baseline; D1doc-only; C1chunk-only cùng budget; DC1joint.
+Theo đính chính người dùng tại thời điểm đó, kế hoạch v3.3 dùng A0adapter →A1structured evidence →A2doc →A3chunk →A4ablation/joint. B0baseline; D1doc-only; C1chunk-only cùng budget; DC1joint. Đây là bản ghi lịch sử; workflow hiện hành theo handover v5.
 
 Audit/threshold-only của v3.2 đã thay làm hướng chính; chúng chỉ hỗ trợ phát triển hoặc chọn operating point. Không có parser/selector mới, run hoặc quality gain được thực hiện trong lần sửa tài liệu. Số liệu lịch sử trong bảng giữ nguyên.
 

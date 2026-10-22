@@ -83,5 +83,15 @@
     },
     "context": "optional source-specific context",
     "frequency": "optional only when actually supplied by source"
+  },
+  "supported_schema_languages": [
+    "vi",
+    "zh",
+    "en"
+  ],
+  "semantic_encoder": {
+    "id": "cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR",
+    "role": "query concept to literal document term similarity, independent of lexical gate",
+    "status": "integration implemented; real checkpoint and multilingual quality not evaluated"
   }
 }

@@ -193,7 +193,7 @@ Khi điền entry, giải thích ngắn vì sao quyết định phù hợp với
 | `recorded_date` / `reported_date` | `2026-10-19` / `2026-10-19` |
 | Loại cập nhật / trạng thái kế hoạch | Chỉ tài liệu / `PROPOSED`; N0–N5 chưa được nghiệm thu |
 | Nguồn hiện hành | [TXT_Proposal.md](TXT_Proposal.md) giải thích giả thuyết/phương pháp; [PLAN v2.0](PLAN.md) quy định task/dependency/acceptance; [TXT_handover.md](TXT_handover.md) hướng dẫn vận hành; sổ này giữ lịch sử |
-| Bản lưu lịch sử | [PLAN trước N0–N5](archive/PLAN_before_N0_N5_20261019.md) giữ nguyên kế hoạch T01–T16 và hợp đồng chi tiết; ledger kỹ thuật hiện có vẫn là snapshot triển khai trước kết quả mới |
+| Bản lưu lịch sử | [PLAN trước N0–N5](reports/CLEANUP_20261022.md) giữ nguyên kế hoạch T01–T16 và hợp đồng chi tiết; ledger kỹ thuật hiện có vẫn là snapshot triển khai trước kết quả mới |
 | Phạm vi kế hoạch | Giữ N0 provenance → N1 application audit; N2 fixed body/local và N3 chunk độc lập sau readiness; N4 có điều kiện; N5 chọn trên dev, freeze rồi một lần holdout |
 | Kết quả thực nghiệm / metric mới | `null`; không có experiment, test, benchmark, GPU job hoặc submission được chạy trong lần đồng bộ tài liệu này |
 | Quyết định / bước tiếp | Dùng PLAN v2.0 làm nguồn giao việc vòng mới; bắt đầu task N0 đủ dependency, giữ nguyên các metric B00/R01 và các giới hạn bằng chứng đã ghi |
@@ -309,7 +309,7 @@ Các entry mới tách số nguồn báo, quan sát artifact local và quyết �
 | `entry_id` / `corrects_entry` | `D03` / phần “control tiếp theo0.4076” của `D02`; giữ lịch sử D02 |
 | Ngày ghi / trạng thái | 2026-10-20 / `DOC_ONLY`; M0–M3 vẫn `PROPOSED` |
 | Tài liệu hiện hành | [PLAN v3.1](PLAN.md), [proposal](TXT_Proposal.md), [handover](TXT_handover.md), [README](README.md), runbook và các report liên quan |
-| Kế hoạch trước đổi baseline | [PLAN v3 snapshot](archive/PLAN_v3_before_baseline_0391_20261020.md) |
+| Kế hoạch trước đổi baseline | [PLAN v3 snapshot](reports/CLEANUP_20261022.md) |
 | M0 | Dùng đúng artifacts/evaluator/recipe pipeline0.391; không lấy λ0/hits/per-query score0.4076 thay control mới; không dựng lại toàn bộ w045 |
 | M1/M2 | Đọc count, policy chunk, ngôn ngữ và cap thật `P0` của0.391. Một họ/tối đa hai candidate; A đổi countVI chỉ khi recipe phù hợp và chưa thử, B mở cap thật nếu có headroom/cache |
 | Invariants | Mọi phần không can thiệp giữ theo baseline0.391 thực có; không mặc định một chunk body/doc hoặc cap400; control phải khớp đúng tập doc/policy mới |
@@ -354,7 +354,7 @@ D04 bổ sung thông tin ảnh mà bản HTML canvas trước đó chưa đọc 
 | Nhánh BEAR sau này | Chỉ đề xuất pilot cho1loại mismatch có bằng chứng bổ sung ngoài L1/L4; chưa mở trong vòng threshold. Pool/refitcalibration là backlog riêng |
 | Sửa đánh giá | Khi k đổi, delta phụ thuộc hits control g₀; uncertainty của doc giữ nguyên cũng có thể ảnh hưởng. Sensitivity không chỉ xét added/removed;±0.0002 và305không phải bound |
 | Tài liệu / đặc tả | [PLAN v3.2](PLAN.md), [proposal](TXT_Proposal.md), [handover](TXT_handover.md), README/runbook/reports; [JSON tham chiếu](specs/pipeline_0391.json) không chạy CLI |
-| Bản lưu trước cập nhật | [PLAN3.1](archive/PLAN_v3_1_before_threshold_alignment_20261020.md), [proposal3.1](archive/TXT_Proposal_v3_1_before_threshold_alignment_20261020.md) |
+| Bản lưu trước cập nhật | [PLAN3.1](reports/CLEANUP_20261022.md), [proposal3.1](reports/CLEANUP_20261022.md) |
 | Code quan sát, chưa liên kết run | Root val_calib.py có --maxp/beta8 hoặc10, nhưng chưa xác minh0.391 dùng recipe đó; không thực thi fit/ghi beta |
 | Software / metric mới | Giữ2.0.0; không sửa code, chạy benchmark/GPU hoặc submit. Gain mới/CI/Chunk/FINAL = null |
 | Quyết định giữ | Nếu không có gain đáng tin hoặc phép thử đã tối ưu, retain_0.391. Không tự chạy lại L1/L4 hay N0/N1 |
@@ -379,7 +379,7 @@ D05 cải tiến sự phù hợp giữa baseline, ý tưởng và phép thử. N
 | L1/L4 | Vẫn đóng cấu hình uniform coverage đã thử trên0,4076; không suy mọi structured evidence/chunk algorithm vô ích hoặc chạy lại tên mới |
 | Audit/threshold | Công cụ kiểm feature và operating point/control phụ; không thay mục tiêu retrieval |
 | Code/gain | Giữsoftware2.0.0; matcher/uniform features/fusion/C1C2scaffolding có sẵn, structured relation/conflict và adapter mới chưa triển khai đầy đủ. Chưa có benchmark/metric/gain mới |
-| Bản lưu | [PLAN3.2](archive/PLAN_v3_2_before_doc_chunk_restore_20261020.md), [proposal3.2](archive/TXT_Proposal_v3_2_before_doc_chunk_restore_20261020.md) |
+| Bản lưu | [PLAN3.2](reports/CLEANUP_20261022.md), [proposal3.2](reports/CLEANUP_20261022.md) |
 | Tính nhất quán | README/handover/runbook/reports/spec được đồng bộ; facts baseline/metrics lịch sử giữ nguyên |
 
 D06 sửa mục tiêu và đặc tả; chưa đánh dấu thuật toán mới đã code xong. Bằng chứng triển khai và quality gain chỉ nối thêm khi thực sự có run/evaluation.
@@ -493,3 +493,49 @@ D10 triển khai phần mềm cho hai nghiên cứu riêng, không suy fixture t
 | Bàn giao | Proposal/handover/algorithm/PLAN/study/README v4, archive6docs v3.5; reports/MEDICAL_HYPOTHESIS_20261021.md và preflight JSON |
 
 D11 là triển khai chạy được của hypothesis, không là quyết định promote baseline. Kết quả âm và chi phí sau này vẫn phải được lưu, đồng thời tiếp tục thử nghiệm trong phạm vi người dùng đã ủy quyền.
+
+## 18. Trao đổi hướng SapBERT-XLMR — 22/10/2026
+
+### D12 — Giữ fusion BM25/dense, thử semantic encoder chuyên concept đa ngôn ngữ
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / supplements_entry | D12 / D11; ghi trao đổi thiết kế, chưa triển khai hoặc chạy experiment |
+| Ý định người dùng | Dùng SapBERT-XLMR cho nhiều ngôn ngữ; giữ ý tưởng fusion BM25 và dense; hỏi thay dense hiện tại hay kết hợp, và cách quản lý branch/log |
+| Checkpoint đề xuất | `cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR`; model card chỉ dẫn lấy CLS trước pooler cho entity-name embeddings; chưa tải model hoặc đo trên VI/ZH của dự án |
+| Vai trò cần kiểm | SapBERT học biểu diễn concept/entity; khả năng thay encoder query–passage/document hiện tại là giả thuyết riêng. Ưu tiên thử điểm query-concept ↔ document-term có spans; không mặc định cosine cao là cùng concept hoặc document trả lời đúng intent |
+| Phương án đề xuất, chưa chốt | Giữ `F = alpha * z_B + (1-alpha) * D_lambda`, với `D_lambda = (1-lambda) * z_dense_current + lambda * z_sapbert`; trộn score đã transform riêng. `lambda=0` là control, `lambda=1` là replacement; thử thêm mixture trên tuning split rồi lock. Không cộng trực tiếp vectors từ hai encoder |
+| Gate cần giữ rõ | Gate hiện tăng trọng số BM25, không tăng BM25 raw. Với z_B=0.2,z_D=0.8, gate 0→1 làm alpha 0.1→0.85 và F 0.74→0.29. Không tự thay exact/alias matches bằng semantic matches trong gate; concept normalization/enrichment hoặc cách dùng semantic evidence phải là ablation riêng |
+| Chi phí LLM đã trao đổi | Giả định 593 query × 300 doc × 4 query concepts × 10 doc terms: 7.116.000 cặp nếu mỗi cặp một call; gom theo doc còn 177.900 call. Đây là minh họa, không benchmark; union thực có thể lớn hơn output budget. Ưu tiên encoder shortlist, cache và LLM chỉ phân xử ca khó khi cần |
+| Code còn thiếu | Medical cache/scoring hiện chỉ có dense_head/dense_chunk, chưa có source/encoder SapBERT hoặc term-pair semantic matcher. Thêm source riêng và raw score/cache/config rõ; không dùng tên head/chunk để che việc trộn model |
+| Candidate scope | So scorer trên cùng union đủ rộng trước. Score tables chỉ chấm docs đã có; muốn cứu doc ngoài union phải thêm SapBERT ranking/source và đánh giá retrieval scope thay đổi riêng |
+| Calibration và đánh giá | Transform/calibrate score từng encoder bằng protocol rõ; fit stage hiện chỉ fit BM25. So replacement/mix/control cùng ngân sách và downstream; báo VI/ZH riêng, known-positive recall theo semantics nhãn hiện có; chưa có bằng chứng gain |
+| Provenance cần bổ sung | Checkpoint/revision, pooling, normalization, max length, term extraction/chunking, corpus/index/source identity, raw scores, calibrator/split, lambda và threshold; nguồn/model đổi cần cache/run directory mới |
+| Branch và artifacts | Đề xuất branch `exp/sapbert-xlmr`; audit hiện tại branch Tung, HEAD 2b27170, TXT sạch trước cập nhật D12. Chưa tạo/chuyển branch hoặc commit. Git commits lưu source; manifest/hash không khôi phục được source; TXT/runtime và TXT/inputs bị gitignore nên cần giữ artifacts riêng |
+| Trạng thái | DESIGN_ONLY; chỉ cập nhật log trao đổi. Chưa đổi proposal/algorithm, code/config/default retrieval, chưa gọi model, fit/tune hoặc chạy quality benchmark |
+| Nguồn chính thức | [Model card](https://huggingface.co/cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR), [cross-lingual BEL paper](https://aclanthology.org/2021.acl-short.72/) |
+
+D12 lưu ý định người dùng và các phương án chưa được kiểm chứng; không coi khuyến nghị kết hợp dense/SapBERT là quyết định triển khai hoặc kết quả thực nghiệm.
+
+## 19. Triển khai fusion v5 và dọn TXT — 22/10/2026
+
+### D13 — SapBERT concept score trong dense, enrichment đa ngôn ngữ và selector có cache
+
+| Trường | Giá trị |
+|---|---|
+| entry_id / implements_entry | D13 / D12; người dùng đã yêu cầu sửa handover/proposal/code và xóa phần lỗi thời trong TXT |
+| Giải thích đã kiểm | Lexical match concept đặc thù tăng tỷ trọng BM25; thiếu lexical match tăng tỷ trọng nhánh generic dense + SapBERT entity similarity. Vai trò bổ trợ, không tuyệt đối; tăng alpha không tự bảo đảm tăng F |
+| Công thức triển khai | D_new=(1-lambda)*D_generic+lambda*S_sapbert; F=alpha*z_B+(1-alpha)*D_new. Sap score tổng hợp query-concept ↔ literal-doc-term; lexical gate giữ exact/source aliases |
+| Cache encoder | Stage sapbert-cache mới, CLS/L2, immutable revision hoặc hashed local snapshot, raw cosine matrix và unique text vectors, provenance/spans/truncation/missing masks; không gọi lại encoder khi tune numerical parameters |
+| KB/LLM enrichment | Schema vi/zh/en, source-backed whitelist theo intent, max_kb_candidates=256 và max_expansion_terms=8 initial; document-terms có thể lấy unique doc IDs từ base cache |
+| Selection | Threshold/top-K hoặc stage select LLM riêng: shortlist bounded, IDs subset/unique, fusion score/order giữ nguyên, min-fill/cap/truncation logged, corpus index identity bound, response cached theo query |
+| Hyperparameters | Handover v5 có table initial estimates/ranges/cache invalidation; lambda initial0.30, Sap affine0.20–0.90. Fit hiện học BM25 sigmoid, không báo Sap transform là probability đã fit |
+| Templates | 10 templates v5 dùng runtime/medical_v5; preflight hợp schema, 72 tune configs hợp lệ trong max_trials96; sample paths blocked_input, không gọi endpoint |
+| Kiểm chứng | Sau dọn prose: 173/173 TXT tests đạt; 10/10 legacy tests đạt. Demo CLI 12 query synthetic chạy8stages +RRF control, không model thật, không quality claim; git diff --check đạt |
+| Demo/artifacts | TXT/runtime/medical_v5_verify_20261022/demo_summary.json; giữ completed demo caches. New runtime ignored vẫn cần backup riêng |
+| Dọn thư mục | Xóa16prosefiles:15archive snapshots +obsolete BIOMEDICAL plan. Redirect historical links tới cleanup ledger/Git2b27170; dọn3Python __pycache__ dirs và runtime/tmp/fixtures. Giữ legacy dependencies, baseline specs/results, inputs và completed expensive caches |
+| Branch / phạm vi | Vẫn branchTung; không tạo/chuyển branch hoặc commit. Không sửa Pipeline 0,391 - Miro.html; người dùng sẽ tạo branch mới |
+| Chưa thực hiện | Chưa tải/encode checkpoint thật, gọi Qwen endpoint thật, nhập toàn KB hoặc chạy quality trên593query; gain=null, baseline0.391_reproduced=false |
+| Bàn giao | [Handover](TXT_handover.md), [proposal](TXT_Proposal.md), [report v5](reports/SAPBERT_V5_20261022.md), [preflight](reports/medical_v5_preflight_20261022.json), [cleanup](reports/CLEANUP_20261022.md) |
+
+D13 hoàn tất phần triển khai/kiểm chứng kỹ thuật được yêu cầu; thực nghiệm trên dữ liệu/model thật cần bind đúng artifacts và chạy protocol đã ghi, không suy từ synthetic scores.

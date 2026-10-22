@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "cache": "TXT/runtime/medical_v5/cache/cache.jsonl",
+  "index": "TXT/inputs/medical_hypothesis/index.sqlite",
+  "document_terms": "TXT/runtime/medical_v5/document_terms/document_terms.jsonl",
+  "encoder": {
+    "model": "cambridgeltl/SapBERT-UMLS-2020AB-all-lang-from-XLMR",
+    "revision": null,
+    "local_path": "TXT/inputs/models/SapBERT-XLMR",
+    "pooling": "cls",
+    "l2_normalize": true,
+    "max_length": 64,
+    "batch_size": 64,
+    "local_files_only": true,
+    "overflow": "error",
+    "device": "cpu"
+  },
+  "output_dir": "TXT/runtime/medical_v5/sapbert_cache"
+}

@@ -140,6 +140,129 @@ class TestMedicalScoring(unittest.TestCase):
         with self.assertRaises(ValueError):
             score_record(record, config)
 
+    def test_sapbert_zero_weight_preserves_original_fusion_and_gate(self):
+        record = fixture()
+        baseline = score_record(record, {})
+        result = score_record(record, {"sapbert": {"weight": 0}, "missing_scores": "error"})
+        self.assertEqual(result, baseline)
+        self.assertEqual(result["score_schema"], "medical-gate-v1")
+
+    def test_sapbert_replacement_disables_generic_dense_missing_checks(self):
+        record = fixture()
+        record["candidates"] = [record["candidates"][0]]
+        record["candidates"][0]["scores"] = {"bm25": 2, "sapbert": 0.55}
+        result = score_record(record, {"sapbert": {"weight": 1}, "missing_scores": "error"})
+        row = result["ranking"][0]
+        self.assertIsNone(row["generic_dense_normalized"])
+        self.assertAlmostEqual(row["dense_normalized"], 0.5)
+        self.assertEqual(row["dense_branch_weights"], {"generic_dense": 0, "sapbert": 1})
+        self.assertEqual(result["score_schema"], "medical-gate-v2")
+
+    def test_intermediate_sapbert_weight_combines_normalized_branches(self):
+        record = fixture()
+        for row in record["candidates"]:
+            row["scores"]["sapbert"] = 0.9
+        row = next(row for row in score_record(record, {"sapbert": {"weight": 0.25}})["ranking"] if row["doc_id"] == "a")
+        self.assertAlmostEqual(row["generic_dense_normalized"], 0.6)
+        self.assertAlmostEqual(row["sapbert_normalized"], 1)
+        self.assertAlmostEqual(row["dense_normalized"], 0.7)
+        self.assertAlmostEqual(row["fused_score"], row["alpha_requested"] * row["bm25_normalized"] + (1 - row["alpha_requested"]) * 0.7)
+
+    def test_sapbert_matrix_importance_weights_originals_and_missing_as_zero(self):
+        record = fixture()
+        record["concepts"].extend([concept(2, concept_id="support"), concept(4, concept_id="exp", origin="enrichment")])
+        candidate = record["candidates"][1]
+        candidate["sapbert_matches"] = [
+            {"concept_id": "disease", "similarities": [{"text": "alias", "cosine": 0.9}]},
+            {"concept_id": "exp", "similarities": [{"text": "expansion", "cosine": 1}]},
+        ]
+        record["candidates"] = [candidate]
+        row = score_record(record, {"sapbert": {"weight": 1}})["ranking"][0]
+        self.assertAlmostEqual(row["sapbert_normalized"], 1 / 1.3)
+        self.assertEqual(row["medical_gate"]["gate"], 0)
+        self.assertEqual(row["alpha_requested"], 0.1)
+        self.assertEqual(row["sapbert_diagnostics"]["ignored_concept_ids"], ["exp"])
+
+    def test_sapbert_missing_sources_renormalize_or_raise(self):
+        record = fixture()
+        result = score_record(record, {"sapbert": {"weight": 0.5}})
+        self.assertEqual(result["ranking"][0]["dense_branch_weights"], {"generic_dense": 1, "sapbert": 0})
+        self.assertIn("sapbert", result["ranking"][0]["missing_scores"])
+        with self.assertRaisesRegex(ValueError, "sapbert"):
+            score_record(record, {"sapbert": {"weight": 0.5}, "missing_scores": "error"})
+        record["candidates"] = [{"doc_id": "a", "scores": {"bm25": 2, "sapbert": 0.9}}]
+        row = score_record(record, {"sapbert": {"weight": 0.5}})["ranking"][0]
+        self.assertEqual(row["dense_branch_weights"], {"generic_dense": 0, "sapbert": 1})
+        with self.assertRaisesRegex(ValueError, "dense_head"):
+            score_record(record, {"sapbert": {"weight": 0.5}, "missing_scores": "error"})
+
+    def test_empty_or_expansion_only_matrix_is_missing_evidence(self):
+        record = fixture()
+        record["candidates"] = [record["candidates"][0]]
+        for matrix in ([], [{"concept_id": "exp", "similarities": [{"text": "term", "cosine": 0.9}]}]):
+            record["candidates"][0]["sapbert_matches"] = matrix
+            with self.subTest(matrix=matrix), self.assertRaisesRegex(ValueError, "sapbert"):
+                score_record(record, {"sapbert": {"weight": 1}, "missing_scores": "error"})
+
+    def test_sapbert_matrix_max_and_custom_sigmoid(self):
+        record = fixture()
+        record["candidates"] = [record["candidates"][0]]
+        record["candidates"][0]["sapbert_matches"] = [{"concept_id": "disease", "similarities": [
+            {"text": "lower", "cosine": -0.2}, {"text": "higher", "cosine": 0.4}]}]
+        row = score_record(record, {"sapbert": {"weight": 1, "method": "sigmoid", "x0": 0.4, "temperature": 0.1}})["ranking"][0]
+        self.assertEqual(row["sapbert_normalized"], 0.5)
+        self.assertEqual(row["sapbert_diagnostics"]["concepts"][0]["best_term"]["text"], "higher")
+
+    def test_sapbert_repeated_spans_count_once_and_intent_is_not_semantic_denominator(self):
+        record = fixture()
+        record["concepts"].append(concept(4, concept_id="intent", kind="intent"))
+        candidate = record["candidates"][0]
+        candidate["sapbert_matches"] = [{"concept_id": "disease", "similarities": [{
+            "text": "term", "cosine": 0.9, "field": "body", "anchor": {"start": 0, "end": 4},
+            "anchors": [{"start": 0, "end": 4}, {"start": 20, "end": 24}],
+            "kind": "disease", "assertion": "affirmed"}]}]
+        record["candidates"] = [candidate]
+        row = score_record(record, {"sapbert": {"weight": 1}})["ranking"][0]
+        self.assertEqual(row["sapbert_normalized"], 1)
+        self.assertEqual(len(row["sapbert_diagnostics"]["concepts"]), 1)
+        self.assertEqual(len(row["sapbert_diagnostics"]["concepts"][0]["best_term"]["anchors"]), 2)
+        self.assertEqual(row["medical_gate"]["original_concept_count"], 2)
+        self.assertEqual(row["medical_gate"]["gate"], 0.5)
+
+    def test_sapbert_repeated_anchors_validate_spans_field_duplicates_and_primary(self):
+        record = fixture()
+        record["candidates"] = [record["candidates"][0]]
+        invalid = [[], [{"start": -1, "end": 3}], [{"start": 4, "end": 4}],
+                   [{"start": 0, "end": 4, "field": "title"}],
+                   [{"start": 0, "end": 4}, {"start": 0, "end": 4}],
+                   [{"start": 20, "end": 24}]]
+        for anchors in invalid:
+            record["candidates"][0]["sapbert_matches"] = [{"concept_id": "disease", "similarities": [{
+                "text": "term", "cosine": 0.9, "field": "body", "anchor": {"start": 0, "end": 4},
+                "anchors": anchors}]}]
+            with self.subTest(anchors=anchors), self.assertRaises(ValueError):
+                score_record(record, {"sapbert": {"weight": 1}})
+
+    def test_invalid_sapbert_configs_and_duplicate_matrices_fail(self):
+        configs = [{"weigth": 0.5}, {"weight": True}, {"weight": -0.1},
+                   {"weight": 0.5, "low": 0.9, "high": 0.2},
+                   {"weight": 0.5, "method": "sigmoid", "low": 0.2}]
+        for config in configs:
+            with self.subTest(config=config), self.assertRaises(ValueError):
+                score_record(fixture(), {"sapbert": config})
+        record = fixture()
+        record["candidates"] = [record["candidates"][0]]
+        matrices = [
+            [{"concept_id": "disease", "similarities": [{"text": "a", "cosine": 1.1}]}],
+            [{"concept_id": "disease", "similarities": [{"text": "a", "cosine": float("nan")}]}],
+            [{"concept_id": "disease", "similarities": []}] * 2,
+            [{"concept_id": "disease", "similarities": [{"text": "a", "cosine": 0.8}] * 2}],
+        ]
+        for matrix in matrices:
+            record["candidates"][0]["sapbert_matches"] = matrix
+            with self.subTest(matrix=matrix), self.assertRaises(ValueError):
+                score_record(record, {"sapbert": {"weight": 1}})
+
 
 if __name__ == "__main__":
     unittest.main()

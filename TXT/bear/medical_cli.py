@@ -11,7 +11,8 @@ from .io import canonical_json_dumps, load_config
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Medical keyword gate hypothesis, not a promoted production recipe")
     subparsers = parser.add_subparsers(dest="command")
-    for command in ("kb-import", "prepare", "document-terms", "cache", "fit", "tune", "run", "evaluate"):
+    for command in ("kb-import", "prepare", "document-terms", "cache", "sapbert-cache",
+                    "fit", "tune", "run", "select", "evaluate"):
         sub = subparsers.add_parser(command)
         sub.add_argument("--config", required=True)
         mode = sub.add_mutually_exclusive_group()

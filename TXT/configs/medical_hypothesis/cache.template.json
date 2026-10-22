@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "prepared": "TXT/runtime/medical_hypothesis/prepare/prepared.jsonl",
+  "prepared": "TXT/runtime/medical_v5/prepare/prepared.jsonl",
   "index": "TXT/inputs/medical_hypothesis/index.sqlite",
   "sources": {
     "bm25": "TXT/inputs/medical_hypothesis/bm25_rank.jsonl",
@@ -13,7 +13,9 @@
   "dense_head_source": "dense_head",
   "dense_chunk_source": "dense_chunk",
   "languages": [
-    "vi"
+    "vi",
+    "zh",
+    "en"
   ],
   "include_index_candidates": false,
   "lookup_top_k": 1000,
@@ -24,5 +26,7 @@
     "dense_head": 1,
     "dense_chunk": 1
   },
-  "output_dir": "TXT/runtime/medical_hypothesis/cache"
+  "output_dir": "TXT/runtime/medical_v5/cache",
+  "sapbert_source": null,
+  "source_recipes": {}
 }
