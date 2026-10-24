@@ -15,9 +15,28 @@ import sys
 import time
 
 MODEL = os.environ.get("QWEN_RR_MODEL", "Qwen/Qwen3-Reranker-4B")   # QWEN_RR_MODEL=Qwen/Qwen3-Reranker-8B để thử bản 8B
+# Chỉ dẫn pointwise. KHÔNG đổi PREFIX/SUFFIX: đó là judge-template lúc fine-tune, quyết định vị trí
+# chấm logit yes/no. Nội dung: chấm công dụng lâm sàng thật, loại doc chỉ lặp từ khoá (keyword
+# spamming) và doc gần đúng nhưng sai đối tượng/biến thể (deceptive negatives).
+# Không thêm persona ("You are a medical expert"): model đã judge-tune trên template này, persona
+# chỉ dịch thang p(yes) chứ gần như không đổi thứ hạng (xem PROGRESS.md, chỉ dẫn nghiêm 12/10).
 INSTRUCT = os.environ.get("QWEN_RR_INSTRUCT") or (
-    "Given a patient's health question in Vietnamese, judge whether the document "
-    "(a medical Q&A or health article) answers it or is relevant to it")
+    "Given a patient's health question in Vietnamese and one candidate document "
+    "(a medical Q&A, drug monograph, clinical guideline, or health article), decide "
+    "whether the document provides the specific clinical information the question asks for. "
+    "Judge clinical utility, not surface similarity.\n"
+    'Answer "yes" only if the document gives the requested information for the same '
+    "condition, drug, test, procedure or population the question is about, including when "
+    "the document is written in English or Chinese while the question is in Vietnamese.\n"
+    'Answer "no" if:\n'
+    "- it only repeats keywords from the question, or mentions the same disease or drug in "
+    "passing without answering it (keyword spamming);\n"
+    "- it covers the same disease or drug but for a different population (child vs adult, "
+    "pregnancy, elderly), a different subtype, stage or variant, an unrelated indication, or "
+    "a contraindication or adverse outcome the question did not ask about;\n"
+    "- it is too generic to resolve the question: general background, definitions, or an "
+    "overview that never addresses the specific thing asked;\n"
+    "- it is about a different topic entirely.")
 PREFIX = ('<|im_start|>system\nJudge whether the Document meets the requirements based on the Query '
           'and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n'
           '<|im_start|>user\n')
@@ -70,6 +89,9 @@ def score_pairs(tok, model, yes, no, dev, pairs, batch=16, max_len=1536, doc_cha
     texts = [build(q, d, doc_chars=doc_chars) for q, d in pairs]
     order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
     out = [0.0] * len(texts)
+    # Mốc soát cắt cụt. truncation=True cắt từ BÊN PHẢI nên nếu prompt dài quá max_len thì mất
+    # luôn SUFFIX -> chấm logit ở sai vị trí, điểm thành rác mà không báo gì.
+    tail = torch.tensor(tok(SUFFIX, add_special_tokens=False)["input_ids"])
 
     def run(idx):
         oom = False
@@ -77,6 +99,11 @@ def score_pairs(tok, model, yes, no, dev, pairs, batch=16, max_len=1536, doc_cha
             with torch.no_grad():
                 enc = tok([texts[i] for i in idx], padding=True, truncation=True, max_length=max_len,
                           return_tensors="pt").to(dev)
+                ids = enc["input_ids"]
+                bad = (ids[:, -tail.numel():] != tail.to(ids.device)).any(dim=1)
+                assert not bad.any(), (
+                    f"{int(bad.sum())}/{len(idx)} prompt bị cắt cụt mất SUFFIX (yes/no chấm sai vị trí): "
+                    f"giảm --doc-chars hoặc tăng --max-len (đang là {max_len})")
                 # chỉ lm_head cho token CUỐI: logits mọi vị trí tốn batch×độ dài×151k float
                 h = model.model(**enc).last_hidden_state[:, -1, :]
                 lg = model.lm_head(h)
@@ -168,8 +195,10 @@ def main():
 
 def demo():
     import math
+    # SUFFIX là hợp đồng với model: đổi nó là chấm logit ở sai vị trí. Khoá lại bằng assert.
+    assert SUFFIX == "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
     s = build("đau dạ dày", "Viêm dạ dày. " + "x" * 5000, doc_chars=1000)
-    assert s.startswith(PREFIX) and s.endswith(SUFFIX) and len(s) < 2500, "doc phải bị cắt"
+    assert s.startswith(PREFIX) and s.endswith(SUFFIX) and len(s) < 2700, "doc phải bị cắt"
     assert abs(p_yes(0.0, 0.0) - 0.5) < 1e-9 and p_yes(-50.0, 50.0) > 0.999999
     assert 0.0 <= p_yes(1000.0, -1000.0) < 1e-9, "không được tràn số"
     print("demo OK")
