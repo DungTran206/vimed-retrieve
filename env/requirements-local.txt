@@ -11,3 +11,7 @@ sentence-transformers
 trafilatura>=2.2
 # Giả TLS fingerprint Chrome để vượt WAF 403; cứu được nhathuoclongchau.com.vn (79k URL)
 curl_cffi>=0.16
+# baseline: khớp p̂ (select_docs), đọc ZIP 1 GB theo luồng + kiểm RAM trước khi nén (value_chunks, Python ≥ 3.11)
+scikit-learn
+ijson
+psutil

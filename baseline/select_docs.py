@@ -7,6 +7,10 @@
 3. Ngưỡng chung t = p̂ đứng thứ (--docs × số câu) trên toàn đề → câu q giữ mọi doc p̂ ≥ t (xếp p̂ giảm dần).
    --docs 160 chọn bằng nhãn thật 593 câu public (doc F2 offline 143: 0,3787 · 160: 0,3799 · 180: 0,3777).
   python -m baseline.select_docs --docs 160 --out data/val/docs_clean160.json
+Bài D (80 doc zh/câu): thêm điểm chunk zh mới và xuất p̂ của MỌI ứng viên cho bước sửa p̂ (baseline.recal_docs):
+  python -m baseline.select_docs --cands data/clean_cands_z80.jsonl \
+      --scores data/cc_scores.jsonl data/ccq_a_scores.jsonl data/ccq_b_scores.jsonl data/z80base_scores.jsonl \
+      --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json
 """
 import argparse
 import json
@@ -28,16 +32,19 @@ def main():
     ap.add_argument("--fit", default="data/val/p_w045.jsonl")
     ap.add_argument("--docs", type=float, default=160)
     ap.add_argument("--out", default="data/val/docs_clean160.json")
+    ap.add_argument("--scores", nargs="+", default=SCORES, help="các file điểm chunk Qwen (MaxP = max theo chunk của doc)")
+    ap.add_argument("--dump", help="ghi p̂ của MỌI ứng viên {q: [[doc, p̂], ...]} giảm dần (đầu vào baseline.recal_docs)")
     a = ap.parse_args()
     L = {r["id"]: [(c["doc_id"], c["lang"]) for c in r["candidates"]] for r in map(json.loads, open(a.cands, encoding="utf-8"))}
     cand = {(q, d) for q, ds in L.items() for d, _ in ds}
-    M = {}
-    for p in SCORES:
+    S = {}                                   # (q, doc) -> {idx chunk: P(yes)}; chunk chấm ở nhiều file thì file SAU thắng
+    for p in a.scores:
         for l in open(p, encoding="utf-8"):
             r = json.loads(l)
             k = (r["id"], r["doc_id"])
             if k in cand:
-                M[k] = max(M.get(k, 0.0), r["score"])
+                S.setdefault(k, {})[r["idx"]] = r["score"]
+    M = {k: max(v.values()) for k, v in S.items()}
     X, keys = [], []
     for q, ds in L.items():
         nv = sum(g == "vi" for _, g in ds)
@@ -62,6 +69,11 @@ def main():
             by.setdefault(q, []).append((p, d))
     D = {q: [d for _, d in sorted(by.get(q, []), key=lambda x: -x[0])] for q in sorted(L)}
     json.dump(D, open(a.out, "w"))
+    if a.dump:
+        allp = {}
+        for (q, d), p in zip(keys, ph):
+            allp.setdefault(str(q), []).append([d, float(p)])
+        json.dump({q: sorted(v, key=lambda x: -x[1]) for q, v in allp.items()}, open(a.dump, "w"))
     n = [len(v) for v in D.values()]
     print(f"ngưỡng p̂ {t:.5f} → {sum(n) / len(n):.1f} doc/câu (ít nhất {min(n)}) -> {a.out}")
 

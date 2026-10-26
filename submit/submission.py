@@ -173,23 +173,30 @@ class _BigLZMA(zipfile.LZMACompressor):
 def write_zip(records, out_prefix, method="deflate"):
     """ZIP chứa ĐÚNG MỘT file json, không nằm trong thư mục con."""
     os.makedirs(os.path.dirname(out_prefix) or ".", exist_ok=True)
-    js, zp = out_prefix + ".json", out_prefix + ".zip"
+    js = out_prefix + ".json"
     with open(js, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, separators=(",", ":"))
+    return js, zip_json(js, out_prefix + ".zip", method)
+
+
+def zip_json(js, zp, method="deflate"):
+    """Nén một file json đã ghi sẵn (gọi riêng sau khi đã giải phóng records nếu bài lớn)."""
     # bzip2 đã được leaderboard chấp nhận (07/10, blendQB3x_3k_300_bzip2) và nhỏ hơn deflate ~35%
     kw = {"bzip2": (zipfile.ZIP_BZIP2, 9), "deflate": (zipfile.ZIP_DEFLATED, 9),
           "lzma": (zipfile.ZIP_LZMA, None)}[method]
     orig = zipfile.LZMACompressor
     zipfile.LZMACompressor = _BigLZMA          # zipfile tạo compressor qua tên này
     try:
-        with zipfile.ZipFile(zp, "w", kw[0], compresslevel=kw[1]) as z:
+        # ghi ra .part rồi mới đổi tên: file .zip chỉ xuất hiện khi đã nén XONG (18/10 lỡ nộp một ZIP đang ghi dở)
+        with zipfile.ZipFile(zp + ".part", "w", kw[0], compresslevel=kw[1]) as z:
             z.write(js, arcname=os.path.basename(js))
     finally:
         zipfile.LZMACompressor = orig
-    with zipfile.ZipFile(zp) as z:
+    with zipfile.ZipFile(zp + ".part") as z:
         names = z.namelist()
     assert names == [os.path.basename(js)], f"ZIP phải chứa đúng 1 file, đang có {names}"
-    return js, zp
+    os.replace(zp + ".part", zp)
+    return zp
 
 
 def load_chunk_scores(path):
