@@ -1,4 +1,4 @@
-"""Kiểm các bất biến của luật giữ mảnh theo giá trị (experiments/value_chunks)."""
+"""Kiểm các bất biến của luật giữ mảnh theo giá trị (baseline/value_chunks)."""
 import unittest
 
 from baseline.value_chunks import gold_cells, keep_idx, line_bounds, overlap_spans, pack_pi, pack_spans, piece_pi, pieces

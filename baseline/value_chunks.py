@@ -14,6 +14,8 @@ relevant_docs giữ nguyên (doc F2 không đổi). Không dùng nhãn, không G
   python -m baseline.value_chunks compress --tau 0.09 --scope set
   python -m baseline.value_chunks verify --tau 0.09 --scope set
 Bài D (FINAL 0,3626): build/compress/verify --tau 0.09 --scope all --overlap --recal dfull
+Bài gbm (FINAL 0,4035): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm --cut pack
+  (--recal <tag> đọc tập doc + p̂ do baseline.recal_docs hoặc baseline.ltr_docs ghi ra)
 """
 import argparse
 from array import array

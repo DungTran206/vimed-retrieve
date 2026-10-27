@@ -20,7 +20,7 @@ for k in (0, 1):
     d.commit(); print(p, d.execute("select count(*) from doc").fetchone()[0], flush=True)
 P
 enc() {  # $1 = phần, $2 = GPU
-  [ -s data/emb_zhQ8_p$1.npy ] || CUDA_VISIBLE_DEVICES=$2 $PY -u dense.py --encode --model $M --db data/zh_text_new_p$1.sqlite \
+  [ -s data/emb_zhQ8_p$1.npy ] || CUDA_VISIBLE_DEVICES=$2 $PY -u -m index.dense --encode --model $M --db data/zh_text_new_p$1.sqlite \
       --emb data/emb_zhQ8_p$1 --max-len 256 --batch 64 --min-title 3 --min-body 0 --body-chars 600
 }
 todo=(); for k in 0 1; do [ -s data/emb_zhQ8_p$k.npy ] || todo+=($k); done
@@ -46,7 +46,7 @@ INS_ZH="Instruct: Given a patient health question, retrieve medical Q&A posts or
 Query:"
 g=$(free_gpus | head -1); while [ -z "$g" ]; do sleep 300; g=$(free_gpus | head -1); done
 export CUDA_VISIBLE_DEVICES=$g
-$PY -u dense.py --rank --model $M --emb data/emb_zhQ8 --queries data/queries.jsonl --out data/dense_zhQ8_vi_rank.jsonl --query-instruct "$INS_VI" --max-len 256 --topk 1000
-$PY -u dense.py --rank --model $M --emb data/emb_zhQ8 --queries data/queries_zhq.jsonl --out data/dense_zhQ8_zhq_rank.jsonl --query-instruct "$INS_ZH" --max-len 256 --topk 1000
-$PY -u dense.py --rank --model $M --emb data/emb_zhQ8 --queries data/queries_zhq109.jsonl --out data/dense_zhQ8_zhq109_rank.jsonl --query-instruct "$INS_ZH" --max-len 256 --topk 1000
+$PY -u -m index.dense --rank --model $M --emb data/emb_zhQ8 --queries data/queries.jsonl --out data/dense_zhQ8_vi_rank.jsonl --query-instruct "$INS_VI" --max-len 256 --topk 1000
+$PY -u -m index.dense --rank --model $M --emb data/emb_zhQ8 --queries data/queries_zhq.jsonl --out data/dense_zhQ8_zhq_rank.jsonl --query-instruct "$INS_ZH" --max-len 256 --topk 1000
+$PY -u -m index.dense --rank --model $M --emb data/emb_zhQ8 --queries data/queries_zhq109.jsonl --out data/dense_zhQ8_zhq109_rank.jsonl --query-instruct "$INS_ZH" --max-len 256 --topk 1000
 echo ZHQ8_DONE

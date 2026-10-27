@@ -5,13 +5,17 @@ pandas
 pyarrow
 huggingface_hub
 tqdm
-# Suy luận nhẹ trên GPU 8 GB (cài torch bản CUDA phù hợp trước, xem SETUP.md)
+# Suy luận nhẹ trên GPU 8 GB (cài torch bản CUDA phù hợp trước); transformers cần cho tokenizer bge-m3 (value_chunks)
 sentence-transformers
+transformers
 # Crawler: trích nội dung chính khỏi HTML (bỏ nav/ads/footer), hỗ trợ cả vi/zh
 trafilatura>=2.2
 # Giả TLS fingerprint Chrome để vượt WAF 403; cứu được nhathuoclongchau.com.vn (79k URL)
 curl_cffi>=0.16
-# baseline: khớp p̂ (select_docs), đọc ZIP 1 GB theo luồng + kiểm RAM trước khi nén (value_chunks, Python ≥ 3.11)
-scikit-learn
+# baseline: khớp p̂ (select_docs), LTR/HistGBM (ltr_docs), đọc ZIP 1 GB theo luồng + kiểm RAM trước khi nén
+# (value_chunks, Python ≥ 3.11). Bài 0,4035 dựng bằng Python 3.13 · scikit-learn 1.9.1 · numpy 2.4.4 · pandas 3.0.3;
+# ghim đúng scikit-learn nếu cần tái lập TỪNG BYTE (HistGBM đổi phiên bản có thể đổi cây).
+scikit-learn==1.9.1
+numpy
 ijson
 psutil

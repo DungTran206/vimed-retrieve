@@ -6,7 +6,7 @@
   --mode full              : hệ số nhân theo ô (đồng thuận 0/1/2+ × vi / zh theo domain) HỌC TỪ NHÃN val
                              (data/lb/val.jsonl, co về 1 với α=20) — vùng xám như ngưỡng 160, ghi rõ khi khai báo.
 Ghi data/val/recal_<tag>_scores.json (cùng định dạng z80base_scores.json) và data/val/docs_recal_<tag>.json.
-  python -m baseline.recal_docs --mode full --tag dfull          # bài D
+  python -m baseline.recal_docs --mode full --tag dfull          # bài D; bài ltr/gbm dùng p̂' này làm phân bố tham chiếu
   python -m baseline.recal_docs --mode gamma --gamma 1.2 --tag dg12
 """
 import argparse

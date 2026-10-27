@@ -1,252 +1,180 @@
-# ViMed Retrieval — cửa vào cho cả nhóm
+# ViMed Retrieval: bài `gbm` (FINAL public 0,4035)
 
-Truy hồi thông tin y sinh đa ngôn ngữ. Query tiếng Việt → tìm tài liệu + đoạn nội dung liên
-quan từ nguồn **vi / zh / en**. Chấm ở hai cấp: **document** và **chunk**.
+Truy hồi y sinh đa ngôn ngữ (AI Guru R2AI 2026, bộ dữ liệu ViBioMIR). Mỗi câu hỏi tiếng Việt, hệ thống trả về
+`relevant_docs` (doc vi/zh) và `relevant_chunks` (đoạn trích **nguyên văn** của các doc đó).
 
-```
-Hạn nộp public  31/10/2026        Private phase  01–04/11/2026 (chỉ 5 lượt nộp TỔNG)
-Lượt nộp public 10 bài/ngày        Leaderboard    leaderboard.aiguru.com.vn
-```
+Cách chấm: `FINAL = (F2 doc + F2 chunk) / 2`, với F2 = 5PR / (4P + R) lấy trung bình theo câu.
+Từ 23/10, một chunk được tính là khớp khi LCS ≥ 40% chunk vàng **và** ≥ 40% chunk dự đoán.
 
-**Điểm hiện tại: `FINAL_SCORE = 0.2679`** (doc F2 0,2956 · chunk F2 0,2402, k=200; 07/10/2026). Bài tốt nhất: `runs/blendQB3x_t40_70.zip`.
-
-> **Cập nhật 06/10/2026 — ĐỌC TRƯỚC:** tình hình đã đổi nhiều so với các mục bên dưới (viết lúc điểm 0,0457).
-> Trạng thái thật, pipeline đang cho điểm tốt nhất, việc đang chạy và việc tiếp theo: **`CLAUDE.md` §6–7**.
-> Nhật ký đo và các bài học: **`PROGRESS.md` mục 06/10 và §2b**. Các "Việc #1–#6" ở §4 dưới đây là **lịch sử**:
-> crawl vi gần đủ, zh chỉ ~2,6% nhãn (không đáng thêm), corpus PubMed đã tích hợp trong ViBioMIR, `bm25.py` đã có, đã có dense + Qwen3-Reranker.
-> Còn thật sự mở: working notes paper (#6), chuẩn bị private phase, các thí nghiệm mở rộng pool (**HyDE đang chạy 07/10**: `hyde.py`, `scripts/run_hyde.sh`; Qwen3-Embedding title).
-> Đề xuất nghiên cứu `PROPOSAL_ADAPTIVE_FUSION.md` (gate BM25↔dense) đã thử trên nhãn bạc (07/10): oracle theo từng câu chỉ hơn trọng số chung +1,56% → **bỏ** (xem §6–7 của file đó).
+Repo này dựng lại **đúng từng byte** bài nộp tốt nhất từ các file dữ liệu trung gian (lấy từ Drive, xem §4).
+Đã kiểm trên một thư mục dữ liệu chỉ chứa các file trong danh sách Drive: JSON bài nộp có sha256 `ff54d83cb220…`
+(xem §6).
 
 ---
 
-## 1. Bắt đầu từ đâu
+## 1. Kết quả
 
-**Windows / PowerShell 5** (không có `&&`, `source`, `bash`, `rsync` — xem `SETUP.md`):
+| Bài | Cách chọn doc | FINAL | Doc F2 | Chunk F2 | Kỳ vọng private |
+|---|---|---|---|---|---|
+| E `z80base160_v09x_ov_p1152` | p̂ gốc (Qwen3-Reranker-4B + hạng) | 0,3589 | 0,3938 | 0,3239 | ≈ public |
+| F `z80dfull_v09x_ov_p1152` | p̂ × 8 hệ số theo ô (bài D) | 0,3628 | 0,3978 | 0,3279 | ≈ public |
+| `z80bge1_v09x_ov_p1152` | p̂ − 1,0 × log-hạng BGE-M3 (**1 tham số**) | 0,3727 | 0,4091 | 0,3363 | ≈ public |
+| `z80ltr_v09x_ov_p1152` | logistic, 44 đặc trưng | 0,3851 | 0,4213 | 0,3489 | ≈ public (đo chéo khớp leaderboard) |
+| **`z80gbm_v09x_ov_p1152`** | **HistGBM, 44 đặc trưng** | **0,4035** | **0,4439** | **0,3631** | **~0,39** |
+
+- **ltr:** đo chéo 5 fold theo câu dự báo doc F2 tăng +0,024 so với D; leaderboard đo được +0,0235.
+- **gbm:** đo chéo chỉ dự báo +0,010 so với ltr, còn public lên +0,023. Khoảng +0,013 dư ra là phần mô hình cây
+  học thuộc nhãn của chính các câu public. Vì vậy private nên kỳ vọng khoảng 0,39.
+
+## 2. Phát hiện chính: nhãn vàng ≈ "doc được BGE-M3 xếp cao"
+
+Đo doc F2 bằng đo chéo 5 fold trên 593 câu public, giữ ngưỡng chung 160 doc/câu. Mỗi dòng thêm đặc trưng
+vào mô hình logistic của dòng trên:
+
+| Đặc trưng | Doc F2 |
+|---|---|
+| p̂ + MaxP Qwen | 0,3818 |
+| **+ hạng trong 5 danh sách BGE-M3** (title, title+600, chunk, zh câu vi, zh câu dịch) | **0,4038** |
+| + hạng các danh sách khác (BM25, PRF, slug, Qwen3-Emb) thay cho BGE-M3 | 0,3899 |
+| mọi hạng + domain + nội dung (đủ 44 đặc trưng, logistic) | 0,4097 |
+| cùng 44 đặc trưng, HistGBM | 0,4195 |
+
+- Trên cặp có nhãn ở fold giữ riêng, AUC của mô hình logistic 44 đặc trưng là **0,790**.
+  Reranker Qwen3-4B fine-tune bằng LoRA trên nhãn chỉ đạt 0,763; Qwen gốc 0,723.
+- Giả thuyết hợp lý nhất: BTC lập danh sách doc để gán nhãn bằng một retriever kiểu BGE-M3.
+  Từ 14/10 đã có dấu hiệu: ở tiếng Trung, BGE-M3 hơn Qwen3-Embedding-8B 33% trên leaderboard,
+  dù 8B "tốt hơn" trên mọi thước đo nội bộ.
+
+## 3. Luồng xử lý
+
+```
+links_corpus + query (ViBioMIR) ── crawl → clean → chunk ──→ data/corpus_new.sqlite      ┐
+query ── Qwen3.5-9B + Hy-MT2-7B ──→ queries_enriched.jsonl (thực thể, bản dịch en/zh)    │ dữ liệu trung gian
+12 danh sách top-1000 (BM25F, BGE-M3 title/title+600/chunk, BGE-M3 & Qwen3-Emb-8B zh, …)│ (Drive, §4)
+Qwen3-Reranker-4B chấm MỌI chunk của 380 ứng viên (GPU) ──→ cc*/ccq*/z80base_scores.jsonl┘
+        │
+ (1) baseline.cands        RRF 3 nguồn vi → 300 doc vi + RRF 4 nguồn zh → 80 doc zh = 380 ứng viên/câu
+ (2) baseline.select_docs  p̂ = sigmoid(logit MaxP, log hạng trong ngôn ngữ, zh); --dump p̂ của mọi ứng viên
+ (3) baseline.recal_docs   p̂' của bài D (8 hệ số theo ô) — chỉ dùng làm PHÂN BỐ THAM CHIẾU cho bước 5
+ (4) baseline.ltr_feats    44 đặc trưng / cặp (câu, doc): logit p̂, MaxP, log-hạng 12 danh sách, domain, độ phủ thực thể…
+ (5) baseline.ltr_docs     HistGBM học trên cặp có nhãn (data/lb/val.jsonl) → điểm → ánh xạ phân vị về p̂'
+                           → ngưỡng CHUNG 160 doc/câu → relevant_docs
+ (6) baseline.value_chunks body[:10000] ghép dòng tới 1.152 token XLM-R; giữ mảnh có p̂ × π ≥ 0,09 (π theo vị trí);
+                           thêm mảnh của ứng viên ngoài tập nếu đạt ngưỡng; nới ranh giới mảnh liền kề ≤ 5%
+                           → JSON 0,98 GB → ZIP LZMA 87,6 MB → kiểm lại từng câu
+```
+
+Bước 1–6 chạy local, không cần GPU, tổng khoảng 30 phút cộng 15 phút nén.
+
+## 4. Dữ liệu (không nằm trong git, lấy từ Drive và đặt vào `data/`)
+
+| File | Cỡ | Sinh bằng | Làm lại được? |
+|---|---|---|---|
+| `corpus_new.sqlite` | 5,4 GB | `crawl/crawler.py` → `utils/clean.py --apply` → `index/chunk.py` → `scripts/make_store_new.py` (+ `merge_zh_new.py`) | crawl mất nhiều ngày |
+| `vibiomir_new/links_corpus_vi_en_zh.parquet` | 35 MB | tải từ HF `AIGuruTinix/ViBioMIR` | có |
+| `queries_enriched.jsonl` | 1,4 MB | `query_processing.pipeline` (Qwen3.5-9B + Hy-MT2-7B, GPU; `scripts/remote_run_llm.sh`) | GPU |
+| `bm25d3_rank.jsonl`, `bm25ent3_rank.jsonl` | 45 + 47 MB | `index.bm25 --keep-diacritics`, `index.bm25_ent` (`scripts/run_bm25_full.sh`) | có (CPU) |
+| `dense_viB3_rank.jsonl`, `dense_vi2_rank.jsonl` | 46 + 46 MB | `index.dense` BGE-M3 (title + 600 ký tự body / title) | GPU |
+| `dense_chunk_full_rank.jsonl` | 64 MB | `index.dense_chunks` (`scripts/run_dense_chunks_full.sh`) | GPU |
+| `dense_zhC3_{vi,zhq,zhq109}_rank.jsonl` | 47 + 47 + 4 MB | `scripts/run_zh_new.sh` (BGE-M3, doc zh) | GPU |
+| `dense_zhQ8_{vi,zhq,zhq109}_rank.jsonl` | 47 + 47 + 4 MB | `scripts/run_zh_q8.sh` (Qwen3-Embedding-8B, doc zh) | GPU |
+| `slug_rank1000.jsonl` | 166 MB | `index.slug_bm25 --topk 1000` | có |
+| `prf20_rank.jsonl`, `dense_q4t_rank.jsonl`, `bm25zh_new_rank.jsonl` | 47 + 46 + 46 MB | PRF trên BGE-M3, Qwen3-Embedding-4B title, BM25 zh trên câu dịch — script ở repo phát triển, **không có trong repo này** | lấy từ Drive |
+| `cc_scores.jsonl`, `ccq_a_scores.jsonl`, `ccq_b_scores.jsonl`, `z80base_scores.jsonl` | 29 + 12 + 11 + 4 MB | `rerank.chunk_rerank --prep/--score` (Qwen3-Reranker-4B gốc, GPU) | nhiều giờ GPU |
+| `val/p_w045.jsonl` | 8 MB | `scripts/val_calib.py` (nhãn mềm suy từ điểm tổng leaderboard) | lấy từ Drive |
+| **`lb/val.jsonl`, `lb/folds.json`** | 2 MB | nhãn 593 câu public từ file chấm chi tiết leaderboard (**BTC đã khoá, không tải lại được**) | **KHÔNG** |
+| `value_chunks/doc_T.json`, `value_chunks/doc_lines.pkl` (tuỳ chọn) | 4 + 40 MB | cache số token / ranh giới dòng; thiếu thì `value_chunks` tự tính lại | có |
+
+`value_chunks` cần tokenizer `BAAI/bge-m3` có sẵn trong cache HF, vì code đặt `HF_HUB_OFFLINE=1`.
+Tải một lần bằng `huggingface-cli download BAAI/bge-m3 config.json tokenizer.json tokenizer_config.json sentencepiece.bpe.model special_tokens_map.json`.
+
+## 5. Chạy
 
 ```powershell
-git clone <repo-url> vimed
-cd vimed
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python -m venv .venv; .\.venv\Scripts\Activate.ps1      # Linux: python -m venv .venv && . .venv/bin/activate
 pip install -r env\requirements-local.txt
+python -m unittest discover tests                        # 19 test offline
 ```
 
-**Linux / máy GPU:**
+Mọi lệnh chạy từ gốc repo. `data/` và `runs/` là thư mục tương đối. Trên PowerShell, viết mỗi lệnh trên một dòng
+hoặc thay `\` cuối dòng bằng dấu backtick:
 
 ```bash
-git clone <repo-url> vimed && cd vimed
-pip install -r env/requirements-local.txt
+python -m baseline.cands --n-zh 80 --out data/clean_cands_z80.jsonl
+python -m baseline.select_docs --cands data/clean_cands_z80.jsonl \
+    --scores data/cc_scores.jsonl data/ccq_a_scores.jsonl data/ccq_b_scores.jsonl data/z80base_scores.jsonl \
+    --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json
+python -m baseline.recal_docs --mode full --tag dfull
+python -m baseline.ltr_feats                                  # → data/val/ltr_feats.pkl
+python -m baseline.ltr_docs --mode gbm                        # → data/val/{recal_gbm_scores,docs_recal_gbm}.json
+python -m baseline.value_chunks build    --tau 0.09 --scope all --overlap --recal gbm --cut pack
+python -m baseline.value_chunks compress --tau 0.09 --scope all --overlap --recal gbm --cut pack   # cần ≥ 4 GiB RAM trống
+python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --recal gbm --cut pack   # đọc lại ZIP, so từng câu
 ```
 
-Rồi kiểm tra — cả hai lệnh phải xanh hết trước khi sửa bất cứ gì:
+- Kết quả nằm ở `runs/z80gbm_v09x_ov_p1152.zip`.
+- Dựng bài khác: đổi `--mode` thành `ltr` hoặc `bge1` ở `ltr_docs`, rồi đổi `--recal` theo cho khớp.
+- Đo chéo: `python -m baseline.ltr_docs --mode gbm --cv` in doc F2 đo chéo 5 fold của p̂ gốc và của mô hình.
+- `compress` nén LZMA với từ điển 768 MB, cần khoảng 6–7 GB RAM. Trên máy 12 GB phải tắt trình duyệt trước.
+- Nếu lần nén trước bị ngắt, xoá `runs/*.zip.part` rồi chạy lại.
+
+## 6. Vân tay để đối chiếu
+
+| Bài | Vân tay tập doc | sha256 JSON | sha256 ZIP |
+|---|---|---|---|
+| gbm | `872cbc242d11` | `ff54d83cb220aa20956c8e752c49ea675e7db5b597707367e537d9d79ad8f1dd` | `2ecf0f173f9a…` (87.563.114 byte) |
+| ltr | `7127181e3cb0` | `7a5c101a023a…` | `af20ee55f7fc…` (87.930.246 byte) |
+| bge1 | `cbb46814f61d` | `d14b39a58700…` | `9ca48fa70a4e…` (92.615.981 byte) |
+
+- Các bài trên dựng bằng Python 3.13, scikit-learn 1.9.1, numpy 2.4.4 và pandas 3.0.3.
+- HistGBM có thể ra cây khác nếu đổi phiên bản scikit-learn, nên `requirements-local.txt` ghim đúng bản này.
+
+## 7. Khai báo dùng nhãn (BẮT BUỘC ghi trong working notes)
+
+`ltr`, `gbm` và tham số β của `bge1` đều được chọn hoặc học từ **nhãn 593 câu public**. Nhãn này lấy từ file chấm
+chi tiết của leaderboard, loại file BTC đã khoá sau khi phát hiện các đội dùng nhãn để đẩy điểm. Ngày 23/10, BTC cho
+biết huấn luyện trên nhãn public "nhiều khả năng không được", chưa có trả lời chính thức. Bài D/F cũng dùng 8 hệ số
+và con số 160 doc/câu chọn bằng chính nhãn này.
+
+Ba mức để team chọn bài cho vòng private (5 lượt):
+
+| Mức | Bài | Dùng nhãn |
+|---|---|---|
+| gần sạch | `bge1` | 1 số (β = 1) + ngưỡng 160 doc/câu |
+| vùng xám | `ltr` | 44 hệ số logistic, giải thích được từng hệ số |
+| xám đậm | `gbm` | mô hình cây 200 vòng, khó giải thích; public bị thổi phồng ~0,013 |
+
+## 8. Đã thử và không hiệu quả (đừng làm lại)
+
+| Hướng | Kết quả |
+|---|---|
+| Qwen3-Reranker-8B thay 4B | ngang 4B trên leaderboard, cả ở cấp doc (08/10) lẫn cấp chunk (17/10) |
+| Chọn mảnh trong doc bằng điểm Qwen hoặc cos BGE-M3 | xếp đúng mảnh khớp 65%, thua chọn theo vị trí (75%); trộn hai tín hiệu không hơn |
+| Cắt chunk kiểu RecursiveCharacterTextSplitter / ghép dòng 1.152 token | recall +0,023 nhưng precision −0,008 → hoà |
+| Thêm nguồn truy hồi (HyDE, PRF, BM25 zh, chunk-dense toàn kho, tách ý con) | doc mới chỉ ~1% là vàng, dưới ngưỡng có lãi ~8% |
+| LLM zero-shot (Qwen3-8B) xét doc sát ngưỡng | không phân biệt được doc vàng (7,4% so với nền 7,1%) |
+| Doc tiếng Anh (PubMed 240k) | 0 nhãn trên leaderboard |
+| Doc vàng "chưa thấy" (~23/câu) | không do thiếu dữ liệu: doc vi/zh thiếu trong kho chỉ chứa ~0,2–0,3 vàng/câu; vàng rải mỏng trong chủ đề đông |
+
+## 9. Cấu trúc repo
 
 ```
-python -m unittest discover tests    # test offline
-python utils/audit.py                # 40 mục trên dữ liệu thật (cần có data/corpus.sqlite)
+baseline/         các bước 1–6 ở §3 (cands, select_docs, recal_docs, ltr_feats, ltr_docs, value_chunks)
+crawl/ utils/     crawl, làm sạch boilerplate, kiểm toàn chuỗi (utils/audit.py)
+index/            chunk theo offset, BM25F, BM25 thực thể, slug, BGE-M3/Qwen3-Emb (dense, dense_chunks), RRF (fuse)
+query_processing/ thực thể + bản dịch câu hỏi (Qwen3.5-9B, Hy-MT2-7B)
+rerank/           Qwen3-Reranker-4B chấm doc / chunk (GPU)
+submit/           kiểm định dạng, vân tay, nén ZIP (submission.py), chấm offline (score.py)
+scripts/          lệnh chạy trên máy GPU (Linux, bash) và tác vụ dựng kho
+tests/            test offline
 ```
 
-**Dữ liệu không nằm trong repo** (`.gitignore` loại `data/`, `runs/`, `*.sqlite`). Sinh lại:
-
-```
-python crawl/profile_dataset.py    # tải ViBioMIR → data/queries.jsonl + thống kê domain
-python index/slug_bm25.py --topk 200   # → data/slug_rank.jsonl (xếp hạng từ slug, không crawl)
-python crawl/crawler.py --prio data/slug_rank.jsonl    # → data/corpus.sqlite
-python utils/clean.py --apply                          # lọc boilerplate lặp theo domain
-python index/chunk.py                                  # cắt chunk theo offset
-python utils/audit.py                                  # phải PASS hết 40 mục
-```
-
-**Thứ tự này quan trọng.** `clean.py` đổi `doc.body` nên mọi offset chunk cũ sai → nó tự xoá
-chunk của doc bị sửa, và `chunk.py` phải chạy SAU để cắt lại. Chạy sai thứ tự thì `audit.py` báo.
-
-`crawler.py` resume được theo từng URL nên Ctrl+C an toàn, chạy lại là tiếp tục.
-
-## 2. Chuỗi xử lý — ai đụng vào đâu
-
-```
-links_corpus.parquet (4,39M URL)   query.parquet (1.200 câu)
-         │                                  │
-         ├── index/slug_bm25.py ──────────────────┤   xếp hạng từ slug URL, KHÔNG crawl
-         │        └→ data/slug_rank.jsonl       (dùng để xếp thứ tự hàng đợi crawl)
-         │
-         └── crawl/crawler.py ─→ data/corpus.sqlite   ← TẤT CẢ dữ liệu crawl nằm ở đây
-                                 │  bảng doc:   body (bất biến) + title/descr/tags
-                                 │  bảng queue: trạng thái từng URL, resume được
-                                 ↓
-                            index/chunk.py ─→ bảng chunk: CHỈ (doc_id, start, end)
-                                 ↓
-                         index/bm25.py, index/bm25_ent.py, index/dense.py, index/fuse.py, rerank/qwen_rerank.py, rerank/chunk_rerank.py (xem METHODS.md)
-                                 ↓
-                          submit/submission.py ─→ runs/*.zip ─→ leaderboard
-                                 ↑
-                          submit/score.py (chấm offline), utils/audit.py (kiểm toàn chuỗi)
-```
-
-**Ràng buộc quan trọng nhất của cả đề:** `chunk_text` phải **nguyên văn** từ tài liệu gốc.
-Nên `doc.body` là bất biến, và `chunk` chỉ lưu offset — `chunk_text = body[start:end]`.
-Không có đường nào để chunk lệch khỏi tài liệu. **Đừng bao giờ lưu text của chunk riêng.**
-
-## 3. Đọc gì ở đâu
-
-| File | Nội dung | Khi nào đọc |
-| --- | --- | --- |
-| **`README.md`** | file này | đầu tiên |
-| **`CLAUDE.md`** | luật cuộc thi, cách chấm, mô hình được dùng, hạ tầng, quy ước làm việc | trước khi viết code |
-| **`METHODS.md`** | **từng phương pháp đang dùng/đang thử: làm gì, vì sao, số đo, ✅❌⏳** (đọc cái này để hiểu hướng đi) | sau README |
-| **`LITERATURE.md`** | bài báo IR liên quan (đã tra) và hướng nào hợp với bài toán, kèm kỳ vọng | khi chọn hướng mới |
-| **`PIPELINE.md`** | thiết kế từng bước xử lý dữ liệu + lý do + thứ tự làm | khi làm một bước cụ thể |
-| **`PROGRESS.md`** | **sổ số đo mọi lần chạy**, quyết định đã chốt kèm lý do, bảng điểm leaderboard | khi cần con số, hoặc trước khi định làm lại gì |
-| `SETUP.md` | setup 2 máy (local PowerShell + máy GPU) | khi dựng môi trường |
-
-`PROGRESS.md` dài 1.000 dòng. **Không cần đọc hết.** Ba mục đáng đọc trước:
-§1 (bảng số đo chính) · §2b (bảng điểm leaderboard) · §3 (quyết định đã chốt kèm lý do).
-
-## 4. Việc cho 3 người — xếp theo giá trị
-
-### Việc #1: crawl `familydoctor.com.cn` — 451k URL, CHỈ máy GPU làm được
-
-`familydoctor.com.cn` + 7 subdomain = **451.351 URL = 10,3% corpus**, trả 403 từ mạng VNPT
-ở Hà Nội nhưng **200 từ máy GPU**. Đã xác nhận: Alibaba WAF chặn **theo IP**, và 200/200 URL
-thử đều trích được nội dung (body 3.295 ký tự, title 100%, descr 100%, tags 96%).
-
-```bash
-tmux new -s fd      # 451k @ 5 req/s ≈ 25 giờ, đừng để đứt khi mất SSH
-python crawl/crawler.py --domains "familydoctor.com.cn,baidianfeng.familydoctor.com.cn,familydoctor.cn,qy.familydoctor.com.cn,v.familydoctor.com.cn,ask.familydoctor.com.cn,yanglao.familydoctor.com.cn,ypk.familydoctor.com.cn" --retry-blocked --workers 30
-```
-
-Xong thì `scp` file `data/corpus.sqlite` về máy chính rồi `python crawl/crawler.py --merge <file>`.
-
-**`zysjonline.com` (243k, 5,5%) thì KHÔNG phải vấn đề IP** — vẫn 403 từ cả hai máy. Đó là
-Cloudflare JS challenge: 10 profile `impersonate` của `curl_cffi` đều thất bại trong khi chứng
-dương `nhathuoclongchau` qua được 7/10. Muốn lấy thì cần browser thật (Playwright), ~1,5–3 ngày
-cho 243k URL. Chưa đáng.
-
-### Việc #2: crawl song song 3 máy — nút cổ chai hiện tại
-
-Crawl là chặn duy nhất của **cả hai tầng điểm** (xem `PROGRESS.md` §2, mục "quét k").
-Một máy mất 73 giờ; ba máy chia theo domain mất ~20 giờ.
-
-Chia theo **domain** chứ không theo id, để mỗi domain do đúng một máy phụ trách — giữ nguyên
-rate limit, không đập cùng một server từ 3 hướng.
-
-```powershell
-# Máy A                                  # Máy B                 # Máy C
-python crawl/crawler.py --shard 0/3            --shard 1/3             --shard 2/3
-```
-
-Chia cân: mỗi phần ~1.223.000 URL. Chạy trong `tmux`/`screen` nếu là Linux. Ctrl+C an toàn,
-resume từ đúng chỗ dừng.
-
-Xong thì gộp về một máy:
-
-```
-python crawl/crawler.py --merge <duong_dan>/corpus_mayB.sqlite
-python crawl/crawler.py --merge <duong_dan>/corpus_mayC.sqlite
-python index/chunk.py                 # cắt chunk cho doc mới
-python utils/audit.py                 # phải PASS hết
-```
-
-`--merge` chạy lại nhiều lần an toàn (`INSERT OR IGNORE`), và nó tự tính lại trạng thái
-`queue` theo nội dung thật chứ không tin `state` của máy kia.
-
-### Việc #3: parser cho 9,4% crawl được nhưng trích ra 0 ký tự
-
-~380k URL trả HTTP 200 nhưng `trafilatura` không lấy được nội dung.
-
-```powershell
-# xem nhóm nào đang lỗi, và nhóm nào còn HTML để sửa offline
-python -c "import sqlite3; c=sqlite3.connect('data/corpus.sqlite'); print(c.execute('SELECT domain,count(*) FROM doc WHERE status=200 AND length(body)<200 GROUP BY domain ORDER BY 2 DESC LIMIT 15').fetchall())"
-```
-
-| Nhóm | URL | Hiện tượng | Trạng thái |
-| --- | --- | --- | --- |
-| `laodong.vn` | 31k | thách đố cookie: HTTP 200 với 177 byte JS đặt cookie rồi reload | ✅ **ĐÃ SỬA** — `cookie_challenge()` trong `crawl/crawler.py`. Cần `--retry-failed --domains laodong.vn` |
-| 14 subdomain `*.39.net` (`tnb`, `fk`, `gan`, `nk`, `heart`…) | ~66k | markup khác `ask.39.net` (cái này chạy 100%) | ⏳ **chưa crawl tới** — nằm sâu trong hàng đợi. Lấy mẫu trước bằng `--domains "tnb.39.net,fk.39.net" --limit 50` |
-| `zhongyibaodian.net`, `baotayninh.vn` | ~148k | `trafilatura` trượt, fallback "khối div dài nhất" chưa bắt được | ⏳ chưa crawl tới |
-
-Cách làm: lấy mẫu ~50 URL của nhóm cần sửa bằng `--domains`, xem `doc.raw_html` (crawler tự
-lưu HTML khi trích thất bại), viết selector trong `crawl/crawler.py:extract_fallback()`, rồi
-`--domains "..." --retry-failed`. Đáng làm vì `tags` của nhóm `*.39.net` mang sẵn nhãn chuyên khoa.
-
-**Mẫu đã gặp, đáng để ý:** `laodong.vn` không phải lỗi trích mà là chống bot kiểu nhẹ — server
-trả JS đặt cookie với **giá trị nằm sẵn trong phản hồi**, nên chỉ cần set lại rồi gọi lần hai,
-không cần chạy JS. `cookie_challenge()` xử lý mẫu này một cách tổng quát nên có thể cứu cả
-domain khác cùng kiểu.
-
-### Việc #4: BM25 có trọng số trường (`index/bm25.py` — chưa có)
-
-Bước tiếp theo của pipeline, **độc lập với crawl**, viết được ngay.
-
-Mẹo trong `index/slug_bm25.py` tổng quát hoá được: chỉ có 1.200 query nên **không cần inverted
-index toàn corpus** — chỉ cần `df` của các term xuất hiện trong query, rồi một lượt
-doc-at-a-time. Khỏi Lucene, khỏi Java.
-
-Trọng số đề xuất (lý do ở `PIPELINE.md` §4a):
-
-| Trường | Trọng số | Vì sao |
-| --- | --- | --- |
-| `title` | **3,0** | Với site Q&A, title **chính là câu hỏi bệnh nhân** → khớp query↔title là khớp câu hỏi với câu hỏi |
-| `tags` | 2,0 | 65% doc có, mang nhãn chuyên khoa |
-| `descr` | 1,5 | 94% doc có |
-| `body` | 1,0 | |
-
-**Hai cái bẫy phải xử lý:**
-1. `slug_bm25.rank()` có `docs = list(docs)` → nạp hết vào RAM. Chạy được với slug nhưng
-   **sẽ chết** với 6M chunk trên máy 11,7 GB RAM. Phải **streaming hai lượt** từ SQLite.
-2. Tách từ: tiếng Việt cần `pyvi`/`underthesea`, tiếng Trung cần `jieba` — **chưa cài**.
-
-### Ghi chú về corpus tiếng Anh
-
-BTC đã tích hợp tài liệu tiếng Anh/PubMed vào dataset ViBioMIR. Không cần gọi NCBI,
-Europe PMC hay PubTator để tải corpus riêng; dùng dữ liệu đã có trong dataset.
-
-### Việc #6: working notes paper
-
-> *"Kết quả cuối cùng sẽ không được xem là chính thức cho đến khi một bài báo mô tả phương
-> pháp (working notes paper) với mô tả đầy đủ về các phương pháp được nộp."*
-
-**Chưa ai bắt đầu.** `PROGRESS.md` chính là nguyên liệu — mọi số đo, mọi quyết định kèm lý do,
-mọi đường cụt đã thử đều ở đó. Đừng để sát hạn.
-
----
-
-## 5. ĐỪNG làm lại những việc này — đã thử và thất bại
-
-Tiết kiệm cho bạn vài ngày. Chi tiết và số đo ở `PROGRESS.md`.
-
-| Đã thử | Kết quả | Đừng |
-| --- | --- | --- |
-| `sitemap.xml` của 12 domain lớn nhất | chỉ có `<loc>`, **không có title**. URL thì BTC đã cho sẵn | tìm title qua sitemap |
-| Proxy miễn phí (jina, allorigins, codetabs) | cả ba hỏng; **chứng dương `cnkang.com` cũng thất bại** nên kết quả vô giá trị | dùng proxy công cộng |
-| `familydoctor.com.cn` từ mạng VNPT | 403 mọi cách. Nhưng **200 từ máy GPU** → đúng là chặn theo IP, đã giải quyết | nghĩ nó không lấy được |
-| 10 profile `impersonate` của `curl_cffi` trên `zysjonline` | 0/10 (chứng dương `nhathuoclongchau` 7/10 → phương pháp đúng, đích không vượt được) | thử thêm profile |
-| Vòng lấy cookie `acw_tc` + Referer cho `familydoctor` | vẫn 403 | thử header |
-| `doc_id` kiểu **chuỗi** trong JSON | **FINAL = 0**. Phải là **số nguyên** (`--int-ids`) | bỏ `--int-ids` |
-| `k = 20` doc mỗi câu | G ≈ 50–60 nên quá ngắn. Đỉnh ở **k ≈ 194** | dùng k nhỏ |
-| Nâng k để cải thiện điểm chunk | `CHUNKS_F2` **phẳng ở 0,0093** qua k=100/200/500 — bị chặn bởi độ phủ crawl | kỳ vọng k cứu tầng chunk |
-| Lưu HTML thô | 4,39M × 53,7 KB = **225 GB**. Text đã trích chỉ ~14 GB | lưu HTML (trừ khi trích lỗi) |
-| Trích nội dung trong thread | `trafilatura` tốn 59 ms CPU/trang, **GIL hoá tuần tự** → trần 17 trang/s | bỏ `ProcessPoolExecutor` |
-| Ký tự/token **trung bình** để tính budget chunk | vi trung bình 3,75 nhưng **min 1,32** → chunk 2.787 token | dùng trung bình (phải dùng P5 + tokenizer thật) |
-| Cắt giảm phạm vi crawl theo domain | 83% URL là ID số thuần, **không một bit thông tin nào** trong URL | cố thu hẹp phía tiếng Trung |
-
----
-
-## 6. Repo
-
-**Repo này phải để PRIVATE trong suốt thời gian thi** - code truy hồi là phương pháp của nhóm.
-Theo luật BTC, checkpoint fine-tune cũng phải giữ private, không công khai lên Hugging Face.
-
-Không đưa lên repo: `data/` (corpus 1,19 GB + dữ liệu BTC giấy phép CC BY-NC), `runs/`
-(bài nộp), `*.sqlite`, `.venv*`, `models/`. `.gitignore` đã loại sẵn.
-
-## 7. Quy ước khi làm việc
-
-- **Đổi bất cứ thứ gì trong chuỗi dữ liệu → chạy `python audit.py`.** `--demo` không thay được:
-  hai bug về trần token chỉ lộ ra ở `audit.py`.
-- Mọi script có `--demo` làm self-check trên dữ liệu giả, chạy trong vài ms.
-- **Chạy xong bước nào → thêm một mục vào `PROGRESS.md` §2 kèm SỐ ĐO THẬT**, cập nhật bảng §1.
-  Giữ nguyên mục cũ kể cả khi kết quả tệ — cái tệ là mốc để so, và là nguyên liệu viết paper.
-- Quyết định đã chốt thì ghi `PROGRESS.md` §3 **kèm lý do**, để sau không bàn lại.
-- Giao tiếp và comment code bằng **tiếng Việt**.
-- `data/corpus.sqlite` **không có bản thứ hai**. Mất là crawl lại từ đầu. Sao lưu bằng
-  `VACUUM INTO` (an toàn khi đang ghi), đừng copy file trực tiếp lúc crawler đang chạy.
+- **Mô hình dùng** (đều mở, ≤ 15B, phát hành trước 01/08/2026):
+  - BAAI/bge-m3
+  - Qwen/Qwen3-Reranker-4B
+  - Qwen/Qwen3-Embedding-8B và Qwen/Qwen3-Embedding-4B
+  - Qwen/Qwen3.5-9B
+  - tencent/Hy-MT2-7B
+- **Repo phải để PRIVATE** suốt thời gian thi.
+- **Không đưa lên git:** `data/` (dữ liệu BTC theo giấy phép CC BY-NC 4.0) và `runs/`.
+- **`chunk_text` luôn là lát cắt nguyên văn** `body[start:end]` của `corpus_new.sqlite`, không bao giờ lưu text chunk riêng.
