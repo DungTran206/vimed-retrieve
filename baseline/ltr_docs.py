@@ -5,6 +5,8 @@
   --mode gbm  : HistGradientBoosting cùng 44 đặc trưng (lr 0,05 · 200 vòng · 31 lá · L2 1,0 · random_state 0)
   --mode gbm2 : như gbm + cos BGE-M3 thô (bge_cos) — 45 đặc trưng (đo chéo doc F2 0,4195 → 0,4243)
   --mode gbm3 : như gbm2 + cos thô và cos − top-1 của câu trong 5 danh sách BGE-M3 — 55 đặc trưng (→ 0,4292)
+  --cut-q     : (gbm*) thay ngưỡng chung bằng k THEO TỪNG CÂU = argmax F2 kỳ vọng 5·Σp/(4Ĝ+k), Ĝ = C_Q·Σp của xác suất
+                gbm (đo chéo gbm3 0,4292 → 0,4331, +0,0039 ± 0,0017; k TB 149)
 ltr/gbm/gbm2/gbm3 HỌC TỪ NHÃN public (data/lb/val.jsonl, từ file chấm chi tiết của leaderboard) — VÙNG XÁM, phải khai báo.
 Điểm mới được ánh xạ PHÂN VỊ về phân bố p̂ tham chiếu (bge1: z80base_scores.json; ltr/gbm: recal_dfull_scores.json của
 baseline.recal_docs --mode full), nên ngưỡng 160 doc/câu và luật giá trị τ 0,09 ở baseline.value_chunks hành xử như bài gốc.
@@ -27,6 +29,7 @@ BGE = ["r_dense_viB3", "r_dense_chunk_full", "r_dense_vi2", "r_dense_zhC3_vi", "
 REF = {"bge1": "data/val/z80base_scores.json", "ltr": "data/val/recal_dfull_scores.json",
        "gbm": "data/val/recal_dfull_scores.json", "gbm2": "data/val/recal_dfull_scores.json",
        "gbm3": "data/val/recal_dfull_scores.json"}
+C_Q = 1.48   # trung vị G / Σp (p gbm3 ngoài mẫu 5 fold, 593 câu public; từng fold 1,43–1,50) — vàng ngoài pool ~1/3
 
 
 def load_labels(path="data/lb/val.jsonl"):
@@ -75,6 +78,17 @@ def select(S2, k_mean=160):
     return {q: v or [S2[q][0][0]] for q, v in D.items()}, allp[-1][0]
 
 
+def select_q(P, c=C_Q):
+    """k theo từng câu = argmax 5·Σ_{i≤k} p_i / (4·c·Σp + k) trên xác suất p giảm dần (luôn ≥ 1 doc)."""
+    D = {}
+    for q, v in P.items():
+        v = sorted(v, key=lambda x: -x[1])
+        p = np.array([x[1] for x in v])
+        k = np.arange(1, len(p) + 1)
+        D[q] = [d for d, _ in v[:int(np.argmax(np.cumsum(p) / (4 * c * p.sum() + k))) + 1]]
+    return D
+
+
 def cv(df, mode, feat, val, gold, lab, k=160):
     fo = json.load(open("data/lb/folds.json"))["random"]
     d = df[df.q.isin(val)].copy()
@@ -101,7 +115,9 @@ def main():
     ap.add_argument("--tag", help="tên đầu ra (mặc định = --mode)")
     ap.add_argument("--feats", default="data/val/ltr_feats.pkl")
     ap.add_argument("--cv", action="store_true", help="chỉ đo đo chéo, không ghi file")
+    ap.add_argument("--cut-q", action="store_true", help="(gbm*) cắt k theo từng câu bằng F2 kỳ vọng thay ngưỡng chung")
     a = ap.parse_args()
+    assert not a.cut_q or a.mode.startswith("gbm"), "--cut-q cần xác suất gbm"
     df = pickle.load(open(a.feats, "rb"))
     if a.mode == "bge1":
         s = df.lp - 1.0 * df[BGE].mean(axis=1)
@@ -117,7 +133,9 @@ def main():
     S2 = {str(q): sorted(([d, round(float(p), 6)] for d, p in zip(g.d, g.p2)), key=lambda x: -x[1])
           for q, g in df.groupby("q")}
     D, thr = select(S2)
-    tag = a.tag or a.mode
+    if a.cut_q:
+        D, thr = select_q({str(q): list(zip(g.d, g.s)) for q, g in df.assign(s=s).groupby("q")}), float("nan")
+    tag = a.tag or a.mode + ("q" if a.cut_q else "")
     json.dump(S2, open(f"data/val/recal_{tag}_scores.json", "w", encoding="utf-8"))
     json.dump(D, open(f"data/val/docs_recal_{tag}.json", "w", encoding="utf-8"))
     n = [len(v) for v in D.values()]

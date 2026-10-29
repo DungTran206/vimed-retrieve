@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from baseline.ltr_docs import quantile_map, select
+from baseline.ltr_docs import quantile_map, select, select_q
 
 
 class TestLtrDocs(unittest.TestCase):
@@ -21,6 +21,12 @@ class TestLtrDocs(unittest.TestCase):
         self.assertEqual(D["1"], ["a", "b"])
         self.assertEqual(D["2"], ["x"])
         self.assertEqual(thr, 0.8)
+
+    def test_per_query_cut_maximises_expected_f2(self):
+        # Ĝ = 1,85 → 5Σp/(4Ĝ+k): k1 0,107 · k2 0,181 · k3 0,173 · k4 0,162 → giữ 2; câu điểm thấp vẫn ≥ 1 doc
+        D = select_q({"1": [("c", 0.1), ("a", 0.9), ("d", 0.05), ("b", 0.8)], "2": [("x", 0.001)]}, c=1.0)
+        self.assertEqual(D["1"], ["a", "b"])
+        self.assertEqual(D["2"], ["x"])
 
 
 if __name__ == "__main__":
