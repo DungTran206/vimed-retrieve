@@ -4,6 +4,7 @@ Chỉ dùng danh sách truy hồi, điểm Qwen3-Reranker-4B GỐC và metadata 
   lp, lm     logit p̂ (baseline.select_docs --dump) và logit MaxP Qwen gốc (max theo chunk, chunk chấm ở nhiều file thì file SAU thắng)
   nchunk     số chunk đã chấm của doc
   r_<list>   log(1 + hạng) trong 12 danh sách top-1000 (ngoài top-1000 → hạng 1001); cons100 = số danh sách xếp doc vào top-100
+  bge_cos    cos BGE-M3 thô câu ↔ title + 600 ký tự (dense_viB3 cho doc vi, dense_zhC3_vi cho doc zh) — chỉ gbm2
   zh, dom, loglen, rk_lang   ngôn ngữ, domain, log độ dài body, log hạng trong ngôn ngữ theo p̂
   ent        độ phủ thực thể tốt nhất của câu hỏi (âm tiết vi / bigram ký tự zh) trong title + 3.000 ký tự đầu body
   tov        tỉ lệ âm tiết (vi) / bigram (zh) của title có trong câu hỏi (bản dịch zh với doc zh)
@@ -69,6 +70,18 @@ def main():
         print("đọc", nm, flush=True)
     df["cons100"] = df[[c for c in df if c.startswith("t_")]].sum(axis=1)
     df = df.drop(columns=[c for c in df if c.startswith("t_")])
+    # cos BGE-M3 thô (câu vi ↔ title + 600 ký tự): doc vi từ dense_viB3, doc zh từ dense_zhC3_vi (file trước thắng);
+    # không có trong danh sách → min của câu − 0,01. Chỉ gbm2 dùng (ltr_docs).
+    cos = np.full(len(df), np.nan)
+    for nm in ("dense_viB3", "dense_zhC3_vi"):
+        for l in open(f"data/{nm}_rank.jsonl", encoding="utf-8"):
+            r = json.loads(l)
+            for c in r["candidates"]:
+                j = key.get((int(r["id"]), str(c["doc_id"])))
+                if j is not None and np.isnan(cos[j]):
+                    cos[j] = c["score"]
+    df["bge_cos"] = cos
+    df["bge_cos"] = df.bge_cos.fillna(df.groupby("q").bge_cos.transform("min") - 0.01).fillna(0)
 
     con = sqlite3.connect("file:data/corpus_new.sqlite?mode=ro", uri=True)
     docs = sorted(set(df.d))

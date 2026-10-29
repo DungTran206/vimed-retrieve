@@ -1,4 +1,4 @@
-# ViMed Retrieval: bài `gbm` (FINAL public 0,4035)
+# ViMed Retrieval: bài `gbm2` + gộp mảnh (FINAL public 0,4111)
 
 Truy hồi y sinh đa ngôn ngữ (AI Guru R2AI 2026, bộ dữ liệu ViBioMIR). Mỗi câu hỏi tiếng Việt, hệ thống trả về
 `relevant_docs` (doc vi/zh) và `relevant_chunks` (đoạn trích **nguyên văn** của các doc đó).
@@ -6,9 +6,9 @@ Truy hồi y sinh đa ngôn ngữ (AI Guru R2AI 2026, bộ dữ liệu ViBioMIR)
 Cách chấm: `FINAL = (F2 doc + F2 chunk) / 2`, với F2 = 5PR / (4P + R) lấy trung bình theo câu.
 Từ 23/10, một chunk được tính là khớp khi LCS ≥ 40% chunk vàng **và** ≥ 40% chunk dự đoán.
 
-Repo này dựng lại **đúng từng byte** bài nộp tốt nhất từ các file dữ liệu trung gian (lấy từ Drive, xem §4).
-Đã kiểm trên một thư mục dữ liệu chỉ chứa các file trong danh sách Drive: JSON bài nộp có sha256 `ff54d83cb220…`
-(xem §6).
+Repo này dựng lại **đúng từng byte** bài nộp từ các file dữ liệu trung gian (lấy từ Drive, xem §4).
+Bài `gbm` đã kiểm trên một thư mục dữ liệu chỉ chứa các file trong danh sách Drive: JSON bài nộp có sha256
+`ff54d83cb220…`. Bài `gbm2` và `gbm2_m2` dựng bằng chính code này: vân tay ở §6.
 
 ---
 
@@ -20,11 +20,15 @@ Repo này dựng lại **đúng từng byte** bài nộp tốt nhất từ các 
 | F `z80dfull_v09x_ov_p1152` | p̂ × 8 hệ số theo ô (bài D) | 0,3628 | 0,3978 | 0,3279 | ≈ public |
 | `z80bge1_v09x_ov_p1152` | p̂ − 1,0 × log-hạng BGE-M3 (**1 tham số**) | 0,3727 | 0,4091 | 0,3363 | ≈ public |
 | `z80ltr_v09x_ov_p1152` | logistic, 44 đặc trưng | 0,3851 | 0,4213 | 0,3489 | ≈ public (đo chéo khớp leaderboard) |
-| **`z80gbm_v09x_ov_p1152`** | **HistGBM, 44 đặc trưng** | **0,4035** | **0,4439** | **0,3631** | **~0,39** |
+| `z80gbm_v09x_ov_p1152` | HistGBM, 44 đặc trưng | 0,4035 | 0,4439 | 0,3631 | ~0,39 |
+| `z80gbm2_v09x_ov_p1152` | HistGBM, 45 đặc trưng (+ cos BGE-M3 thô) | 0,4104 | 0,4515 | 0,3692 | ~0,395 |
+| **`z80gbm2_v09x_ov_p1152_m2`** | **như gbm2, chunk gộp mảnh (`--merge`)** | **0,4111** | **0,4515** | **0,3708** | **~0,40** |
 
 - **ltr:** đo chéo 5 fold theo câu dự báo doc F2 tăng +0,024 so với D; leaderboard đo được +0,0235.
 - **gbm:** đo chéo chỉ dự báo +0,010 so với ltr, còn public lên +0,023. Khoảng +0,013 dư ra là phần mô hình cây
   học thuộc nhãn của chính các câu public. Vì vậy private nên kỳ vọng khoảng 0,39.
+- **gbm2:** đo chéo dự báo doc +0,0048 so với gbm, public +0,0076 (~+0,003 khớp trong mẫu).
+- **`--merge`:** cùng tập doc với gbm2, chỉ đổi chunk: P +0,0057, R −0,0104, chunk F2 +0,0016. Không học nhãn.
 
 ## 2. Phát hiện chính: nhãn vàng ≈ "doc được BGE-M3 xếp cao"
 
@@ -38,6 +42,8 @@ vào mô hình logistic của dòng trên:
 | + hạng các danh sách khác (BM25, PRF, slug, Qwen3-Emb) thay cho BGE-M3 | 0,3899 |
 | mọi hạng + domain + nội dung (đủ 44 đặc trưng, logistic) | 0,4097 |
 | cùng 44 đặc trưng, HistGBM | 0,4195 |
+| + cos BGE-M3 thô (gbm2) | **0,4243** |
+| + SapBERT (thực thể ↔ title) thay vì cos BGE | 0,4183 |
 
 - Trên cặp có nhãn ở fold giữ riêng, AUC của mô hình logistic 44 đặc trưng là **0,790**.
   Reranker Qwen3-4B fine-tune bằng LoRA trên nhãn chỉ đạt 0,763; Qwen gốc 0,723.
@@ -56,12 +62,13 @@ Qwen3-Reranker-4B chấm MỌI chunk của 380 ứng viên (GPU) ──→ cc*/c
  (1) baseline.cands        RRF 3 nguồn vi → 300 doc vi + RRF 4 nguồn zh → 80 doc zh = 380 ứng viên/câu
  (2) baseline.select_docs  p̂ = sigmoid(logit MaxP, log hạng trong ngôn ngữ, zh); --dump p̂ của mọi ứng viên
  (3) baseline.recal_docs   p̂' của bài D (8 hệ số theo ô) — chỉ dùng làm PHÂN BỐ THAM CHIẾU cho bước 5
- (4) baseline.ltr_feats    44 đặc trưng / cặp (câu, doc): logit p̂, MaxP, log-hạng 12 danh sách, domain, độ phủ thực thể…
- (5) baseline.ltr_docs     HistGBM học trên cặp có nhãn (data/lb/val.jsonl) → điểm → ánh xạ phân vị về p̂'
-                           → ngưỡng CHUNG 160 doc/câu → relevant_docs
- (6) baseline.value_chunks body[:10000] ghép dòng tới 1.152 token XLM-R; giữ mảnh có p̂ × π ≥ 0,09 (π theo vị trí);
-                           thêm mảnh của ứng viên ngoài tập nếu đạt ngưỡng; nới ranh giới mảnh liền kề ≤ 5%
-                           → JSON 0,98 GB → ZIP LZMA 87,6 MB → kiểm lại từng câu
+ (4) baseline.ltr_feats    đặc trưng / cặp (câu, doc): logit p̂, MaxP, log-hạng 12 danh sách, cos BGE-M3, domain, thực thể…
+ (5) baseline.ltr_docs     HistGBM (gbm2: 45 đặc trưng) học trên cặp có nhãn (data/lb/val.jsonl) → điểm → ánh xạ
+                           phân vị về p̂' → ngưỡng CHUNG 160 doc/câu → relevant_docs
+ (6) baseline.value_chunks body[:10000] ghép dòng tới 1.152 token XLM-R; --merge: mỗi doc chọn (quy hoạch động) các
+                           khoảng 1 mảnh hoặc 2 mảnh liền kề gộp thành 1 chunk, giữ khi p̂ × π − 0,09 > 0 (π theo
+                           vị trí); thêm chunk của ứng viên ngoài tập nếu đạt ngưỡng; nới ranh giới chunk liền kề ≤ 5%
+                           → JSON 1,05 GB → ZIP LZMA 92,5 MB → kiểm lại từng câu
 ```
 
 Bước 1–6 chạy local, không cần GPU, tổng khoảng 30 phút cộng 15 phút nén.
@@ -93,7 +100,7 @@ Tải một lần bằng `huggingface-cli download BAAI/bge-m3 config.json token
 ```powershell
 python -m venv .venv; .\.venv\Scripts\Activate.ps1      # Linux: python -m venv .venv && . .venv/bin/activate
 pip install -r env\requirements-local.txt
-python -m unittest discover tests                        # 19 test offline
+python -m unittest discover tests                        # 21 test offline
 ```
 
 Mọi lệnh chạy từ gốc repo. `data/` và `runs/` là thư mục tương đối. Trên PowerShell, viết mỗi lệnh trên một dòng
@@ -106,15 +113,16 @@ python -m baseline.select_docs --cands data/clean_cands_z80.jsonl \
     --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json
 python -m baseline.recal_docs --mode full --tag dfull
 python -m baseline.ltr_feats                                  # → data/val/ltr_feats.pkl
-python -m baseline.ltr_docs --mode gbm                        # → data/val/{recal_gbm_scores,docs_recal_gbm}.json
-python -m baseline.value_chunks build    --tau 0.09 --scope all --overlap --recal gbm --cut pack
-python -m baseline.value_chunks compress --tau 0.09 --scope all --overlap --recal gbm --cut pack   # cần ≥ 4 GiB RAM trống
-python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --recal gbm --cut pack   # đọc lại ZIP, so từng câu
+python -m baseline.ltr_docs --mode gbm2                       # → data/val/{recal_gbm2_scores,docs_recal_gbm2}.json
+python -m baseline.value_chunks build    --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge
+python -m baseline.value_chunks compress --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge  # ≥ 4 GiB RAM trống
+python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge  # đọc lại ZIP, so từng câu
 ```
 
-- Kết quả nằm ở `runs/z80gbm_v09x_ov_p1152.zip`.
-- Dựng bài khác: đổi `--mode` thành `ltr` hoặc `bge1` ở `ltr_docs`, rồi đổi `--recal` theo cho khớp.
-- Đo chéo: `python -m baseline.ltr_docs --mode gbm --cv` in doc F2 đo chéo 5 fold của p̂ gốc và của mô hình.
+- Kết quả nằm ở `runs/z80gbm2_v09x_ov_p1152_m2.zip`.
+- Dựng bài khác: đổi `--mode` thành `gbm`, `ltr` hoặc `bge1` ở `ltr_docs`, rồi đổi `--recal` theo cho khớp.
+  Bỏ `--merge` thì ra bài chunk cắt cũ (hậu tố `_m2` biến mất).
+- Đo chéo: `python -m baseline.ltr_docs --mode gbm2 --cv` in doc F2 đo chéo 5 fold của p̂ gốc và của mô hình.
 - `compress` nén LZMA với từ điển 768 MB, cần khoảng 6–7 GB RAM. Trên máy 12 GB phải tắt trình duyệt trước.
 - Nếu lần nén trước bị ngắt, xoá `runs/*.zip.part` rồi chạy lại.
 
@@ -122,6 +130,8 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 
 | Bài | Vân tay tập doc | sha256 JSON | sha256 ZIP |
 |---|---|---|---|
+| gbm2_m2 | `5db565f913a2` | `fbdcc3a87eeee036c9f58d93802f1add914c987d868fddd614da69393ba5ec88` | `d77138e8c9ae…` (92.538.060 byte) |
+| gbm2 | `5db565f913a2` | `23e5293a6a934f937486e299de2333529ce58b567fd083c8270415668fdb634d` | `dcb6e7bf24b7…` (87.600.182 byte) |
 | gbm | `872cbc242d11` | `ff54d83cb220aa20956c8e752c49ea675e7db5b597707367e537d9d79ad8f1dd` | `2ecf0f173f9a…` (87.563.114 byte) |
 | ltr | `7127181e3cb0` | `7a5c101a023a…` | `af20ee55f7fc…` (87.930.246 byte) |
 | bge1 | `cbb46814f61d` | `d14b39a58700…` | `9ca48fa70a4e…` (92.615.981 byte) |
@@ -131,7 +141,8 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 
 ## 7. Khai báo dùng nhãn (BẮT BUỘC ghi trong working notes)
 
-`ltr`, `gbm` và tham số β của `bge1` đều được chọn hoặc học từ **nhãn 593 câu public**. Nhãn này lấy từ file chấm
+`ltr`, `gbm`, `gbm2` và tham số β của `bge1` đều được chọn hoặc học từ **nhãn 593 câu public**
+(`--merge` thì không: chỉ dùng p̂ và mô hình vị trí đoạn vàng khớp từ điểm tổng leaderboard). Nhãn này lấy từ file chấm
 chi tiết của leaderboard, loại file BTC đã khoá sau khi phát hiện các đội dùng nhãn để đẩy điểm. Ngày 23/10, BTC cho
 biết huấn luyện trên nhãn public "nhiều khả năng không được", chưa có trả lời chính thức. Bài D/F cũng dùng 8 hệ số
 và con số 160 doc/câu chọn bằng chính nhãn này.
@@ -142,7 +153,7 @@ Ba mức để team chọn bài cho vòng private (5 lượt):
 |---|---|---|
 | gần sạch | `bge1` | 1 số (β = 1) + ngưỡng 160 doc/câu |
 | vùng xám | `ltr` | 44 hệ số logistic, giải thích được từng hệ số |
-| xám đậm | `gbm` | mô hình cây 200 vòng, khó giải thích; public bị thổi phồng ~0,013 |
+| xám đậm | `gbm`, `gbm2` | mô hình cây 200 vòng, khó giải thích; public bị thổi phồng ~0,013–0,016 |
 
 ## 8. Đã thử và không hiệu quả (đừng làm lại)
 
@@ -151,6 +162,8 @@ Ba mức để team chọn bài cho vòng private (5 lượt):
 | Qwen3-Reranker-8B thay 4B | ngang 4B trên leaderboard, cả ở cấp doc (08/10) lẫn cấp chunk (17/10) |
 | Chọn mảnh trong doc bằng điểm Qwen hoặc cos BGE-M3 | xếp đúng mảnh khớp 65%, thua chọn theo vị trí (75%); trộn hai tín hiệu không hơn |
 | Cắt chunk kiểu RecursiveCharacterTextSplitter / ghép dòng 1.152 token | recall +0,023 nhưng precision −0,008 → hoà |
+| Đổi τ, bỏ quy tắc ép giữ ≥1 mảnh/doc | mọi biến thể trong ±0,004 giả lập; bài no-force τ 0,08 thực tế −0,0022 chunk |
+| Lấy chunk sau 10.000 ký tự đầu | 100% đoạn vàng (22.091 doc vàng, file chấm cũ) nằm trong body[:10000] |
 | Thêm nguồn truy hồi (HyDE, PRF, BM25 zh, chunk-dense toàn kho, tách ý con) | doc mới chỉ ~1% là vàng, dưới ngưỡng có lãi ~8% |
 | LLM zero-shot (Qwen3-8B) xét doc sát ngưỡng | không phân biệt được doc vàng (7,4% so với nền 7,1%) |
 | Doc tiếng Anh (PubMed 240k) | 0 nhãn trên leaderboard |

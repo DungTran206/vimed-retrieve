@@ -1,7 +1,8 @@
 """Kiểm các bất biến của luật giữ mảnh theo giá trị (baseline/value_chunks)."""
 import unittest
 
-from baseline.value_chunks import gold_cells, keep_idx, line_bounds, overlap_spans, pack_pi, pack_spans, piece_pi, pieces
+from baseline.value_chunks import (gold_cells, keep_idx, line_bounds, merge_pi, merge_plan, overlap_spans, pack_pi,
+                                   pack_spans, piece_pi, pieces)
 
 
 class TestValueChunks(unittest.TestCase):
@@ -60,6 +61,22 @@ class TestValueChunks(unittest.TestCase):
         pis = pack_pi(toks, chrs, [(s, e) for s, e, _, _ in sp])
         self.assertEqual(len(pis), len(sp))
         self.assertTrue(all(0 <= x <= 1 for x in pis))
+
+    def test_merge_plan(self):
+        # hai mảnh π 0,5 mỗi mảnh, gộp lại khớp chắc (π 1): một chunk gộp thay vì hai chunk
+        self.assertEqual(merge_plan([0.5, 0.5], [1.0], 0.5, 0.09, True), [(0, 2)])
+        # gộp không giữ được khớp (π gộp 0,5): giữ riêng từng mảnh đáng giữ
+        self.assertEqual(merge_plan([0.5, 0.5], [0.5], 0.5, 0.09, True), [(0, 1), (1, 2)])
+        # không khoảng nào đáng giữ: doc trong tập ép giữ khoảng π lớn nhất, doc ngoài tập bỏ
+        self.assertEqual(merge_plan([0.1, 0.3, 0.2], [0.35, 0.4], 0.05, 0.09, True), [(1, 3)])
+        self.assertEqual(merge_plan([0.1, 0.3, 0.2], [0.35, 0.4], 0.05, 0.09, False), [])
+        self.assertEqual(merge_plan([], [], 0.5, 0.09, True), [])
+
+    def test_merge_pi_short_doc_and_pair(self):
+        toks, chrs = [0, 600, 1200, 1800], [0, 2000, 4000, 6000]       # 3 dòng × 600 token
+        self.assertAlmostEqual(merge_pi([0, 600], [0, 2000], [(0, 600)], 600)[0], 1.0)  # doc 1 dòng: chắc khớp
+        one, pair = merge_pi(toks, chrs, [(0, 600), (0, 1800)], 1800)
+        self.assertTrue(0 < one < 1 and 0 <= pair <= 1)
 
     def test_pieces_verbatim_and_cover(self):
         t = ("đoạn một.\n" * 300)[:2990] + "\n" + "甲乙丙。" * 700

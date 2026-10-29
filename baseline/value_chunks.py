@@ -15,6 +15,9 @@ relevant_docs giữ nguyên (doc F2 không đổi). Không dùng nhãn, không G
   python -m baseline.value_chunks verify --tau 0.09 --scope set
 Bài D (FINAL 0,3626): build/compress/verify --tau 0.09 --scope all --overlap --recal dfull
 Bài gbm (FINAL 0,4035): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm --cut pack
+Bài gbm2_m2 (FINAL 0,4111): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge
+--merge (với --cut pack): mỗi doc chọn bằng quy hoạch động các khoảng rời nhau gồm 1 hoặc 2 mảnh liền kề (gộp thành MỘT
+  chunk: đoạn vàng ở mảnh nào cũng còn ≥ 40% chunk gộp nên đỡ tốn chunk), tối đa Σ(p̂·π − τ); π = TB hai giả thuyết.
   (--recal <tag> đọc tập doc + p̂ do baseline.recal_docs hoặc baseline.ltr_docs ghi ra)
 """
 import argparse
@@ -175,6 +178,42 @@ def pack_pi(toks, chrs, spans_tok):
     return [sum(pk for s, e, pk in cells if passes(a, b, s, e)) for a, b in spans_tok]
 
 
+def merge_pi(toks, chrs, spans_tok, T10):
+    """π cho --merge: TB hai giả thuyết (ghép dòng PACK, lưới FIT), đoạn vàng chỉ trong T10 token đầu
+    (file chấm cũ: 100% đoạn vàng nằm trong body[:10000], PROGRESS 29/10); mỗi giả thuyết chuẩn hoá lại về tổng 1."""
+    pk_ = []
+    for M, m in PACK["mix"]:
+        cs = pack_spans(toks, chrs, M)
+        pk_ += [(s, min(e, T10), m / len(cs)) for s, e, _, _ in cs if s < T10]
+    z = sum(x for _, _, x in pk_) or 1.0
+    cells = [(s, e, 0.5 * x / z) for s, e, x in pk_] + [(s, e, 0.5 * x) for s, e, x in gold_cells(max(T10, 1))]
+    return [sum(pk for s, e, pk in cells if passes(a, b, s, e)) for a, b in spans_tok]
+
+
+def merge_plan(pis1, pis2, p, tau, in_set):
+    """--merge: chọn các khoảng RỜI NHAU, mỗi khoảng = 1 mảnh hoặc 2 mảnh liền kề gộp thành MỘT chunk, tối đa
+    Σ(p̂·π − τ) bằng quy hoạch động. pis1[i] = π mảnh i, pis2[i] = π của mảnh i gộp i+1. Trả [(i, j)]: mảnh i..j-1.
+    Doc trong tập không giữ khoảng nào thì ép giữ khoảng có π lớn nhất (như keep_idx)."""
+    n = len(pis1)
+    best, how = [0.0] * (n + 1), [0] * (n + 1)
+    for i in range(1, n + 1):
+        best[i] = best[i - 1]
+        for g, pi in ((1, pis1[i - 1]), (2, pis2[i - 2] if i >= 2 else None)):
+            if pi is not None and best[i - g] + p * pi - tau > best[i]:
+                best[i], how[i] = best[i - g] + p * pi - tau, g
+    out, i = [], n
+    while i > 0:
+        if how[i]:
+            out.append((i - how[i], i))
+            i -= how[i]
+        else:
+            i -= 1
+    if not out and in_set and n:
+        cand = [((i, i + g), (pis1 if g == 1 else pis2)[i]) for i in range(n) for g in (1, 2) if i + g <= n]
+        out = [max(cand, key=lambda x: x[1])[0]]
+    return out[::-1]
+
+
 class LineCache:
     """Ranh giới dòng (token, ký tự) mỗi doc, cache dạng array để nhẹ RAM."""
 
@@ -209,7 +248,8 @@ class LineCache:
 def out_path(c):
     ex = f"e{round(c['tau_extra'] * 100):02d}" if c["scope"] == "all" and c["tau_extra"] != c["tau"] else ""
     return Path(f"runs/{c.get('prefix', 'z80base160')}_v{round(c['tau'] * 100):02d}{'x' if c['scope'] == 'all' else ''}{ex}"
-                f"{'_ov' if c['overlap'] else ''}{f'_p{PACK_CUT}' if c.get('cut') == 'pack' else ''}")
+                f"{'_ov' if c['overlap'] else ''}{f'_p{PACK_CUT}' if c.get('cut') == 'pack' else ''}"
+                f"{'_m2' if c.get('merge') else ''}")
 
 
 def sha256(path):
@@ -282,12 +322,21 @@ def rows(c, lengths):
                 sel = [(ts, min(te, T10), cs, min(ce, MAX_CHARS)) for ts, te, cs, ce in pack_spans(toks, chrs, PACK_CUT)
                        if cs < MAX_CHARS and t[cs:min(ce, MAX_CHARS)].strip()]
                 sp = [(cs, ce) for _, _, cs, ce in sel]
-                pis = pack_pi(toks, chrs, [(ts, te) for ts, te, _, _ in sel])
+                if not c.get("merge"):
+                    pis = pack_pi(toks, chrs, [(ts, te) for ts, te, _, _ in sel])
             else:
                 sp = pieces(t, SPLIT_ZH if info[d][1] == "zh" else SPLIT)
                 pis = piece_pi(sp, len(t), *L[d])
             st["pieces_all"] += len(sp) if d in inset else 0
-            keep = keep_idx(pis, ph.get(d, 0.0), tau if d in inset else tau_x, d in inset)
+            if c.get("merge"):                       # khoảng gộp thay cho mảnh; giữ hết các khoảng được chọn
+                tk = [(ts, te) for ts, te, _, _ in sel]
+                pis1 = merge_pi(toks, chrs, tk, T10)
+                pis2 = merge_pi(toks, chrs, [(a[0], b[1]) for a, b in zip(tk, tk[1:])], T10)
+                grp = merge_plan(pis1, pis2, ph.get(d, 0.0), tau if d in inset else tau_x, d in inset)
+                sp = [(sel[i][2], sel[j - 1][3]) for i, j in grp]
+                keep = list(range(len(sp)))
+            else:
+                keep = keep_idx(pis, ph.get(d, 0.0), tau if d in inset else tau_x, d in inset)
             for a, b in (overlap_spans(t, sp, keep) if c["overlap"] else [sp[i] for i in keep]):
                 ch.append({"doc_id": int(d), "chunk_text": t[a:b]})
                 st["chars"] += b - a
@@ -377,6 +426,8 @@ if __name__ == "__main__":
     ap.add_argument("--scope", choices=("set", "all"), required=True)
     ap.add_argument("--tau-extra", type=float)
     ap.add_argument("--overlap", action="store_true")
+    ap.add_argument("--merge", action="store_true",
+                    help="(cần --cut pack) gộp 2 mảnh liền kề thành 1 chunk khi lợi hơn, π = TB ghép dòng/lưới trong T10")
     ap.add_argument("--recal", help="tag của baseline.recal_docs: dùng data/val/docs_recal_<tag>.json + recal_<tag>_scores.json")
     ap.add_argument("--cut", choices=("s5000", "pack"), default="s5000",
                     help="s5000: chia đều ≤5.000/1.860 ký tự; pack: ghép dòng tới trần 1.152 token như BTC")
@@ -384,6 +435,9 @@ if __name__ == "__main__":
     c = {"tau": a.tau, "scope": a.scope, "tau_extra": a.tau if a.tau_extra is None else a.tau_extra, "overlap": a.overlap}
     if a.cut == "pack":
         c["cut"] = "pack"
+    if a.merge:
+        assert a.cut == "pack", "--merge cần --cut pack"
+        c["merge"] = True
     if a.recal:
         c.update(docs=f"data/val/docs_recal_{a.recal}.json", scores=f"data/val/recal_{a.recal}_scores.json",
                  prefix=f"z80{a.recal}")
