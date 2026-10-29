@@ -16,6 +16,7 @@ relevant_docs giữ nguyên (doc F2 không đổi). Không dùng nhãn, không G
 Bài D (FINAL 0,3626): build/compress/verify --tau 0.09 --scope all --overlap --recal dfull
 Bài gbm (FINAL 0,4035): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm --cut pack
 Bài gbm2_m2 (FINAL 0,4111): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge
+Bài gbm3_m2 (FINAL 0,4189): như trên với --recal gbm3
 --merge (với --cut pack): mỗi doc chọn bằng quy hoạch động các khoảng rời nhau gồm 1 hoặc 2 mảnh liền kề (gộp thành MỘT
   chunk: đoạn vàng ở mảnh nào cũng còn ≥ 40% chunk gộp nên đỡ tốn chunk), tối đa Σ(p̂·π − τ); π = TB hai giả thuyết.
   (--recal <tag> đọc tập doc + p̂ do baseline.recal_docs hoặc baseline.ltr_docs ghi ra)

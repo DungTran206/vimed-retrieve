@@ -4,7 +4,8 @@
   --mode ltr  : hồi quy logistic 44 đặc trưng (C = 0,1), học trên cặp có nhãn của 593 câu public
   --mode gbm  : HistGradientBoosting cùng 44 đặc trưng (lr 0,05 · 200 vòng · 31 lá · L2 1,0 · random_state 0)
   --mode gbm2 : như gbm + cos BGE-M3 thô (bge_cos) — 45 đặc trưng (đo chéo doc F2 0,4195 → 0,4243)
-ltr/gbm/gbm2 HỌC TỪ NHÃN public (data/lb/val.jsonl, từ file chấm chi tiết của leaderboard) — VÙNG XÁM, phải khai báo.
+  --mode gbm3 : như gbm2 + cos thô và cos − top-1 của câu trong 5 danh sách BGE-M3 — 55 đặc trưng (→ 0,4292)
+ltr/gbm/gbm2/gbm3 HỌC TỪ NHÃN public (data/lb/val.jsonl, từ file chấm chi tiết của leaderboard) — VÙNG XÁM, phải khai báo.
 Điểm mới được ánh xạ PHÂN VỊ về phân bố p̂ tham chiếu (bge1: z80base_scores.json; ltr/gbm: recal_dfull_scores.json của
 baseline.recal_docs --mode full), nên ngưỡng 160 doc/câu và luật giá trị τ 0,09 ở baseline.value_chunks hành xử như bài gốc.
 Ghi data/val/recal_<tag>_scores.json + docs_recal_<tag>.json (định dạng của recal_docs) → value_chunks --recal <tag>.
@@ -24,7 +25,8 @@ from sklearn.preprocessing import StandardScaler
 
 BGE = ["r_dense_viB3", "r_dense_chunk_full", "r_dense_vi2", "r_dense_zhC3_vi", "r_dense_zhC3_zhq"]
 REF = {"bge1": "data/val/z80base_scores.json", "ltr": "data/val/recal_dfull_scores.json",
-       "gbm": "data/val/recal_dfull_scores.json", "gbm2": "data/val/recal_dfull_scores.json"}
+       "gbm": "data/val/recal_dfull_scores.json", "gbm2": "data/val/recal_dfull_scores.json",
+       "gbm3": "data/val/recal_dfull_scores.json"}
 
 
 def load_labels(path="data/lb/val.jsonl"):
@@ -48,7 +50,7 @@ def add_feats(df, val):
 
 def fit_score(mode, tr, y, feat):
     """Học trên cặp có nhãn tr, trả hàm chấm điểm (càng cao càng có khả năng là doc vàng)."""
-    if mode in ("gbm", "gbm2"):
+    if mode.startswith("gbm"):
         m = HistGradientBoostingClassifier(learning_rate=0.05, max_iter=200, max_leaf_nodes=31, l2_regularization=1.0,
                                            random_state=0).fit(tr[feat], y)
         return lambda x: m.predict_proba(x[feat])[:, 1]
@@ -95,7 +97,7 @@ def cv(df, mode, feat, val, gold, lab, k=160):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("bge1", "ltr", "gbm", "gbm2"), required=True)
+    ap.add_argument("--mode", choices=("bge1", "ltr", "gbm", "gbm2", "gbm3"), required=True)
     ap.add_argument("--tag", help="tên đầu ra (mặc định = --mode)")
     ap.add_argument("--feats", default="data/val/ltr_feats.pkl")
     ap.add_argument("--cv", action="store_true", help="chỉ đo đo chéo, không ghi file")
@@ -105,7 +107,8 @@ def main():
         s = df.lp - 1.0 * df[BGE].mean(axis=1)
     else:
         val, gold, lab = load_labels()
-        feat = add_feats(df, val) + (["bge_cos"] if a.mode == "gbm2" else [])
+        feat = add_feats(df, val) + (["bge_cos"] if a.mode in ("gbm2", "gbm3") else []) + \
+            ([c.replace("r_", p, 1) for p in ("s_", "d_") for c in BGE] if a.mode == "gbm3" else [])
         if a.cv:
             return cv(df, a.mode, feat, val, gold, lab)
         tr = df[[q in lab and d in lab[q] for q, d in zip(df.q, df.d)]]

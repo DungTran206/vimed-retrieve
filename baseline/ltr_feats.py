@@ -4,7 +4,8 @@ Chỉ dùng danh sách truy hồi, điểm Qwen3-Reranker-4B GỐC và metadata 
   lp, lm     logit p̂ (baseline.select_docs --dump) và logit MaxP Qwen gốc (max theo chunk, chunk chấm ở nhiều file thì file SAU thắng)
   nchunk     số chunk đã chấm của doc
   r_<list>   log(1 + hạng) trong 12 danh sách top-1000 (ngoài top-1000 → hạng 1001); cons100 = số danh sách xếp doc vào top-100
-  bge_cos    cos BGE-M3 thô câu ↔ title + 600 ký tự (dense_viB3 cho doc vi, dense_zhC3_vi cho doc zh) — chỉ gbm2
+  bge_cos    cos BGE-M3 thô câu ↔ title + 600 ký tự (dense_viB3 cho doc vi, dense_zhC3_vi cho doc zh) — gbm2, gbm3
+  s_/d_<list> cos thô / cos − top-1 của câu trong 5 danh sách BGE-M3 (BGE_LISTS) — gbm3
   zh, dom, loglen, rk_lang   ngôn ngữ, domain, log độ dài body, log hạng trong ngôn ngữ theo p̂
   ent        độ phủ thực thể tốt nhất của câu hỏi (âm tiết vi / bigram ký tự zh) trong title + 3.000 ký tự đầu body
   tov        tỉ lệ âm tiết (vi) / bigram (zh) của title có trong câu hỏi (bản dịch zh với doc zh)
@@ -25,6 +26,7 @@ import pandas as pd
 SCORES = ["data/cc_scores.jsonl", "data/ccq_a_scores.jsonl", "data/ccq_b_scores.jsonl", "data/z80base_scores.jsonl"]
 LISTS = ["bm25d3", "dense_viB3", "dense_chunk_full", "dense_vi2", "bm25ent3", "prf20", "dense_q4t", "slug_rank1000",
          "dense_zhC3_vi", "dense_zhC3_zhq", "dense_zhQ8_vi", "bm25zh_new"]
+BGE_LISTS = ["dense_viB3", "dense_chunk_full", "dense_vi2", "dense_zhC3_vi", "dense_zhC3_zhq"]
 
 
 def lg(p):
@@ -82,6 +84,20 @@ def main():
                     cos[j] = c["score"]
     df["bge_cos"] = cos
     df["bge_cos"] = df.bge_cos.fillna(df.groupby("q").bge_cos.transform("min") - 0.01).fillna(0)
+    # gbm3: cos thô s_<list> và tương đối d_<list> = cos − cos top-1 của câu, cho 5 danh sách BGE-M3
+    for nm in BGE_LISTS:
+        raw, top = np.full(len(df), np.nan), np.full(len(df), np.nan)
+        for l in open(f"data/{nm}_rank.jsonl", encoding="utf-8"):
+            r = json.loads(l)
+            c0 = r["candidates"][0]["score"] if r["candidates"] else np.nan
+            for c in r["candidates"]:
+                j = key.get((int(r["id"]), str(c["doc_id"])))
+                if j is not None and np.isnan(raw[j]):
+                    raw[j], top[j] = c["score"], c0
+        s = pd.Series(raw, index=df.index)
+        s = s.fillna(s.groupby(df.q).transform("min") - 0.01).fillna(0)
+        df["s_" + nm] = s
+        df["d_" + nm] = (s - pd.Series(top, index=df.index).groupby(df.q).transform("max")).fillna(-1)
 
     con = sqlite3.connect("file:data/corpus_new.sqlite?mode=ro", uri=True)
     docs = sorted(set(df.d))

@@ -1,4 +1,4 @@
-# ViMed Retrieval: bài `gbm2` + gộp mảnh (FINAL public 0,4111)
+# ViMed Retrieval: bài `gbm3` + gộp mảnh (FINAL public 0,4189)
 
 Truy hồi y sinh đa ngôn ngữ (AI Guru R2AI 2026, bộ dữ liệu ViBioMIR). Mỗi câu hỏi tiếng Việt, hệ thống trả về
 `relevant_docs` (doc vi/zh) và `relevant_chunks` (đoạn trích **nguyên văn** của các doc đó).
@@ -8,7 +8,7 @@ Từ 23/10, một chunk được tính là khớp khi LCS ≥ 40% chunk vàng **
 
 Repo này dựng lại **đúng từng byte** bài nộp từ các file dữ liệu trung gian (lấy từ Drive, xem §4).
 Bài `gbm` đã kiểm trên một thư mục dữ liệu chỉ chứa các file trong danh sách Drive: JSON bài nộp có sha256
-`ff54d83cb220…`. Bài `gbm2` và `gbm2_m2` dựng bằng chính code này: vân tay ở §6.
+`ff54d83cb220…`. Các bài `gbm2`, `gbm2_m2`, `gbm3_m2` dựng bằng chính code này: vân tay ở §6.
 
 ---
 
@@ -22,13 +22,16 @@ Bài `gbm` đã kiểm trên một thư mục dữ liệu chỉ chứa các file
 | `z80ltr_v09x_ov_p1152` | logistic, 44 đặc trưng | 0,3851 | 0,4213 | 0,3489 | ≈ public (đo chéo khớp leaderboard) |
 | `z80gbm_v09x_ov_p1152` | HistGBM, 44 đặc trưng | 0,4035 | 0,4439 | 0,3631 | ~0,39 |
 | `z80gbm2_v09x_ov_p1152` | HistGBM, 45 đặc trưng (+ cos BGE-M3 thô) | 0,4104 | 0,4515 | 0,3692 | ~0,395 |
-| **`z80gbm2_v09x_ov_p1152_m2`** | **như gbm2, chunk gộp mảnh (`--merge`)** | **0,4111** | **0,4515** | **0,3708** | **~0,40** |
+| `z80gbm2_v09x_ov_p1152_m2` | như gbm2, chunk gộp mảnh (`--merge`) | 0,4111 | 0,4515 | 0,3708 | ~0,40 |
+| **`z80gbm3_v09x_ov_p1152_m2`** | **HistGBM, 55 đặc trưng (+ cos thô & tương đối 5 danh sách BGE-M3), `--merge`** | **0,4189** | **0,4618** | **0,3759** | **~0,405** |
 
 - **ltr:** đo chéo 5 fold theo câu dự báo doc F2 tăng +0,024 so với D; leaderboard đo được +0,0235.
 - **gbm:** đo chéo chỉ dự báo +0,010 so với ltr, còn public lên +0,023. Khoảng +0,013 dư ra là phần mô hình cây
   học thuộc nhãn của chính các câu public. Vì vậy private nên kỳ vọng khoảng 0,39.
 - **gbm2:** đo chéo dự báo doc +0,0048 so với gbm, public +0,0076 (~+0,003 khớp trong mẫu).
 - **`--merge`:** cùng tập doc với gbm2, chỉ đổi chunk: P +0,0057, R −0,0104, chunk F2 +0,0016. Không học nhãn.
+- **gbm3:** đo chéo dự báo doc +0,0049 so với gbm2, public +0,0103 (~+0,005 khớp trong mẫu). Mỗi bước học thêm từ
+  nhãn public lại phình phần khớp trong mẫu, nên đo chéo mới là thước đo cho private.
 
 ## 2. Phát hiện chính: nhãn vàng ≈ "doc được BGE-M3 xếp cao"
 
@@ -42,8 +45,11 @@ vào mô hình logistic của dòng trên:
 | + hạng các danh sách khác (BM25, PRF, slug, Qwen3-Emb) thay cho BGE-M3 | 0,3899 |
 | mọi hạng + domain + nội dung (đủ 44 đặc trưng, logistic) | 0,4097 |
 | cùng 44 đặc trưng, HistGBM | 0,4195 |
-| + cos BGE-M3 thô (gbm2) | **0,4243** |
+| + cos BGE-M3 thô (gbm2) | 0,4243 |
+| + cos thô & cos − top-1 của câu, 5 danh sách BGE-M3 (gbm3) | **0,4292** |
 | + SapBERT (thực thể ↔ title) thay vì cos BGE | 0,4183 |
+| gbm3 + BGE-M3 sparse / ColBERT (380 ứng viên) | 0,4285–0,4302 (không hơn) |
+| gbm3 + điểm thô các danh sách không phải BGE (BM25, PRF, slug, Qwen3-Emb) | 0,4289 (không hơn) |
 
 - Trên cặp có nhãn ở fold giữ riêng, AUC của mô hình logistic 44 đặc trưng là **0,790**.
   Reranker Qwen3-4B fine-tune bằng LoRA trên nhãn chỉ đạt 0,763; Qwen gốc 0,723.
@@ -63,7 +69,7 @@ Qwen3-Reranker-4B chấm MỌI chunk của 380 ứng viên (GPU) ──→ cc*/c
  (2) baseline.select_docs  p̂ = sigmoid(logit MaxP, log hạng trong ngôn ngữ, zh); --dump p̂ của mọi ứng viên
  (3) baseline.recal_docs   p̂' của bài D (8 hệ số theo ô) — chỉ dùng làm PHÂN BỐ THAM CHIẾU cho bước 5
  (4) baseline.ltr_feats    đặc trưng / cặp (câu, doc): logit p̂, MaxP, log-hạng 12 danh sách, cos BGE-M3, domain, thực thể…
- (5) baseline.ltr_docs     HistGBM (gbm2: 45 đặc trưng) học trên cặp có nhãn (data/lb/val.jsonl) → điểm → ánh xạ
+ (5) baseline.ltr_docs     HistGBM (gbm3: 55 đặc trưng) học trên cặp có nhãn (data/lb/val.jsonl) → điểm → ánh xạ
                            phân vị về p̂' → ngưỡng CHUNG 160 doc/câu → relevant_docs
  (6) baseline.value_chunks body[:10000] ghép dòng tới 1.152 token XLM-R; --merge: mỗi doc chọn (quy hoạch động) các
                            khoảng 1 mảnh hoặc 2 mảnh liền kề gộp thành 1 chunk, giữ khi p̂ × π − 0,09 > 0 (π theo
@@ -113,16 +119,16 @@ python -m baseline.select_docs --cands data/clean_cands_z80.jsonl \
     --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json
 python -m baseline.recal_docs --mode full --tag dfull
 python -m baseline.ltr_feats                                  # → data/val/ltr_feats.pkl
-python -m baseline.ltr_docs --mode gbm2                       # → data/val/{recal_gbm2_scores,docs_recal_gbm2}.json
-python -m baseline.value_chunks build    --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge
-python -m baseline.value_chunks compress --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge  # ≥ 4 GiB RAM trống
-python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge  # đọc lại ZIP, so từng câu
+python -m baseline.ltr_docs --mode gbm3                       # → data/val/{recal_gbm3_scores,docs_recal_gbm3}.json
+python -m baseline.value_chunks build    --tau 0.09 --scope all --overlap --recal gbm3 --cut pack --merge
+python -m baseline.value_chunks compress --tau 0.09 --scope all --overlap --recal gbm3 --cut pack --merge  # ≥ 4 GiB RAM trống
+python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --recal gbm3 --cut pack --merge  # đọc lại ZIP, so từng câu
 ```
 
-- Kết quả nằm ở `runs/z80gbm2_v09x_ov_p1152_m2.zip`.
-- Dựng bài khác: đổi `--mode` thành `gbm`, `ltr` hoặc `bge1` ở `ltr_docs`, rồi đổi `--recal` theo cho khớp.
+- Kết quả nằm ở `runs/z80gbm3_v09x_ov_p1152_m2.zip`.
+- Dựng bài khác: đổi `--mode` thành `gbm2`, `gbm`, `ltr` hoặc `bge1` ở `ltr_docs`, rồi đổi `--recal` theo cho khớp.
   Bỏ `--merge` thì ra bài chunk cắt cũ (hậu tố `_m2` biến mất).
-- Đo chéo: `python -m baseline.ltr_docs --mode gbm2 --cv` in doc F2 đo chéo 5 fold của p̂ gốc và của mô hình.
+- Đo chéo: `python -m baseline.ltr_docs --mode gbm3 --cv` in doc F2 đo chéo 5 fold của p̂ gốc và của mô hình.
 - `compress` nén LZMA với từ điển 768 MB, cần khoảng 6–7 GB RAM. Trên máy 12 GB phải tắt trình duyệt trước.
 - Nếu lần nén trước bị ngắt, xoá `runs/*.zip.part` rồi chạy lại.
 
@@ -130,6 +136,7 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 
 | Bài | Vân tay tập doc | sha256 JSON | sha256 ZIP |
 |---|---|---|---|
+| gbm3_m2 | `65a3e79ef452` | `e5cc90429e276348a693cb9a003ec42cf50e8f10ca3551bcc070d6031f37f160` | `742a11f4a96f…` (92.310.181 byte) |
 | gbm2_m2 | `5db565f913a2` | `fbdcc3a87eeee036c9f58d93802f1add914c987d868fddd614da69393ba5ec88` | `d77138e8c9ae…` (92.538.060 byte) |
 | gbm2 | `5db565f913a2` | `23e5293a6a934f937486e299de2333529ce58b567fd083c8270415668fdb634d` | `dcb6e7bf24b7…` (87.600.182 byte) |
 | gbm | `872cbc242d11` | `ff54d83cb220aa20956c8e752c49ea675e7db5b597707367e537d9d79ad8f1dd` | `2ecf0f173f9a…` (87.563.114 byte) |
@@ -141,7 +148,7 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 
 ## 7. Khai báo dùng nhãn (BẮT BUỘC ghi trong working notes)
 
-`ltr`, `gbm`, `gbm2` và tham số β của `bge1` đều được chọn hoặc học từ **nhãn 593 câu public**
+`ltr`, `gbm`, `gbm2`, `gbm3` và tham số β của `bge1` đều được chọn hoặc học từ **nhãn 593 câu public**
 (`--merge` thì không: chỉ dùng p̂ và mô hình vị trí đoạn vàng khớp từ điểm tổng leaderboard). Nhãn này lấy từ file chấm
 chi tiết của leaderboard, loại file BTC đã khoá sau khi phát hiện các đội dùng nhãn để đẩy điểm. Ngày 23/10, BTC cho
 biết huấn luyện trên nhãn public "nhiều khả năng không được", chưa có trả lời chính thức. Bài D/F cũng dùng 8 hệ số
@@ -153,7 +160,7 @@ Ba mức để team chọn bài cho vòng private (5 lượt):
 |---|---|---|
 | gần sạch | `bge1` | 1 số (β = 1) + ngưỡng 160 doc/câu |
 | vùng xám | `ltr` | 44 hệ số logistic, giải thích được từng hệ số |
-| xám đậm | `gbm`, `gbm2` | mô hình cây 200 vòng, khó giải thích; public bị thổi phồng ~0,013–0,016 |
+| xám đậm | `gbm`, `gbm2`, `gbm3` | mô hình cây 200 vòng, khó giải thích; public bị thổi phồng ~0,013–0,021 |
 
 ## 8. Đã thử và không hiệu quả (đừng làm lại)
 
