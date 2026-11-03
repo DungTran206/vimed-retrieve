@@ -1,4 +1,4 @@
-﻿# ViMed Retrieval: bài `gbm3` + cắt k theo từng câu + gộp mảnh (FINAL public 0,4201)
+# ViMed Retrieval: bài `gbm3` + cắt k theo từng câu + gộp mảnh (FINAL public 0,4201)
 
 Truy hồi y sinh đa ngôn ngữ (AI Guru R2AI 2026, bộ dữ liệu ViBioMIR). Mỗi câu hỏi tiếng Việt, hệ thống trả về
 `relevant_docs` (doc vi/zh) và `relevant_chunks` (đoạn trích **nguyên văn** của các doc đó).
