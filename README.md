@@ -89,8 +89,12 @@ Bước 1–6 chạy local, không cần GPU, tổng khoảng 30 phút cộng 15
 
 ## 4. Dữ liệu (không nằm trong git, lấy từ Drive và đặt vào `data/`)
 
+Drive: <https://drive.google.com/drive/folders/1vPQtULP8A0fKNtGq1VwXvo7hSiCkniR9>. Tải về rồi đặt nguyên cấu trúc thư mục
+vào `data/` ở gốc repo (ví dụ `data/corpus_new.sqlite`, `data/val/p_w045.jsonl`, `data/lb/val.jsonl`).
+
 | File | Cỡ | Sinh bằng | Làm lại được? |
 |---|---|---|---|
+| `queries.jsonl` | | `crawl.profile_dataset` (1.200 câu `{id, query}` từ `query.parquet`) | có |
 | `corpus_new.sqlite` | 5,4 GB | `crawl/crawler.py` → `utils/clean.py --apply` → `index/chunk.py` → `scripts/make_store_new.py` (+ `merge_zh_new.py`) | crawl mất nhiều ngày |
 | `vibiomir_new/links_corpus_vi_en_zh.parquet` | 35 MB | tải từ HF `AIGuruTinix/ViBioMIR` | có |
 | `queries_enriched.jsonl` | 1,4 MB | `query_processing.pipeline` (Qwen3.5-9B + Hy-MT2-7B, GPU; `scripts/remote_run_llm.sh`) | GPU |
@@ -100,7 +104,13 @@ Bước 1–6 chạy local, không cần GPU, tổng khoảng 30 phút cộng 15
 | `dense_zhC3_{vi,zhq,zhq109}_rank.jsonl` | 47 + 47 + 4 MB | `scripts/run_zh_new.sh` (BGE-M3, doc zh) | GPU |
 | `dense_zhQ8_{vi,zhq,zhq109}_rank.jsonl` | 47 + 47 + 4 MB | `scripts/run_zh_q8.sh` (Qwen3-Embedding-8B, doc zh) | GPU |
 | `slug_rank1000.jsonl` | 166 MB | `index.slug_bm25 --topk 1000` | có |
-| `prf20_rank.jsonl`, `dense_q4t_rank.jsonl`, `bm25zh_new_rank.jsonl` | 47 + 46 + 46 MB | PRF trên BGE-M3, Qwen3-Embedding-4B title, BM25 zh trên câu dịch — script ở repo phát triển, **không có trong repo này** | lấy từ Drive |
+| `prf20_rank.jsonl` | 47 MB | `index.prf` (PRF trên vector BGE-M3 `emb_viB2`, hạt giống `blendQB3.jsonl`) | có (CPU, ~1 phút; đã kiểm trùng sha) |
+| `dense_q4t_rank.jsonl` | 46 MB | `scripts/run_qemb.sh` (Qwen3-Embedding-4B trên title kho vi) | GPU ~45 phút |
+| `bm25zh_new_rank.jsonl` | 46 MB | `index.bm25` với câu vi rỗng + câu dịch zh (lệnh ở §5) | có (CPU) |
+| `vi_full.sqlite`, `vi_text.sqlite`, `vi_text_delta.sqlite`, `zh_text_new.sqlite`, `chunk_offsets_s{0,1}.sqlite` | | bản trích từ `corpus_new.sqlite` để chạy trên máy GPU (`scripts/export_vi_full.py` …) | lấy từ Drive |
+| `emb_zhC2.npy` + `.ids.json` | | vector BGE-M3 doc zh đời trước; `scripts/run_zh_new.sh` thay các hàng đã mã hoá lại để ra `emb_zhC3` | lấy từ Drive |
+| `queries_zhq.jsonl`, `queries_zhq109.jsonl` | | câu dịch zh (Hy-MT2-7B) tách từ `queries_enriched.jsonl`; 109 câu dịch lỗi đã dịch lại | lấy từ Drive |
+| `blendQB3.jsonl`, `emb_viB2.npy` + `.ids.json` | 49 MB + 1,4 GB | danh sách đã rerank và vector BGE-M3 (title + 600 ký tự) của phiên bản pipeline trước (07/10); chỉ dùng làm đầu vào cho `index.prf` | lấy từ Drive |
 | `cc_scores.jsonl`, `ccq_a_scores.jsonl`, `ccq_b_scores.jsonl`, `z80base_scores.jsonl` | 29 + 12 + 11 + 4 MB | `rerank.chunk_rerank --prep/--score` (Qwen3-Reranker-4B gốc, GPU) | nhiều giờ GPU |
 | `val/p_w045.jsonl` | 8 MB | `scripts/val_calib.py` (nhãn mềm suy từ điểm tổng leaderboard) | lấy từ Drive |
 | **`lb/val.jsonl`, `lb/folds.json`** | 2 MB | nhãn 593 câu public từ file chấm chi tiết leaderboard (**BTC đã khoá, không tải lại được**) | **KHÔNG** |
@@ -111,13 +121,25 @@ Tải một lần bằng `huggingface-cli download BAAI/bge-m3 config.json token
 
 ## 5. Chạy
 
+Có hai đường: **5.1** dựng lại đúng bài nộp từ dữ liệu trung gian trên Drive (CPU, ~45 phút), **5.2** chạy toàn bộ từ
+dữ liệu BTC (crawl nhiều ngày + vài chục giờ GPU). Mọi lệnh chạy từ gốc repo; `data/` và `runs/` là thư mục tương đối.
+
+**Môi trường.**
+
+| Máy | Cài đặt | Dùng cho |
+|---|---|---|
+| Local / CPU (Python 3.13) | `pip install -r env/requirements-local.txt` | crawl, BM25, PRF, mọi bước `baseline`, xuất bài |
+| GPU (Linux, CUDA, 24 GB/card) | `bash scripts/remote_setup.sh` (tạo `.venv-vllm` cho Qwen3.5/Hy-MT2 và `.venv-train` cho embedding/reranker; gói ở `env/requirements-train.txt`), rồi `bash scripts/download_models.sh` | xử lý câu hỏi, embedding, Qwen chấm chunk |
+
 ```powershell
 python -m venv .venv; .\.venv\Scripts\Activate.ps1      # Linux: python -m venv .venv && . .venv/bin/activate
 pip install -r env\requirements-local.txt
 python -m unittest discover tests                        # 22 test offline
 ```
 
-Mọi lệnh chạy từ gốc repo. `data/` và `runs/` là thư mục tương đối. Trên PowerShell, viết mỗi lệnh trên một dòng
+### 5.1 Dựng bài nộp từ dữ liệu trung gian
+
+Cần các file ở §4 (trừ đầu vào dành riêng cho máy GPU). Trên PowerShell, viết mỗi lệnh trên một dòng
 hoặc thay `\` cuối dòng bằng dấu backtick:
 
 ```bash
@@ -140,6 +162,69 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 - `compress` nén LZMA với từ điển 768 MB, cần khoảng 6–7 GB RAM. Trên máy 12 GB phải tắt trình duyệt trước.
 - Nếu lần nén trước bị ngắt, xoá `runs/*.zip.part` rồi chạy lại.
 
+### 5.2 Chạy lại từ đầu
+
+Mỗi bước đọc/ghi file riêng nên chạy lại được từng bước. Thời gian đo trên máy của đội (local 12 GB RAM; GPU 2× RTX 4090).
+
+**A. Dữ liệu BTC và crawl (local, nhiều ngày).** Thứ tự bắt buộc: crawl → clean → chunk → audit, vì `clean` đổi body nên
+offset chunk cũ phải tính lại.
+
+```bash
+python -m crawl.profile_dataset            # tải ViBioMIR từ HF → data/queries.jsonl, thống kê domain
+python -m crawl.crawler --db data/corpus_vifull.sqlite        # crawl 4,39 triệu URL, tự tiếp tục khi bị ngắt
+python -m utils.clean --apply --db data/corpus_vifull.sqlite   # bỏ boilerplate theo domain (dòng lặp trên nhiều trang)
+python -m index.chunk --db data/corpus_vifull.sqlite           # chunk theo offset (doc_id, start, end)
+python scripts/make_store_new.py data/corpus_vifull.sqlite data/corpus_new.sqlite   # chỉ giữ doc thuộc kho BTC (+ vinmec.com)
+python -m utils.audit                      # kiểm toàn chuỗi crawl → chunk → submission
+python scripts/export_vi_full.py --store data/corpus_new.sqlite --out data/vi_full.sqlite   # bản vi gọn cho máy GPU
+```
+
+`vi_text*.sqlite`, `zh_text_new.sqlite` và `chunk_offsets_s{0,1}.sqlite` là các bản trích cột (doc_id, title, body / offset
+chunk) của `corpus_new.sqlite` để chép sang máy GPU; bản dùng cho bài nộp có trên Drive.
+
+**B. Xử lý câu hỏi (GPU).** Prompt nằm trong `query_processing/expand.py` (thực thể, Qwen3.5-9B) và
+`query_processing/translate.py` (dịch có bảng thuật ngữ, Hy-MT2-7B); prompt reranker trong `rerank/qwen_rerank.py`.
+
+```bash
+bash scripts/remote_run_llm.sh data/queries.jsonl runs/public   # Qwen3.5-9B trích thực thể, Hy-MT2-7B dịch vi→zh
+cp runs/public/queries_enriched.jsonl data/
+```
+
+**C. 12 danh sách truy hồi top-1000.**
+
+```bash
+bash scripts/run_bm25_full.sh                                   # bm25d3_rank, bm25ent3_rank (CPU nhiều lõi, ~1 giờ)
+python -m index.slug_bm25 --topk 1000 --out data/slug_rank1000.jsonl
+# BGE-M3 trên kho vi: title + 600 ký tự (viB3) và chỉ title (vi2)
+python -m index.dense --encode --db data/vi_full.sqlite --emb data/emb_viB3 --body-chars 600
+python -m index.dense --rank --emb data/emb_viB3 --out data/dense_viB3_rank.jsonl
+python -m index.dense --encode --db data/vi_full.sqlite --emb data/emb_vi2
+python -m index.dense --rank --emb data/emb_vi2 --out data/dense_vi2_rank.jsonl
+bash scripts/run_dense_chunks_full.sh                           # dense_chunk_full_rank (BGE-M3 trên mọi chunk, 2 GPU)
+CUDA_VISIBLE_DEVICES=1 bash scripts/run_zh_new.sh               # dense_zhC3_{vi,zhq,zhq109}_rank (BGE-M3, doc zh)
+bash scripts/run_zh_q8.sh                                       # dense_zhQ8_*_rank (Qwen3-Embedding-8B, doc zh)
+CUDA_VISIBLE_DEVICES=0 bash scripts/run_qemb.sh                 # dense_q4t_rank (Qwen3-Embedding-4B, title vi)
+# BM25 tiếng Trung chỉ bằng câu dịch: phía câu vi để rỗng
+python -c "import json; open('data/zh_only_q_empty.jsonl','w').writelines(json.dumps({'id':i,'query':''})+'\n' for i in range(1,1201))"
+python -m index.bm25 --queries data/zh_only_q_empty.jsonl --queries-zh data/queries_enriched.jsonl --out data/bm25zh_new_rank.jsonl
+python -m index.prf --seed data/blendQB3.jsonl --emb data/emb_viB2 --top 20 --out data/prf20_rank.jsonl
+```
+
+**D. Qwen3-Reranker-4B chấm mọi chunk của 380 ứng viên (local chuẩn bị, GPU chấm).**
+
+```bash
+python -m baseline.cands --n-zh 80 --out data/clean_cands_z80.jsonl
+python -m rerank.chunk_rerank --prep --cands data/clean_cands_z80.jsonl --top 380 --min-chunks 1 --cands-out data/z80_chunk_cands.jsonl
+python -m rerank.chunk_rerank --score --cands-out data/z80_chunk_cands.jsonl --scores data/z80_chunk_scores.jsonl   # máy GPU
+```
+
+Bài nộp dùng 4 file điểm (`cc_scores`, `ccq_a_scores`, `ccq_b_scores`, `z80base_scores`) chấm qua nhiều đợt trên các tập
+ứng viên trước đó; một lượt chấm như trên phủ cùng các cặp (doc, chunk) nhưng có thể lệch nhỏ do số học fp16.
+Khi đó truyền `--scores data/z80_chunk_scores.jsonl` cho `baseline.select_docs` thay cho 4 file cũ.
+
+**E. Nhãn và dựng bài.** `data/lb/val.jsonl` và `data/lb/folds.json` lấy từ Drive (không sinh lại được, xem §7),
+rồi chạy đúng các lệnh ở §5.1.
+
 ## 6. Vân tay để đối chiếu
 
 | Bài | Vân tay tập doc | sha256 JSON | sha256 ZIP |
@@ -152,18 +237,33 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 | ltr | `7127181e3cb0` | `7a5c101a023a…` | `af20ee55f7fc…` (87.930.246 byte) |
 | bge1 | `cbb46814f61d` | `d14b39a58700…` | `9ca48fa70a4e…` (92.615.981 byte) |
 
+**Mô hình và revision checkpoint** (tải đúng các bản này bằng `scripts/download_models.sh`):
+
+| Mô hình | Revision (commit HF) | Vai trò |
+|---|---|---|
+| [BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3) | `9a0624b896d81da7492a910ffa53731274b6cf3d` | embedding vi/zh (title, title + 600 ký tự, chunk); tokenizer cắt chunk |
+| [Qwen/Qwen3-Reranker-4B](https://huggingface.co/Qwen/Qwen3-Reranker-4B) | `22e683669bc0f0bd69640a1354a6d0aebcfeede5` | chấm mọi chunk của 380 ứng viên (MaxP, p̂) |
+| [Qwen/Qwen3-Embedding-8B](https://huggingface.co/Qwen/Qwen3-Embedding-8B) | `1d8ad4ca9b3dd8059ad90a75d4983776a23d44af` | danh sách dense phụ cho doc zh |
+| [Qwen/Qwen3-Embedding-4B](https://huggingface.co/Qwen/Qwen3-Embedding-4B) | `5cf2132abc99cad020ac570b19d031efec650f2b` | danh sách dense title vi (đặc trưng hạng) |
+| [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) | `c202236235762e1c871ad0ccb60c8ee5ba337b9a` | trích thực thể y khoa từ câu hỏi |
+| [tencent/Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B) | `9b0eb4e8f001def3e5ff6469a0ac96fdb39ec223` | dịch câu hỏi vi → zh có bảng thuật ngữ |
+
+Mọi mô hình có trọng số công khai, ≤ 15B tham số, phát hành trước 01/08/2026, dùng checkpoint gốc (không fine-tune).
+Không dùng LLM đóng ở bất kỳ bước nào.
+
 - Các bài trên dựng bằng Python 3.13, scikit-learn 1.9.1, numpy 2.4.4 và pandas 3.0.3.
 - HistGBM có thể ra cây khác nếu đổi phiên bản scikit-learn, nên `requirements-local.txt` ghim đúng bản này.
 
-## 7. Khai báo dùng nhãn (BẮT BUỘC ghi trong working notes)
+## 7. Nhãn dùng để học
 
 `ltr`, `gbm`, `gbm2`, `gbm3`, tham số β của `bge1` và hằng 1,48 của `--cut-q` đều được chọn hoặc học từ **nhãn 593 câu public**
-(`--merge` thì không: chỉ dùng p̂ và mô hình vị trí đoạn vàng khớp từ điểm tổng leaderboard). Nhãn này lấy từ file chấm
-chi tiết của leaderboard, loại file BTC đã khoá sau khi phát hiện các đội dùng nhãn để đẩy điểm. Ngày 23/10, BTC cho
-biết huấn luyện trên nhãn public "nhiều khả năng không được", chưa có trả lời chính thức. Bài D/F cũng dùng 8 hệ số
-và con số 160 doc/câu chọn bằng chính nhãn này.
+(`--merge` thì không: chỉ dùng p̂ và mô hình vị trí đoạn vàng khớp từ điểm tổng leaderboard). Nhãn này rút từ file chấm
+chi tiết (`scoring_result`) mà leaderboard public trả về trong giai đoạn public. Đội đã hỏi và được BTC đồng ý dùng, với
+điều kiện không đưa trực tiếp đáp án vào bài nộp: mô hình học trên nhãn rồi dự đoán cho cả 1.200 câu, tập doc nộp do
+mô hình chọn. Bài D/F cũng dùng 8 hệ số và con số 160 doc/câu chọn bằng chính nhãn này.
 
-Ba mức để team chọn bài cho vòng private (5 lượt):
+Vì học trên câu public nên điểm public không phải đánh giá độc lập; số đo cho câu private là **đo chéo 5 fold theo câu**
+(`ltr_docs --cv`, chia ở `data/lb/folds.json`). Các bài theo mức dùng nhãn:
 
 | Mức | Bài | Dùng nhãn |
 |---|---|---|
@@ -192,20 +292,17 @@ Ba mức để team chọn bài cho vòng private (5 lượt):
 ```
 baseline/         các bước 1–6 ở §3 (cands, select_docs, recal_docs, ltr_feats, ltr_docs, value_chunks)
 crawl/ utils/     crawl, làm sạch boilerplate, kiểm toàn chuỗi (utils/audit.py)
-index/            chunk theo offset, BM25F, BM25 thực thể, slug, BGE-M3/Qwen3-Emb (dense, dense_chunks), RRF (fuse)
-query_processing/ thực thể + bản dịch câu hỏi (Qwen3.5-9B, Hy-MT2-7B)
+index/            chunk theo offset, BM25F, BM25 thực thể, slug, BGE-M3/Qwen3-Emb (dense, dense_chunks), RRF (fuse), PRF (prf)
+query_processing/ expand.py (Qwen3.5-9B: thực thể), translate.py (Hy-MT2-7B: dịch vi→zh), llm.py (backend vLLM/HF),
+                  pipeline.py (điều phối, ghi queries_enriched.jsonl); không gọi API ngoài
 rerank/           Qwen3-Reranker-4B chấm doc / chunk (GPU)
 submit/           kiểm định dạng, vân tay, nén ZIP (submission.py), chấm offline (score.py)
-scripts/          lệnh chạy trên máy GPU (Linux, bash) và tác vụ dựng kho
+scripts/          lệnh chạy trên máy GPU (Linux, bash), tải mô hình, tác vụ dựng kho
+env/              requirements-local.txt (CPU), requirements-train.txt (GPU)
 tests/            test offline
 ```
 
-- **Mô hình dùng** (đều mở, ≤ 15B, phát hành trước 01/08/2026):
-  - BAAI/bge-m3
-  - Qwen/Qwen3-Reranker-4B
-  - Qwen/Qwen3-Embedding-8B và Qwen/Qwen3-Embedding-4B
-  - Qwen/Qwen3.5-9B
-  - tencent/Hy-MT2-7B
+- Mô hình và revision: §6.
 - **Repo phải để PRIVATE** suốt thời gian thi.
 - **Không đưa lên git:** `data/` (dữ liệu BTC theo giấy phép CC BY-NC 4.0) và `runs/`.
 - **`chunk_text` luôn là lát cắt nguyên văn** `body[start:end]` của `corpus_new.sqlite`, không bao giờ lưu text chunk riêng.
