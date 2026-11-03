@@ -1,4 +1,4 @@
-"""Bài gbm — bước 4b: chấm lại 380 ứng viên bằng đặc trưng (baseline.ltr_feats) rồi chọn tập doc bằng ngưỡng CHUNG 160 doc/câu.
+"""Bước 5: chấm lại 380 ứng viên bằng đặc trưng (baseline.ltr_feats) rồi chọn tập doc (ngưỡng chung 160 doc/câu hoặc --cut-q).
 
   --mode bge1 : p̂ − 1,0 × TB log(1+hạng) của 5 danh sách BGE-M3 (MỘT tham số; β = 1 chọn bằng nhãn val)
   --mode ltr  : hồi quy logistic 44 đặc trưng (C = 0,1), học trên cặp có nhãn của 593 câu public

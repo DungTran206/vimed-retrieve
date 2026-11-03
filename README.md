@@ -139,8 +139,14 @@ python -m unittest discover tests                        # 22 test offline
 
 ### 5.1 Dựng bài nộp từ dữ liệu trung gian
 
-Cần các file ở §4 (trừ đầu vào dành riêng cho máy GPU). Trên PowerShell, viết mỗi lệnh trên một dòng
-hoặc thay `\` cuối dòng bằng dấu backtick:
+Cần các file ở §4 (trừ đầu vào dành riêng cho máy GPU). Một lệnh chạy đủ các bước dưới đây, so sha256 JSON với bài đã nộp
+rồi nén và kiểm ZIP (Linux, hoặc Git Bash trên Windows):
+
+```bash
+bash scripts/build_submission.sh
+```
+
+Từng bước (trên PowerShell, viết mỗi lệnh trên một dòng hoặc thay `\` cuối dòng bằng dấu backtick):
 
 ```bash
 python -m baseline.cands --n-zh 80 --out data/clean_cands_z80.jsonl
@@ -297,7 +303,7 @@ query_processing/ expand.py (Qwen3.5-9B: thực thể), translate.py (Hy-MT2-7B:
                   pipeline.py (điều phối, ghi queries_enriched.jsonl); không gọi API ngoài
 rerank/           Qwen3-Reranker-4B chấm doc / chunk (GPU)
 submit/           kiểm định dạng, vân tay, nén ZIP (submission.py), chấm offline (score.py)
-scripts/          lệnh chạy trên máy GPU (Linux, bash), tải mô hình, tác vụ dựng kho
+scripts/          build_submission.sh (dựng bài một lệnh), lệnh chạy trên máy GPU, tải mô hình, tác vụ dựng kho
 env/              requirements-local.txt (CPU), requirements-train.txt (GPU)
 tests/            test offline
 ```

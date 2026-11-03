@@ -1,4 +1,4 @@
-"""Gộp nhiều nguồn ứng viên bằng RRF (Reciprocal Rank Fusion). Theo `PIPELINE.md` §5.
+"""Gộp nhiều nguồn ứng viên bằng RRF (Reciprocal Rank Fusion); baseline.cands dùng `load` và `rrf`.
 
     score(d) = Σ_i  w_i / (k + rank_i(d))        rank bắt đầu từ 1
 

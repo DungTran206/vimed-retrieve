@@ -1,4 +1,4 @@
-"""Baseline GỌN — bước 1: 340 ứng viên/câu = 300 doc vi + 40 doc zh (chỉ doc thuộc kho BTC, cộng vinmec.com).
+"""Bước 1: ứng viên mỗi câu = 300 doc vi + --n-zh doc zh (bài nộp: 80) — chỉ doc thuộc kho BTC, cộng vinmec.com.
 
 vi : RRF(k=60, trọng số 1/1/1) của 3 nguồn top-1000:
        data/bm25d3_rank.jsonl          BM25F giữ dấu, title 3 · tags 2 · descr 1,5 · body 1 (index/bm25.py)

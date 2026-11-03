@@ -1,4 +1,4 @@
-"""Baseline GỌN — bước 3: điểm doc p̂ → một ngưỡng chung → danh sách doc nộp mỗi câu.
+"""Bước 2: điểm doc p̂ → một ngưỡng chung → danh sách doc mỗi câu; xuất p̂ của mọi ứng viên (--dump) cho các bước sau.
 
 1. MaxP(q,d) = max P(yes) Qwen3-Reranker-4B trên mọi chunk của doc (bước 2, rerank/chunk_rerank.py).
 2. p̂ = sigmoid(β·[logit MaxP, log(1 + hạng trong ngôn ngữ), cờ zh, zh·logit MaxP] + b),
@@ -6,8 +6,7 @@
    Hệ số đã dùng cho bài nộp: 0,359 / −0,272 / −0,698 / −0,087, chặn −0,722.
 3. Ngưỡng chung t = p̂ đứng thứ (--docs × số câu) trên toàn đề → câu q giữ mọi doc p̂ ≥ t (xếp p̂ giảm dần).
    --docs 160 chọn bằng nhãn thật 593 câu public (doc F2 offline 143: 0,3787 · 160: 0,3799 · 180: 0,3777).
-  python -m baseline.select_docs --docs 160 --out data/val/docs_clean160.json
-Bài D (80 doc zh/câu): thêm điểm chunk zh mới và xuất p̂ của MỌI ứng viên cho bước sửa p̂ (baseline.recal_docs):
+Bài nộp (380 ứng viên = 300 vi + 80 zh):
   python -m baseline.select_docs --cands data/clean_cands_z80.jsonl \
       --scores data/cc_scores.jsonl data/ccq_a_scores.jsonl data/ccq_b_scores.jsonl data/z80base_scores.jsonl \
       --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json

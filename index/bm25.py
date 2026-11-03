@@ -1,7 +1,4 @@
-"""BM25F có trọng số theo trường, trên nội dung đã crawl. Theo `PIPELINE.md` §4a.
-
-Biến 127k tài liệu đang nằm chết trong store thành tín hiệu xếp hạng. Trước file này, bộ
-xếp hạng duy nhất là `slug_bm25.py` - chỉ đọc chuỗi URL, không đọc một chữ nào của trang.
+"""BM25F có trọng số theo trường, trên nội dung đã crawl (bm25d3_rank: vi giữ dấu; bm25zh_new_rank: câu dịch zh).
 
 **BM25F**, không phải "BM25 từng trường rồi cộng điểm": gộp tần suất từ các trường TRƯỚC khi
 đưa vào hàm bão hoà. Cộng điểm sau sẽ cho một từ xuất hiện 1 lần ở 4 trường điểm cao hơn một
@@ -13,7 +10,7 @@ từ xuất hiện 10 lần ở 1 trường, vì mỗi trường tự bão hoà 
 Trọng số mặc định: `title` 3,0 · `tags` 2,0 · `descr` 1,5 · `body` 1,0.
 Lý do `title` cao nhất: với site Q&A, title **chính là câu hỏi bệnh nhân** (đo được: 99,9%
 doc có title), nên khớp query↔title là khớp câu hỏi với câu hỏi, không phải câu hỏi với tài liệu.
-**Các trọng số này là PHỎNG ĐOÁN, chưa đo** - quét chúng trên leaderboard khi có thời gian.
+Các trọng số đặt theo lập luận trên, không quét; mô hình xếp hạng ở baseline.ltr_docs tự cân hạng BM25 với các nguồn khác.
 
 **STREAMING hai lượt** từ SQLite, không `fetchall()`: máy local 11,7 GB RAM, và `chunk.py`
 từng bị kill vì nạp hết body vào RAM. Bộ nhớ ở đây là O(số query × topk), không phụ thuộc

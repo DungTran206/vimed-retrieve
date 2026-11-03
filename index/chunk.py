@@ -1,10 +1,10 @@
-"""Cắt chunk theo OFFSET vào `doc.body`. Theo `PIPELINE.md` §3.
+"""Cắt chunk theo OFFSET vào `doc.body` (chunk ~900 token dùng cho truy hồi chunk-dense và Qwen chấm chunk).
 
 Chunk chỉ lưu `(doc_id, start, end)`; `chunk_text = body[start:end]`. Nhờ vậy ràng buộc
 "`chunk_text` phải nguyên văn" được bảo đảm bằng **cấu trúc dữ liệu**, không bằng kỷ luật -
 không có đường nào để chunk lệch khỏi tài liệu gốc.
 
-Thiết kế dựa trên số đo thật (`PROGRESS.md`), không phải quy ước:
+Thiết kế dựa trên số đo thật trên kho đã crawl, không phải quy ước:
   - `trafilatura` phân cách đoạn bằng '\\n', KHÔNG có '\\n\\n'
   - đoạn văn trung vị 80 ký tự, P90 330
   - chỉ 0,04% đoạn tự nó vượt 1 chunk  -> cắt theo câu chỉ là dự phòng hiếm

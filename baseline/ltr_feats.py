@@ -1,4 +1,4 @@
-"""Bài gbm — bước 4a: đặc trưng cho MỌI cặp (câu, doc) trong 380 ứng viên z80 (1.200 câu × 380 = 456.000 cặp).
+"""Bước 4: đặc trưng cho MỌI cặp (câu, doc) trong 380 ứng viên z80 (1.200 câu × 380 = 456.000 cặp).
 
 Chỉ dùng danh sách truy hồi, điểm Qwen3-Reranker-4B GỐC và metadata doc; KHÔNG dùng việc doc từng nằm trong bài đã nộp.
   lp, lm     logit p̂ (baseline.select_docs --dump) và logit MaxP Qwen gốc (max theo chunk, chunk chấm ở nhiều file thì file SAU thắng)

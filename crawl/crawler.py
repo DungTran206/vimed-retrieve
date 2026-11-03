@@ -1,7 +1,6 @@
 """Crawler cho 4,39M URL: SQLite store, resume theo từng URL, rate limit riêng mỗi domain.
 
-Thiết kế theo `PIPELINE.md` §1. Mọi tham số mặc định dưới đây đều từ số đo thật
-(`PROGRESS.md` §2), không phải đoán.
+Mọi tham số mặc định dưới đây đều từ số đo thật khi crawl (ghi ngay tại chỗ), không phải đoán.
 
 Nguyên tắc quan trọng nhất: `body` là **văn bản chính tắc bất biến**. Chunk về sau chỉ lưu
 `(doc_id, start, end)` và `chunk_text = body[start:end]`, nên ràng buộc "nguyên văn" được
@@ -123,7 +122,7 @@ RATES = {
 }
 DEFAULT_RATE = 5
 
-# Domain đã đo là chặn, không vượt được bằng code (xem PROGRESS.md). Đánh dấu BLOCKED ngay,
+# Domain đã đo là chặn, không vượt được bằng code. Đánh dấu BLOCKED ngay,
 # không tốn request. Có IP mới thì `--retry-blocked` chạy lại đúng phần này.
 BLOCKED = {"familydoctor.com.cn", "zysjonline.com", "baidianfeng.familydoctor.com.cn",
            "qy.familydoctor.com.cn", "v.familydoctor.com.cn", "ask.familydoctor.com.cn",

@@ -1,4 +1,4 @@
-"""Lọc dòng boilerplate lặp lại trong cùng domain. Theo `PIPELINE.md` §2 mục 3.
+"""Lọc dòng boilerplate lặp lại trong cùng domain (chạy sau mỗi đợt crawl, trước index.chunk).
 
 `trafilatura` đã bỏ nav/footer/ads, nhưng vẫn sót breadcrumb và danh sách "bài liên quan":
 

@@ -369,7 +369,7 @@ def main():
           f"{nc:,} chunk | {empty} câu rỗng")
     fd, fc = fingerprint(records)
     print(f"-> {js}\n-> {zp}  ({os.path.getsize(zp)/1024:.0f} KB)  ← nộp file này")
-    print(f"vân tay: doc={fd} chunk={fc}  (ghi vào PROGRESS.md §2b cùng với điểm)")
+    print(f"vân tay: doc={fd} chunk={fc}")
     if nc == 0:
         print("LƯU Ý: chunk rỗng -> mất toàn bộ điểm cấp chunk. Cần --store sau khi crawl.")
 

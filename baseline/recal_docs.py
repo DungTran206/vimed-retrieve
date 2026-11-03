@@ -1,12 +1,12 @@
-"""Bài D — bước 4: sửa p̂ theo phần dư (PROGRESS 26/10 "PHÂN TÍCH PHẦN DƯ"), rồi chọn lại tập doc bằng ngưỡng chung
-(TB 160 doc/câu). Đầu vào: data/val/z80base_scores.json (p̂ của 380 ứng viên, `baseline.select_docs --dump`).
+"""Bước 3: sửa p̂ bằng hệ số theo nhóm doc (mức đồng thuận của các nguồn × ngôn ngữ/domain), rồi chọn lại tập doc bằng
+ngưỡng chung (TB 160 doc/câu). Bài nộp chỉ dùng phân bố p̂' của --mode full làm thang tham chiếu cho baseline.ltr_docs. Đầu vào: data/val/z80base_scores.json (p̂ của 380 ứng viên, `baseline.select_docs --dump`).
 
 Đồng thuận = số nguồn vi (BM25F có dấu, dense title+600, chunk-dense toàn kho) xếp doc vào top-100.
   --mode gamma --gamma 1.2 : doc vi đồng thuận ≥2 → p̂·γ, đúng 1 → p̂/γ (MỘT tham số, không nhãn ngoài việc chọn γ)
   --mode full              : hệ số nhân theo ô (đồng thuận 0/1/2+ × vi / zh theo domain) HỌC TỪ NHÃN val
                              (data/lb/val.jsonl, co về 1 với α=20) — vùng xám như ngưỡng 160, ghi rõ khi khai báo.
 Ghi data/val/recal_<tag>_scores.json (cùng định dạng z80base_scores.json) và data/val/docs_recal_<tag>.json.
-  python -m baseline.recal_docs --mode full --tag dfull          # bài D; bài ltr/gbm dùng p̂' này làm phân bố tham chiếu
+  python -m baseline.recal_docs --mode full --tag dfull          # bài nộp dùng
   python -m baseline.recal_docs --mode gamma --gamma 1.2 --tag dg12
 """
 import argparse

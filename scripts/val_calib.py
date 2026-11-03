@@ -9,7 +9,7 @@ kiểm chứng bỏ-một-bài (leave-one-out) và trên các CẶP SÁT NHAU (B
 """
 import json, os, re, sys, zipfile, sqlite3, collections
 
-# (bài, DOCS_P trên leaderboard) — chỉ bài chấm từ 09/10 (thời pool H / qwen_all_h); nguồn: PROGRESS.md
+# (bài, DOCS_P trên leaderboard) — chỉ bài chấm từ 09/10 (thời pool H / qwen_all_h); nguồn: điểm leaderboard các bài đã nộp
 REG = {
     "p50_head": 0.3125, "p50_fH": 0.2925, "p50_dvib3": 0.2894, "p50_bm25": 0.1501, "p50_chunk": 0.3136,
     "p50_headchunk": 0.3380, "p50_c10w1": 0.3200, "p50_c10w3": 0.3055,

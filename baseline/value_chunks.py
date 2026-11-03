@@ -1,25 +1,21 @@
-"""Bài D — bước 5: chunk theo GIÁ TRỊ (luật chấm chunk 23/10): cắt như s5000 rồi chỉ giữ mảnh có p̂_doc × π ≥ τ.
-(Giả lập dùng để khớp mô hình nằm ở repo phát triển: experiments/chunk_sim; số đo ở PROGRESS 26/10.)
+"""Bước 6: chọn chunk theo GIÁ TRỊ — cắt body[:10000] thành mảnh rồi chỉ giữ mảnh có p̂_doc × π ≥ τ; xuất JSON + ZIP.
 
-π = P(mảnh khớp đoạn vàng | doc vàng) theo mô hình lưới đã khớp trên 7 bài sau luật 23/10 (`chunk_sim/fit.json`):
+π = P(mảnh khớp đoạn vàng | doc vàng), khớp từ điểm tổng leaderboard của 7 bài nộp (luật chấm chunk từ 23/10):
 đoạn vàng là ô k của lưới N token XLM-R (bge-m3, văn bản đã chuẩn hoá), 30% N=640 / 70% N=1152, P(k) ∝ 0,8^k;
 mảnh khớp khi LCS ≥ 0,4·|vàng| VÀ ≥ 0,4·|mảnh|, LCS ≈ giao + 0,11·min(phần dư hai bên).
+--cut s5000: chia đều ≤ 5.000 ký tự (zh 1.860); --cut pack: ghép dòng tới trần 1.152 token (bài nộp dùng pack).
 --scope set: chỉ doc trong relevant_docs, mỗi doc giữ ít nhất mảnh có π lớn nhất.
 --scope all: thêm mảnh của cả 380 ứng viên (doc ngoài relevant_docs) nếu đạt ngưỡng.
 --tau-extra: ngưỡng riêng cho doc ngoài relevant_docs (p̂ đánh giá cao ~2× doc ngoài tập đã fit; mặc định = --tau).
 --overlap: hai mảnh liền kề cùng được giữ thì nới ranh giới qua nhau như overlap_v1 (≤5% mảnh ngắn hơn, ≤200 ký tự).
 relevant_docs giữ nguyên (doc F2 không đổi). Không dùng nhãn, không GPU.
 
-  python -m baseline.value_chunks build --tau 0.09 --scope set
-  python -m baseline.value_chunks compress --tau 0.09 --scope set
-  python -m baseline.value_chunks verify --tau 0.09 --scope set
-Bài D (FINAL 0,3626): build/compress/verify --tau 0.09 --scope all --overlap --recal dfull
-Bài gbm (FINAL 0,4035): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm --cut pack
-Bài gbm2_m2 (FINAL 0,4111): build/compress/verify --tau 0.09 --scope all --overlap --recal gbm2 --cut pack --merge
-Bài gbm3_m2 (FINAL 0,4189): như trên với --recal gbm3
 --merge (với --cut pack): mỗi doc chọn bằng quy hoạch động các khoảng rời nhau gồm 1 hoặc 2 mảnh liền kề (gộp thành MỘT
   chunk: đoạn vàng ở mảnh nào cũng còn ≥ 40% chunk gộp nên đỡ tốn chunk), tối đa Σ(p̂·π − τ); π = TB hai giả thuyết.
   (--recal <tag> đọc tập doc + p̂ do baseline.recal_docs hoặc baseline.ltr_docs ghi ra)
+
+Bài nộp (FINAL public 0,4201), build → compress (≥ 4 GiB RAM trống) → verify (đọc lại ZIP, so từng câu):
+  python -m baseline.value_chunks build --tau 0.09 --scope all --overlap --recal gbm3q --cut pack --merge
 """
 import argparse
 from array import array
@@ -133,7 +129,7 @@ def overlap_spans(t, sp, keep):
 
 
 # --cut pack: cắt GIỐNG BTC — ghép dòng liên tiếp tới trần PACK_CUT token (giả thuyết khớp nhất 7 bài sau 23/10:
-# đoạn vàng = 0,8×ghép-1152 + 0,2×ghép-768, vị trí đều; PROGRESS 26/10). π của mảnh tính theo giả thuyết đó.
+# đoạn vàng = 0,8×ghép-1152 + 0,2×ghép-768, vị trí đều). π của mảnh tính theo giả thuyết đó.
 PACK_CUT = 1152
 PACK = {"mix": [[1152, 0.8], [768, 0.2]]}
 LINES = Path("data/value_chunks/doc_lines.pkl")
@@ -181,7 +177,7 @@ def pack_pi(toks, chrs, spans_tok):
 
 def merge_pi(toks, chrs, spans_tok, T10):
     """π cho --merge: TB hai giả thuyết (ghép dòng PACK, lưới FIT), đoạn vàng chỉ trong T10 token đầu
-    (file chấm cũ: 100% đoạn vàng nằm trong body[:10000], PROGRESS 29/10); mỗi giả thuyết chuẩn hoá lại về tổng 1."""
+    (file chấm cũ: 100% đoạn vàng nằm trong body[:10000]); mỗi giả thuyết chuẩn hoá lại về tổng 1."""
     pk_ = []
     for M, m in PACK["mix"]:
         cs = pack_spans(toks, chrs, M)
