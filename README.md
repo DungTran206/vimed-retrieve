@@ -1,4 +1,4 @@
-# ViMed Retrieval: bài `gbm3` + cắt k theo từng câu + gộp mảnh (FINAL public 0,4201)
+﻿# ViMed Retrieval: bài `gbm3` + cắt k theo từng câu + gộp mảnh (FINAL public 0,4201)
 
 Truy hồi y sinh đa ngôn ngữ (AI Guru R2AI 2026, bộ dữ liệu ViBioMIR). Mỗi câu hỏi tiếng Việt, hệ thống trả về
 `relevant_docs` (doc vi/zh) và `relevant_chunks` (đoạn trích **nguyên văn** của các doc đó).
@@ -95,7 +95,7 @@ vào `data/` ở gốc repo (ví dụ `data/corpus_new.sqlite`, `data/val/p_w045
 | File | Cỡ | Sinh bằng | Làm lại được? |
 |---|---|---|---|
 | `queries.jsonl` | | `crawl.profile_dataset` (1.200 câu `{id, query}` từ `query.parquet`) | có |
-| `corpus_new.sqlite` | 5,4 GB | `crawl/crawler.py` → `utils/clean.py --apply` → `index/chunk.py` → `scripts/make_store_new.py` (+ `merge_zh_new.py`) | crawl mất nhiều ngày |
+| `corpus_new.sqlite` | 5,6 GB | `crawl/crawler.py` → `utils/clean.py --apply` → `index/chunk.py` → `scripts/make_store_new.py` (+ `merge_zh_new.py`) | crawl mất nhiều ngày |
 | `vibiomir_new/links_corpus_vi_en_zh.parquet` | 35 MB | tải từ HF `AIGuruTinix/ViBioMIR` | có |
 | `queries_enriched.jsonl` | 1,4 MB | `query_processing.pipeline` (Qwen3.5-9B + Hy-MT2-7B, GPU; `scripts/remote_run_llm.sh`) | GPU |
 | `bm25d3_rank.jsonl`, `bm25ent3_rank.jsonl` | 45 + 47 MB | `index.bm25 --keep-diacritics`, `index.bm25_ent` (`scripts/run_bm25_full.sh`) | có (CPU) |
