@@ -96,7 +96,7 @@ vào `data/` ở gốc repo (ví dụ `data/corpus_new.sqlite`, `data/val/p_w045
 |---|---|---|---|
 | `queries.jsonl` | | `crawl.profile_dataset` (1.200 câu `{id, query}` từ `query.parquet`) | có |
 | `corpus_new.sqlite` | 5,6 GB | `crawl/crawler.py` → `utils/clean.py --apply` → `index/chunk.py` → `scripts/make_store_new.py` (+ `merge_zh_new.py`) | crawl mất nhiều ngày |
-| `vibiomir_new/links_corpus_vi_en_zh.parquet` | 35 MB | tải từ HF `AIGuruTinix/ViBioMIR` | có |
+| `vibiomir_new/links_corpus_vi_en_zh.parquet` | 35 MB | tải từ HF `AIGuruTinix/ViBioMIR` (revision `71be0e1239a1`); đầu vào của crawl, `slug_bm25`, lọc kho | có |
 | `queries_enriched.jsonl` | 1,4 MB | `query_processing.pipeline` (Qwen3.5-9B + Hy-MT2-7B, GPU; `scripts/remote_run_llm.sh`) | GPU |
 | `bm25d3_rank.jsonl`, `bm25ent3_rank.jsonl` | 45 + 47 MB | `index.bm25 --keep-diacritics`, `index.bm25_ent` (`scripts/run_bm25_full.sh`) | có (CPU) |
 | `dense_viB3_rank.jsonl`, `dense_vi2_rank.jsonl` | 46 + 46 MB | `index.dense` BGE-M3 (title + 600 ký tự body / title) | GPU |
@@ -172,12 +172,15 @@ python -m baseline.value_chunks verify   --tau 0.09 --scope all --overlap --reca
 
 Mỗi bước đọc/ghi file riêng nên chạy lại được từng bước. Thời gian đo trên máy của đội (local 12 GB RAM; GPU 2× RTX 4090).
 
+Mọi bước đọc danh sách URL hiện tại của BTC (`data/vibiomir_new/links_corpus_vi_en_zh.parquet`, 1.220.598 URL); kho
+969.899 doc nằm trọn trong danh sách này.
+
 **A. Dữ liệu BTC và crawl (local, nhiều ngày).** Thứ tự bắt buộc: crawl → clean → chunk → audit, vì `clean` đổi body nên
 offset chunk cũ phải tính lại.
 
 ```bash
 python -m crawl.profile_dataset            # tải ViBioMIR từ HF → data/queries.jsonl, thống kê domain
-python -m crawl.crawler --db data/corpus_vifull.sqlite        # crawl 4,39 triệu URL, tự tiếp tục khi bị ngắt
+python -m crawl.crawler --db data/corpus_vifull.sqlite        # crawl 1.220.598 URL của BTC, tự tiếp tục khi bị ngắt
 python -m utils.clean --apply --db data/corpus_vifull.sqlite   # bỏ boilerplate theo domain (dòng lặp trên nhiều trang)
 python -m index.chunk --db data/corpus_vifull.sqlite           # chunk theo offset (doc_id, start, end)
 python scripts/make_store_new.py data/corpus_vifull.sqlite data/corpus_new.sqlite   # chỉ giữ doc thuộc kho BTC (+ vinmec.com)

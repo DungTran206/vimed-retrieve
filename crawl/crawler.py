@@ -1,4 +1,4 @@
-"""Crawler cho 4,39M URL: SQLite store, resume theo từng URL, rate limit riêng mỗi domain.
+"""Crawler cho danh sách URL của BTC (1.220.598 URL): SQLite store, resume theo từng URL, rate limit riêng mỗi domain.
 
 Mọi tham số mặc định dưới đây đều từ số đo thật khi crawl (ghi ngay tại chỗ), không phải đoán.
 
@@ -7,7 +7,7 @@ Nguyên tắc quan trọng nhất: `body` là **văn bản chính tắc bất bi
 bảo đảm bằng cấu trúc. Crawler KHÔNG chia chunk - đó là bước riêng, chạy lại được với
 budget khác mà không cần crawl lại.
 
-Không lưu HTML thô (4,39M x 53,7 KB = 225 GB), CHỈ lưu khi trích thất bại để viết parser
+Không lưu HTML thô (1,22M x 53,7 KB ≈ 66 GB), CHỈ lưu khi trích thất bại để viết parser
 mà không phải crawl lại.
 
   # Lô ưu tiên: 128k URL có điểm slug cao nhất
@@ -467,15 +467,13 @@ def open_db(path=DB):
 
 
 def seed_queue(conn, prio_path=None):
-    """Nạp 4,39M URL vào queue. Điểm ưu tiên lấy từ slug_bm25 (đã có, không cần crawl)."""
+    """Nạp danh sách URL vào queue. Điểm ưu tiên lấy từ slug_bm25 (đã có, không cần crawl)."""
     n = conn.execute("SELECT count(*) FROM queue").fetchone()[0]
     if n:
         print(f"Queue đã có {n:,} URL, bỏ qua bước nạp")
         return
     import pandas as pd
-    from huggingface_hub import hf_hub_download
-    links = pd.read_parquet(hf_hub_download("AIGuruTinix/ViBioMIR", "links_corpus.parquet",
-                                            repo_type="dataset"))
+    links = pd.read_parquet("data/vibiomir_new/links_corpus_vi_en_zh.parquet")   # danh sách URL của BTC, HF revision 71be0e1
     prio = {}
     if prio_path:
         # Điểm cao nhất mà URL này đạt được trên bất kỳ câu hỏi nào

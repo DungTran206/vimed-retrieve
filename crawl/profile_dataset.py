@@ -13,12 +13,13 @@ import pandas as pd
 from huggingface_hub import hf_hub_download
 
 REPO = "AIGuruTinix/ViBioMIR"
+REV = "71be0e1239a19dfd7a717e2bc13e3bec21bd0334"   # bản HF dùng cho bài nộp (1.220.598 URL)
 OUT = "data"
 os.makedirs(OUT, exist_ok=True)
 
 
 def load(name):
-    return pd.read_parquet(hf_hub_download(REPO, name, repo_type="dataset"))
+    return pd.read_parquet(hf_hub_download(REPO, name, repo_type="dataset", revision=REV))
 
 
 def domain(url: str) -> str:
@@ -49,7 +50,7 @@ for r in q.sample(5, random_state=0).itertuples():
     print(f"  [{r.id}] {r.query[:150]}")
 
 print("=" * 70, "\nCORPUS (danh sách URL)")
-c = load("links_corpus.parquet")
+c = load("links_corpus_vi_en_zh.parquet")
 ids = c["id"]
 print(f"Số dòng: {len(c):,} | id {ids.min():,}–{ids.max():,} | id duy nhất: {ids.nunique():,}")
 print(f"Số id bị thiếu trong khoảng: {ids.max() - ids.min() + 1 - ids.nunique():,}")

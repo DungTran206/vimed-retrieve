@@ -1,4 +1,4 @@
-"""Xếp hạng thô 4,39M URL bằng chính slug nằm trong URL - không tải trang nào.
+"""Xếp hạng thô mọi URL của BTC bằng chính slug nằm trong URL - không tải trang nào.
 
 Dùng để:
   1. Quyết định THỨ TỰ crawl (crawl trang khả năng có nhãn trước).
@@ -126,7 +126,6 @@ def demo():
 
 def main():
     import pandas as pd
-    from huggingface_hub import hf_hub_download
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--queries", default="data/queries.jsonl")
@@ -142,8 +141,7 @@ def main():
                (json.loads(l) for l in open(args.queries, encoding="utf-8"))]
     print(f"Đã nạp {len(queries)} câu hỏi")
 
-    links = pd.read_parquet(hf_hub_download("AIGuruTinix/ViBioMIR", "links_corpus.parquet",
-                                            repo_type="dataset"))
+    links = pd.read_parquet("data/vibiomir_new/links_corpus_vi_en_zh.parquet")   # danh sách URL của BTC, HF revision 71be0e1
     print(f"Đã nạp {len(links):,} URL, đang tách slug...")
     docs, no_slug = [], 0
     for doc_id, url in zip(links["id"].astype(str), links["url"]):
