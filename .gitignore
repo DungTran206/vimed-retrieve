@@ -2,12 +2,10 @@
 hf_cache/
 runs/
 data/*
-!data/.gitkeep
 *.sqlite
 __pycache__/
 .env.sync
 models/
 *.zip
 *.jsonl
-!examples/*.jsonl
 .DS_Store
