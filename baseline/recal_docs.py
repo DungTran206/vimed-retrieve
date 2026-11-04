@@ -3,8 +3,8 @@ ngưỡng chung (TB 160 doc/câu). Bài nộp chỉ dùng phân bố p̂' của 
 
 Đồng thuận = số nguồn vi (BM25F có dấu, dense title+600, chunk-dense toàn kho) xếp doc vào top-100.
   --mode gamma --gamma 1.2 : doc vi đồng thuận ≥2 → p̂·γ, đúng 1 → p̂/γ (MỘT tham số, không nhãn ngoài việc chọn γ)
-  --mode full              : hệ số nhân theo ô (đồng thuận 0/1/2+ × vi / zh theo domain) HỌC TỪ NHÃN val
-                             (data/lb/val.jsonl, co về 1 với α=20) — vùng xám như ngưỡng 160, ghi rõ khi khai báo.
+  --mode full              : hệ số nhân theo ô (đồng thuận 0/1/2+ × vi / zh theo domain) học từ nhãn giả
+                             Qwen3-32B ở C:/Users/DumgTran/Downloads/val_fixed.jsonl, co về 1 với α=20.
 Ghi data/val/recal_<tag>_scores.json (cùng định dạng z80base_scores.json) và data/val/docs_recal_<tag>.json.
   python -m baseline.recal_docs --mode full --tag dfull          # bài nộp dùng
   python -m baseline.recal_docs --mode gamma --gamma 1.2 --tag dg12
@@ -30,19 +30,20 @@ def cell(cons, dom, lang):
     return f"vi:{min(cons, 2)}"
 
 
-def fit_factors(S, feats, alpha=20.0):
+def fit_factors(S, feats, labels, alpha=20.0):
     """Hệ số nhân mỗi ô = (tỉ lệ vàng/p̂ của ô) / (tỉ lệ chung), co về 1 với α cặp giả."""
     y, p = collections.Counter(), collections.Counter()
-    for line in open("data/lb/val.jsonl", encoding="utf-8"):
-        r = json.loads(line)
-        if r["G"] == 0:
-            continue
-        q, gold, ng = str(r["id"]), set(map(str, r["gold"])), set(map(str, r["not_gold"]))
-        for d, s in S[q]:
-            if d in gold or d in ng:
-                c = feats[(q, d)]
-                y[c] += d in gold
-                p[c] += s
+    with open(labels, encoding="utf-8") as f:
+        for line in f:
+            r = json.loads(line)
+            if not r["gold"]:
+                continue
+            q, gold, ng = str(r["id"]), set(map(str, r["gold"])), set(map(str, r["not_gold"]))
+            for d, s in S[q]:
+                if d in gold or d in ng:
+                    c = feats[(q, d)]
+                    y[c] += d in gold
+                    p[c] += s
     tot = sum(y.values()) / sum(p.values())
     return {c: ((y[c] + alpha * tot) / (p[c] + alpha)) / tot for c in p}
 
@@ -65,6 +66,8 @@ def main():
     ap.add_argument("--gamma", type=float, default=1.2)
     ap.add_argument("--tag", required=True)
     ap.add_argument("--k", type=int, default=160)
+    ap.add_argument("--labels", default="C:/Users/DumgTran/Downloads/val_fixed.jsonl",
+                    help="nhãn giả {id, gold, not_gold} do Qwen3-32B sinh")
     a = ap.parse_args()
     S = {q: [(str(d), p) for d, p in v] for q, v in json.load(open(SCORES, encoding="utf-8")).items()}
     T = [top100(p) for p in SOURCES]
@@ -81,7 +84,7 @@ def main():
             dom, lang = meta.get(d, ("", "vi"))
             feats[(q, d)] = cell(sum(d in t.get(q, ()) for t in T), dom, lang)
     if a.mode == "full":
-        fac = fit_factors(S, feats)
+        fac = fit_factors(S, feats, a.labels)
     else:
         fac = {"vi:2": a.gamma, "vi:1": 1 / a.gamma}
     print("hệ số:", {c: round(f, 3) for c, f in sorted(fac.items())})

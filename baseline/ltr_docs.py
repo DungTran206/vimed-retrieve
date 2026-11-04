@@ -1,13 +1,14 @@
 """Bước 5: chấm lại 380 ứng viên bằng đặc trưng (baseline.ltr_feats) rồi chọn tập doc (ngưỡng chung 160 doc/câu hoặc --cut-q).
 
   --mode bge1 : p̂ − 1,0 × TB log(1+hạng) của 5 danh sách BGE-M3 (MỘT tham số; β = 1 chọn bằng nhãn val)
-  --mode ltr  : hồi quy logistic 44 đặc trưng (C = 0,1), học trên cặp có nhãn của 593 câu public
+  --mode ltr  : hồi quy logistic 44 đặc trưng (C = 0,1), học trên cặp nhãn giả Qwen3-32B
   --mode gbm  : HistGradientBoosting cùng 44 đặc trưng (lr 0,05 · 200 vòng · 31 lá · L2 1,0 · random_state 0)
   --mode gbm2 : như gbm + cos BGE-M3 thô (bge_cos) — 45 đặc trưng (đo chéo doc F2 0,4195 → 0,4243)
   --mode gbm3 : như gbm2 + cos thô và cos − top-1 của câu trong 5 danh sách BGE-M3 — 55 đặc trưng (→ 0,4292)
   --cut-q     : (gbm*) thay ngưỡng chung bằng k THEO TỪNG CÂU = argmax F2 kỳ vọng 5·Σp/(4Ĝ+k), Ĝ = C_Q·Σp của xác suất
                 gbm (đo chéo gbm3 0,4292 → 0,4331, +0,0039 ± 0,0017; k TB 149)
-ltr/gbm/gbm2/gbm3 HỌC TỪ NHÃN public (data/lb/val.jsonl, từ file chấm chi tiết của leaderboard) — VÙNG XÁM, phải khai báo.
+ltr/gbm/gbm2/gbm3 học từ nhãn giả `gold`/`not_gold` do Qwen3-32B inference sinh ở
+`C:/Users/DumgTran/Downloads/val_fixed.jsonl`.
 Điểm mới được ánh xạ PHÂN VỊ về phân bố p̂ tham chiếu (bge1: z80base_scores.json; ltr/gbm: recal_dfull_scores.json của
 baseline.recal_docs --mode full), nên ngưỡng 160 doc/câu và luật giá trị τ 0,09 ở baseline.value_chunks hành xử như bài gốc.
 Ghi data/val/recal_<tag>_scores.json + docs_recal_<tag>.json (định dạng của recal_docs) → value_chunks --recal <tag>.
@@ -29,11 +30,16 @@ BGE = ["r_dense_viB3", "r_dense_chunk_full", "r_dense_vi2", "r_dense_zhC3_vi", "
 REF = {"bge1": "data/val/z80base_scores.json", "ltr": "data/val/recal_dfull_scores.json",
        "gbm": "data/val/recal_dfull_scores.json", "gbm2": "data/val/recal_dfull_scores.json",
        "gbm3": "data/val/recal_dfull_scores.json"}
-C_Q = 1.48   # trung vị G / Σp (p gbm3 ngoài mẫu 5 fold, 593 câu public; từng fold 1,43–1,50) — vàng ngoài pool ~1/3
+C_Q = 1.48   # giữ nguyên hệ số cắt hiện có; chỉ đổi nguồn nhãn học của Logistic/GBM
 
 
-def load_labels(path="data/lb/val.jsonl"):
-    val = {r["id"]: r for r in map(json.loads, open(path, encoding="utf-8")) if r["G"] > 0}
+def load_labels(path="C:/Users/DumgTran/Downloads/val_fixed.jsonl"):
+    val = {}
+    with open(path, encoding="utf-8") as f:
+        for r in map(json.loads, f):
+            r["G"] = r.get("G", len(r["gold"]))
+            if r["G"] > 0:
+                val[r["id"]] = r
     gold = {q: set(map(str, r["gold"])) for q, r in val.items()}
     lab = {q: gold[q] | set(map(str, r["not_gold"])) for q, r in val.items()}
     return val, gold, lab
@@ -114,6 +120,8 @@ def main():
     ap.add_argument("--mode", choices=("bge1", "ltr", "gbm", "gbm2", "gbm3"), required=True)
     ap.add_argument("--tag", help="tên đầu ra (mặc định = --mode)")
     ap.add_argument("--feats", default="data/val/ltr_feats.pkl")
+    ap.add_argument("--labels", default="C:/Users/DumgTran/Downloads/val_fixed.jsonl",
+                    help="nhãn giả {id, gold, not_gold} do Qwen3-32B sinh")
     ap.add_argument("--cv", action="store_true", help="chỉ đo đo chéo, không ghi file")
     ap.add_argument("--cut-q", action="store_true", help="(gbm*) cắt k theo từng câu bằng F2 kỳ vọng thay ngưỡng chung")
     a = ap.parse_args()
@@ -122,7 +130,7 @@ def main():
     if a.mode == "bge1":
         s = df.lp - 1.0 * df[BGE].mean(axis=1)
     else:
-        val, gold, lab = load_labels()
+        val, gold, lab = load_labels(a.labels)
         feat = add_feats(df, val) + (["bge_cos"] if a.mode in ("gbm2", "gbm3") else []) + \
             ([c.replace("r_", p, 1) for p in ("s_", "d_") for c in BGE] if a.mode == "gbm3" else [])
         if a.cv:

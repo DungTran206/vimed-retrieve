@@ -13,10 +13,10 @@ query ── Qwen3.5-9B + Hy-MT2-7B ──→ queries_enriched.jsonl (thực th�
 Qwen3-Reranker-4B chấm MỌI chunk của 380 ứng viên (GPU) ──→ cc*/ccq*/z80base_scores.jsonl┘
         │
  (1) baseline.cands        RRF 3 nguồn vi → 300 doc vi + RRF 4 nguồn zh → 80 doc zh = 380 ứng viên/câu
- (2) baseline.select_docs  p̂ = sigmoid(logit MaxP, log hạng trong ngôn ngữ, zh); ngưỡng chung TB 160 doc/câu
- (3) baseline.recal_docs   phân bố p̂ tham chiếu cho bước 5
+ (2) baseline.select_docs  Logistic học nhãn giả Qwen3-32B; p̂ = sigmoid(logit MaxP, log hạng trong ngôn ngữ, zh); ngưỡng chung TB 160 doc/câu
+ (3) baseline.recal_docs   hiệu chỉnh p̂ từ cùng nhãn giả, làm phân bố tham chiếu cho bước 5
  (4) baseline.ltr_feats    đặc trưng / cặp (câu, doc): p̂, MaxP, hạng trong 12 danh sách, cos BGE-M3, domain, thực thể…
- (5) baseline.ltr_docs     chấm lại 380 ứng viên (bge1 / ltr / gbm3) → chọn tập doc (ngưỡng chung hoặc --cut-q)
+ (5) baseline.ltr_docs     Logistic / HistGBM học nhãn giả Qwen3-32B, chấm lại 380 ứng viên → chọn tập doc (ngưỡng chung hoặc --cut-q)
  (6) baseline.value_chunks body[:10000] ghép dòng tới 1.152 token XLM-R → giữ mảnh có giá trị kỳ vọng > 0,09
                            (--merge: gộp 2 mảnh liền kề) → nới ranh giới ≤ 5% → JSON → ZIP LZMA → kiểm lại từng câu
 ```
@@ -45,8 +45,8 @@ python -m unittest discover tests                        # 22 test offline
 | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) | `c202236235762e1c871ad0ccb60c8ee5ba337b9a` | trích thực thể y khoa từ câu hỏi |
 | [tencent/Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B) | `9b0eb4e8f001def3e5ff6469a0ac96fdb39ec223` | dịch câu hỏi vi → zh có bảng thuật ngữ |
 
-Mọi mô hình có trọng số công khai, ≤ 15B tham số, phát hành trước 01/08/2026, dùng checkpoint gốc. Không gọi API của
-mô hình đóng. Prompt và tham số: `query_processing/expand.py` (thực thể), `query_processing/translate.py` (dịch),
+Mô hình dùng lúc suy luận/nộp bài có trọng số công khai, ≤ 15B tham số, phát hành trước 01/08/2026, dùng checkpoint gốc.
+Qwen3-32B chỉ chạy inference để tạo nhãn giả cho Logistic và HistGBM; không được dùng lúc nộp bài. Prompt và tham số: `query_processing/expand.py` (thực thể), `query_processing/translate.py` (dịch),
 `rerank/qwen_rerank.py` (reranker, được `rerank/chunk_rerank.py` gọi); chỉ dẫn truy vấn của Qwen3-Embedding nằm trong
 `scripts/run_zh_q8.sh` và `scripts/run_qemb.sh`.
 
@@ -56,7 +56,8 @@ mô hình đóng. Prompt và tham số: `query_processing/expand.py` (thực th�
 ## 3. Dữ liệu trung gian
 
 Drive: <https://drive.google.com/drive/folders/1vPQtULP8A0fKNtGq1VwXvo7hSiCkniR9>. Tải về rồi đặt nguyên cấu trúc thư mục
-vào `data/` (ví dụ `data/corpus_new.sqlite`, `data/val/p_w045.jsonl`, `data/lb/val.jsonl`).
+vào `data/` (ví dụ `data/corpus_new.sqlite`). Nhãn học của Logistic, HistGBM và `recal_docs` đặt tại
+`C:/Users/DumgTran/Downloads/val_fixed.jsonl`.
 
 | File | Cỡ | Sinh bằng | Làm lại được? |
 |---|---|---|---|
@@ -78,13 +79,13 @@ vào `data/` (ví dụ `data/corpus_new.sqlite`, `data/val/p_w045.jsonl`, `data/
 | `queries_zhq.jsonl`, `queries_zhq109.jsonl` | | câu dịch zh tách từ `queries_enriched.jsonl`; 109 câu dịch lỗi đã dịch lại | lấy từ Drive |
 | `blendQB3.jsonl`, `emb_viB2.npy` + `.ids.json` | 49 MB + 1,4 GB | đầu vào của `index.prf` | lấy từ Drive |
 | `cc_scores.jsonl`, `ccq_a_scores.jsonl`, `ccq_b_scores.jsonl`, `z80base_scores.jsonl` | 29 + 12 + 11 + 4 MB | `rerank.chunk_rerank --prep/--score` (Qwen3-Reranker-4B) | GPU, nhiều giờ |
-| `val/p_w045.jsonl` | 8 MB | `scripts/val_calib.py` (nhãn mềm suy từ điểm tổng leaderboard) | lấy từ Drive |
-| `lb/val.jsonl`, `lb/folds.json` | 2 MB | nhãn 593 câu public từ file chấm chi tiết leaderboard; đầu vào của `recal_docs`, `ltr_docs` | không |
+| `C:/Users/DumgTran/Downloads/val_fixed.jsonl` | 699 KB | Qwen3-32B inference đánh nhãn `gold`/`not_gold` cho 200 câu | đầu vào học của `select_docs`, `recal_docs`, `ltr_docs` |
+| `val/p_w045.jsonl`, `lb/val.jsonl`, `lb/folds.json` | | dữ liệu leaderboard cũ, chỉ còn phục vụ đối chiếu offline | không |
 | `value_chunks/doc_T.json`, `value_chunks/doc_lines.pkl` (tuỳ chọn) | 4 + 40 MB | cache số token / ranh giới dòng; thiếu thì tự tính lại | có |
 
 ## 4. Dựng bài từ dữ liệu trung gian (CPU, ~45 phút)
 
-Một lệnh dựng bài `gbm3q`, so sha256 JSON với bản đã nộp rồi nén và kiểm ZIP (Linux hoặc Git Bash):
+Một lệnh dựng bài `gbm3q` từ nhãn giả Qwen3-32B rồi nén và kiểm ZIP (Linux hoặc Git Bash):
 
 ```bash
 bash scripts/build_submission.sh
@@ -97,11 +98,11 @@ Từng bước (PowerShell: viết mỗi lệnh trên một dòng hoặc thay `\
 python -m baseline.cands --n-zh 80 --out data/clean_cands_z80.jsonl
 python -m baseline.select_docs --cands data/clean_cands_z80.jsonl \
     --scores data/cc_scores.jsonl data/ccq_a_scores.jsonl data/ccq_b_scores.jsonl data/z80base_scores.jsonl \
-    --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json
+    --labels C:/Users/DumgTran/Downloads/val_fixed.jsonl --docs 160 --out data/val/docs_z80base160.json --dump data/val/z80base_scores.json
 # bước 3–5: các bài bge1 / ltr / gbm3 / gbm3q
-python -m baseline.recal_docs --mode full --tag dfull
+python -m baseline.recal_docs --mode full --tag dfull --labels C:/Users/DumgTran/Downloads/val_fixed.jsonl
 python -m baseline.ltr_feats                                  # → data/val/ltr_feats.pkl
-python -m baseline.ltr_docs --mode gbm3 --cut-q               # → data/val/{recal_gbm3q_scores,docs_recal_gbm3q}.json
+python -m baseline.ltr_docs --mode gbm3 --cut-q --labels C:/Users/DumgTran/Downloads/val_fixed.jsonl  # → data/val/{recal_gbm3q_scores,docs_recal_gbm3q}.json
 # bước 6
 python -m baseline.value_chunks build    --tau 0.09 --scope all --overlap --recal gbm3q --cut pack --merge
 python -m baseline.value_chunks compress --tau 0.09 --scope all --overlap --recal gbm3q --cut pack --merge
@@ -178,9 +179,11 @@ Bài nộp dùng 4 file điểm (`cc_scores`, `ccq_a_scores`, `ccq_b_scores`, `z
 như trên phủ cùng các cặp (doc, chunk) nhưng có thể lệch nhỏ do số học fp16. Khi đó truyền
 `--scores data/z80_chunk_scores.jsonl` cho `baseline.select_docs` thay cho 4 file.
 
-**E. Dựng bài.** Lấy `data/lb/val.jsonl`, `data/lb/folds.json`, `data/val/p_w045.jsonl` từ Drive rồi chạy §4.
+**E. Dựng bài.** Giữ `C:/Users/DumgTran/Downloads/val_fixed.jsonl` tại đúng đường dẫn; đây là nhãn giả do Qwen3-32B inference tạo để train/fine-tune Logistic và HistGBM. Sau đó chạy §4.
 
-## 6. Vân tay để đối chiếu
+## 6. Vân tay bài cũ để đối chiếu
+
+Các vân tay dưới đây thuộc bài train bằng dữ liệu cũ; sau khi đổi sang `val_fixed.jsonl`, output phải có SHA-256 khác.
 
 | Bài | Vân tay tập doc | sha256 JSON | sha256 ZIP |
 |---|---|---|---|

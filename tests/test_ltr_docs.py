@@ -1,12 +1,24 @@
 """Kiểm hai bất biến của bước chọn doc bằng đặc trưng (baseline.ltr_docs)."""
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
-from baseline.ltr_docs import quantile_map, select, select_q
+from baseline.ltr_docs import load_labels, quantile_map, select, select_q
 
 
 class TestLtrDocs(unittest.TestCase):
+    def test_qwen_labels_without_g_use_gold_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "val_fixed.jsonl"
+            path.write_text(json.dumps({"id": 7, "query": "q", "gold": [1], "not_gold": [2, 3]}) + "\n", encoding="utf-8")
+            val, gold, lab = load_labels(path)
+        self.assertEqual(val[7]["G"], 1)
+        self.assertEqual(gold[7], {"1"})
+        self.assertEqual(lab[7], {"1", "2", "3"})
+
     def test_quantile_map_keeps_order_and_reference_distribution(self):
         s = np.array([3.0, -1.0, 7.0, 0.5])
         ref = [0.4, 0.1, 0.9, 0.2]
