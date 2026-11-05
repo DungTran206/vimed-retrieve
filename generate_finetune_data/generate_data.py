@@ -3,12 +3,13 @@
 Lấy một tập con của `data/queries.jsonl`, dùng lại ứng viên đã truy hồi sẵn
 (`data/clean_cands.jsonl` do `baseline.cands` sinh ra), chấm `--top-rerank` doc đầu
 bằng Qwen3-32B theo thang 0-3, rồi lấy tối đa `--top-gold` doc có score >=
-`--min-score` làm gold. Ghi đúng định dạng `data/val.jsonl` (id, query, G, gold),
-KHÔNG ghi `not_gold`/`gold_unseen`.
+`--min-score` làm gold. Mỗi dòng chỉ ghi `{id, gold, not_gold}`; không ghi
+`query`, `G`, `gold_unseen`.
 
-`G` ở đây = số nhãn giả biết được (`len(gold)`), không phải tổng gold thật như val.
-Negative để huấn luyện = `candidates` của câu trừ `gold`; không cần ghi vào file.
-Qwen3-32B chỉ dùng làm teacher lúc sinh nhãn; model dùng lúc suy luận/nộp bài phải <= 15B.
+`not_gold` = các doc ĐÃ được Qwen3-32B chấm dưới `--min-score`. Doc điểm cao nhưng
+vượt `--top-gold` (và doc ngoài `--top-rerank`) để trống nhãn, tránh biến positive
+thành negative. Qwen3-32B chỉ dùng làm teacher lúc sinh nhãn; model dùng lúc suy luận
+hoặc nộp bài phải <= 15B.
 
     python generate_finetune_data/generate_data.py --sample 200
     python generate_finetune_data/generate_data.py --queries data/val.jsonl --limit 50 --eval data/val.jsonl
@@ -200,7 +201,9 @@ def run(args):
                         parse_errors += score is None
                         scored.append((doc_id, score, rank))
                 gold = select_gold(scored, args.top_gold, args.min_score)
-                out = {"id": row["id"], "query": row["query"], "G": len(gold), "gold": gold}
+                not_gold = [as_id(doc_id) for doc_id, score, _ in scored
+                            if score is not None and score < args.min_score]
+                out = {"id": row["id"], "gold": gold, "not_gold": not_gold}
                 f.write(json.dumps(out, ensure_ascii=False) + "\n")
                 f.flush()
                 rows[qid] = out
