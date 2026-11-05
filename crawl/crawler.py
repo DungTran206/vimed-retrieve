@@ -128,6 +128,8 @@ BLOCKED = {"familydoctor.com.cn", "zysjonline.com", "baidianfeng.familydoctor.co
            "qy.familydoctor.com.cn", "v.familydoctor.com.cn", "ask.familydoctor.com.cn",
            "yanglao.familydoctor.com.cn", "ypk.familydoctor.com.cn", "familydoctor.cn",
            "bingli.iiyi.com", "article.iiyi.com"}
+# Tài liệu tiếng Anh không dùng trong hệ thống: không nạp vào queue, không crawl.
+SKIP_DOMAINS = {"pubmed.ncbi.nlm.nih.gov"}
 
 PENDING, DONE, FAILED, BLOCKED_ST = 0, 1, 2, 3
 
@@ -485,6 +487,8 @@ def seed_queue(conn, prio_path=None):
     rows = []
     for doc_id, url in zip(links["id"].astype(str), links["url"]):
         dom = domain_of(url)
+        if dom in SKIP_DOMAINS:
+            continue
         state = BLOCKED_ST if dom in BLOCKED else PENDING
         rows.append((doc_id, url, dom, prio.get(doc_id, 0.0), state))
     conn.executemany("INSERT OR IGNORE INTO queue VALUES (?,?,?,?,?)", rows)

@@ -124,14 +124,16 @@ Các bài khác chỉ đổi bước 5 và tham số của bước 6 (`build`, `
 ## 5. Chạy lại từ đầu (crawl nhiều ngày + vài chục giờ GPU)
 
 Mỗi bước đọc/ghi file riêng nên chạy lại được từng bước. Mọi bước đọc danh sách URL của BTC
-`data/vibiomir_new/links_corpus_vi_en_zh.parquet` (1.220.598 URL).
+`data/vibiomir_new/links_corpus_vi_en_zh.parquet` (1.220.598 URL). Hệ thống chỉ dùng tài liệu tiếng Việt và tiếng Trung:
+240.000 URL tiếng Anh (`pubmed.ncbi.nlm.nih.gov`) bị bỏ ngay khi nạp queue (`SKIP_DOMAINS` trong `crawl/crawler.py`).
 
 **A. Dữ liệu BTC và crawl (local).** Thứ tự bắt buộc: crawl → clean → chunk → audit, vì `clean` đổi body nên offset chunk
 phải tính lại.
 
 ```bash
+huggingface-cli download AIGuruTinix/ViBioMIR --repo-type dataset --revision 71be0e1239a19dfd7a717e2bc13e3bec21bd0334 --local-dir data/vibiomir_new
 python -m crawl.profile_dataset            # tải ViBioMIR từ HF → data/queries.jsonl, thống kê domain
-python -m crawl.crawler --db data/corpus_vifull.sqlite        # crawl 1.220.598 URL, tự tiếp tục khi bị ngắt
+python -m crawl.crawler --db data/corpus_vifull.sqlite        # crawl 980.598 URL vi + zh, tự tiếp tục khi bị ngắt
 python -m utils.clean --apply --db data/corpus_vifull.sqlite   # bỏ boilerplate theo domain (dòng lặp trên nhiều trang)
 python -m index.chunk --db data/corpus_vifull.sqlite           # chunk theo offset (doc_id, start, end)
 python scripts/make_store_new.py data/corpus_vifull.sqlite data/corpus_new.sqlite   # chỉ giữ doc thuộc kho BTC (+ vinmec.com)
